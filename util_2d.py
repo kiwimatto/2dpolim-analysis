@@ -10,15 +10,30 @@ class Movie:
     def __init__( self, \
                       spe_filename, \
                       excitation_motor_filename, \
-                      emission_motor_filename, \
+                      emission_motor_filename=None, \
                       phase_offset_excitation=0, \
-                      datamode='validdata'):
+                      datamode='validdata', \
+                      which_setup='new setup'):
+
         # get those objects going
         self.camera_data      = CameraData( spe_filename )
-        self.excitation_motor = ExcitationMotor( excitation_motor_filename, \
-                                                     phase_offset_excitation, \
-                                                     rotation_direction=-1)
-        self.emission_motor   = EmissionMotor( emission_motor_filename )
+
+        if which_setup=='old setup':
+            self.excitation_motor = ExcitationMotor( excitation_motor_filename, \
+                                                         phase_offset_excitation, \
+                                                         rotation_direction=-1)
+            self.emission_motor   = EmissionMotor( emission_motor_filename )
+
+        elif which_setup=='new setup':
+            self.excitation_motor = NewSetupMotor( excitation_motor_filename, \
+                                                       which_motor='excitation', \
+                                                       phase_offset=phase_offset_excitation )
+            if emission_motor_filename==None:
+                emission_motor_filename = excitation_motor_filename
+            self.emission_motor = NewSetupMotor( emission_motor_filename, \
+                                                     which_motor='emission', \
+                                                     phase_offset=0 )
+
 
         # where do we get our time axis from?  
         self.timeaxis = self.camera_data.timestamps
