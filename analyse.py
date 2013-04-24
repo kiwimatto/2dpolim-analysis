@@ -6,23 +6,24 @@ from util_2d import *
 # movie.portraits[0].show_picture()
 
 
-#prefix = '/home/kiwimatto/Desktop/am3/'
-global_phase = -59.0
+prefix = '/home/kiwimatto/Desktop/130422/AM/'
+global_phase = 9.0
 
-AMdegrees = [0,45,90,135]
-movies = [ Movie( "AM_%ddeg.SPE" % (d), \
-                      "%ddegree-ex-motor.txt" % (d), \
-                      "%ddegree-em-motor.txt" % (d), \
+AMdegrees = [90,120,150,180]
+movies = [ Movie( prefix+"AM633-%03d.SPE" % (d), \
+                      prefix+"MS-AM633-%03d.txt" % (d), \
                       phase_offset_excitation=global_phase ) for d in AMdegrees ]
 
 for m in movies: 
-    m.define_background_spot( [250,250,270,290] )
-    m.define_spot( [105,165,120,185], label='transmission blob' )
+    m.define_background_spot( [0,0,89,511] )
+    m.define_spot( [220,180,330,300], label='transmission blob' )
     m.chew()
     print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS[0],m.spots[0].M_ex[0],m.spots[0].M_em[0])
 
-
 raise SystemExit
+
+
+
 
 
 

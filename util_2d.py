@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.interactive(1)
 from pyspec.ccd.files import PrincetonSPEFile
-from motors import ExcitationMotor, EmissionMotor
+from motors import NewSetupMotor, ExcitationMotor, EmissionMotor
 from fitting import CosineFitter
 
 

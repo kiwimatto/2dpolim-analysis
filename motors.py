@@ -29,7 +29,7 @@ class NewSetupMotor:
     values for the excitation motor.
     """
 
-    def __init__( self, filename, which_motor ):
+    def __init__( self, filename, which_motor, phase_offset=0 ):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
@@ -37,7 +37,7 @@ class NewSetupMotor:
         self.load_motor_file( filename, which_motor )
 
 
-    def load_motor_file( self, filename ):
+    def load_motor_file( self, filename, which_motor ):
         """Reads the labview file written for that motor. 
         It assumes that fields (time, motor position(s), shutter) are separated 
         by _two_ spaces (which seems to be the case in all file generated so far).
