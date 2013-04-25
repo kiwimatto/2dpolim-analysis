@@ -283,6 +283,7 @@ class Movie:
             spot.portraits = portraitlist
 
 
+
     def write_data( filename, header=False ):
         """Helper-function which takes the output of collect_data() and
         writes it (possibly with header) into a file.
@@ -303,7 +304,7 @@ class Movie:
         fhandle.close()
 
 
-    def fit_all_portraits( self, evaluate_pictures=True ):
+    def fit_all_portraits( self, evaluate_portrait_matrices=True ):
         # we assume that the number of portraits and lines is the same 
         # for all spots (can't think of a reason why that shouldn't be the case).
         Nportraits = self.portrait_indices.shape[0]
@@ -311,6 +312,12 @@ class Movie:
 
         # for each portrait ---- outermost loop, we do portraits in series
         for pi in range(Nportraits):
+            # averageportrait = np.zeros_like( portraitlist[0].matrix )
+            # for p in spot.portraits:
+            #     averageportrait += p.matrix
+            # averageportrait /= len(spot.portraits)
+
+            # spot.averageportrait = averageportrait
 
             # part I, 'horizontal fitting' of the lines of constant emission angles
 
@@ -350,15 +357,24 @@ class Movie:
                 # store vertical fit params
                 self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
 
-                if evaluate_pictures:
-                    # evaluate picture
+                if evaluate_portrait_matrices:
+                    # evaluate portrait matrix
                     mycos = lambda a, ph, I, M: I*(1+M*(np.cos(2*(a-ph)*np.pi/180.0)))
                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
                     for exi in range( self.excitation_angles_grid.size ):
                         pic[:,exi] = mycos( self.emission_angles_grid, phase[exi], I0[exi], M[exi] )
 
-                    self.spots[si].portraits[pi].picture = pic
+                    self.spots[si].portraits[pi].matrix = pic
 
+
+        if evaluate_portrait_matrices:
+            for s in self.spots:
+                averagematrix = np.zeros_like( s.portraits[0].matrix )
+                for p in s.portraits:
+                    averagematrix += p.matrix
+                averagematrix /= len(s.portraits)
+
+                s.averagematrix = averagematrix
 
 
 
@@ -406,13 +422,7 @@ class Movie:
 
     def find_modulation_depths_and_phases( self ):
         for spot in self.spots:
-            averageportrait = np.zeros_like( spot.portraits[0].picture )
-            for p in spot.portraits:
-                averageportrait += p.picture
-            averageportrait /= len(spot.portraits)
-
-            spot.averageportrait = averageportrait
-            ap = averageportrait
+            ap = spot.averagematrix
 
             # excitation
             a = self.excitation_angles_grid
@@ -439,13 +449,121 @@ class Movie:
             spot.LS = LS
 
 
+    def ETrulerFFT( self, slope=7, newdatalength=2048 ):
+        # we re-sample the 2D portrait matrix along a slanted line to
+        # get a 1D array which contains information about both angular
+        # dimensions
+
+        # first we compute the indices into the 2D portrait matrix,
+        # this depends only on the angular grids and is therefore the same for
+        # all spots and portraits.
+        
+        # along one direction we increase in single steps along the angular grid:
+        ind_em = 1*      np.linspace(0,newdatalength-1,newdatalength).astype(np.int)
+        # along the other we have a slope
+        ind_ex = slope * np.linspace(0,newdatalength-1,newdatalength).astype(np.int)
+
+        # both index arrays need to wrap around their angular axes
+        ind_em = np.mod( ind_em, self.emission_angles_grid.size-1 )
+        ind_ex = np.mod( ind_ex, self.excitation_angles_grid.size-1 )
+        
+        # Now we use these to get the new data.
+        # We could do this for every portrait of every spot, but we'll 
+        # restrict ourselves to the average portrait of each spot.
+
+        # the angular grids likely include redundancy at the edges, and
+        # we need to exclude those to not oversample
+        for s in self.spots:
+            sam = s.averagematrix
+            if self.excitation_angles_grid[-1]==180.0:
+                sam = sam[:,:-1]
+            if self.emission_angles_grid[-1]==180.0:
+                sam = sam[:-1,:]
+            s.pruned_averagematrix = sam
+
+        self.newdata = np.array( [ s.pruned_averagematrix[ind_em, ind_ex] for s in self.spots ] )
+#        self.newexangles = self.excitation_angles_grid[ ind_ex ]
+#        self.newemangles = self.emission_angles_grid[ ind_em ]
+
+        # voila, we have new 1d data
+
+        # now we work out the position of the peaks in the FFTs of these new data columns
+
+        f = np.fft.fft( self.newdata, axis=1 )
+        powerspectra = np.real( f*f.conj() )/newdatalength
+#        print powerspectra.shape
+        normpowerspectra = powerspectra[:,1:newdatalength/2] \
+            /np.outer( np.sum(powerspectra[:,1:newdatalength/2],axis=1), np.ones( (1,newdatalength/2-1) ) )
+
+        # first peak index, pops out at newdatalength / grid  (we are awesome.)
+        i1 = newdatalength/(self.excitation_angles_grid.size-1.0)
+        # second
+        i2 = i1*(slope-1)
+        i3 = i1*slope
+        i4 = i1*(slope+1)
+        df = i1/4
+        
+#        print i1,i2,i3,i4,df
+
+        self.peaks = np.array( [ np.sum(normpowerspectra[:, np.round(ii-df):np.round(ii+df)], axis=1) \
+                      for ii in [i1,i2,i3,i4] ] )
+
+        # now go over all spots
+        for si in range(len(self.spots)):
+
+            # if we deviate from the normalized sum by more than 5%,
+            # we shouldn't use this ruler
+            if np.abs(np.sum( self.peaks[:,si] )-1) > .05:
+                return np.nan
+            
+            # now let's rule
+            crossdiff = self.peaks[1,si]-self.peaks[3,si]
+            
+            # 3-dipole model (all of same length, no ET) starts here
+            kappa     = .5 * np.arccos( .5*(3*self.spots[si].M_ex-1) ) 
+            alpha     = np.array([ -kappa, 0, kappa ])
+            
+            phix =   np.linspace(0,4095,4096)*np.pi/180
+            phim = 7*np.linspace(0,4095,4096)*np.pi/180
+
+            ModelNoET = np.zeros_like( phix )
+            for n in range(3):
+                ModelNoET[:] += np.cos(phix-alpha[n])**2 * np.cos(phim-alpha[n])**2
+            ModelNoET /= 3
+            MYY = np.fft.fft(ModelNoET)
+            MYpower = np.real( (MYY*MYY.conj()) )/MYY.size
+
+            MYpeaks = np.array( [ np.sum( MYpower[np.round(ii-df):np.round(ii+df)] ) \
+                                      for ii in [i1,i2,i3,i4] ] )
+            MYpeaks /= np.sum(MYpeaks)
+
+            MYcrossdiff = MYpeaks[1]-MYpeaks[3]
+            # model done
+
+            ruler = 1-(crossdiff/MYcrossdiff)
+
+            if (ruler < -.1) or (ruler > 1.1):
+                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
+                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
+                print "You can thank me later."
+
+            if ruler < 0:
+                ruler = 0
+            if ruler > 1:
+                ruler = 1
+
+            self.spots[si].ET_ruler = ruler
+
+
+
+
     def chew( self, quiet=False, loud=False ):
         self.collect_data()
         self.startstop()
         self.assign_portrait_data()
         self.fit_all_portraits()
         self.find_modulation_depths_and_phases()
-        
+        self.ETrulerFFT()
 
         if not quiet:
             print "Quick report:"
@@ -466,7 +584,7 @@ class Movie:
                 print "\tLS: %f" % (spot.LS)
 
 
-    def show_average_picture( self ):
+    def show_average_matrix( self ):
         plt.matshow( self.averageportrait, origin='bottom')
         plt.plot( [0,180], [0,180], 'k-' )
         plt.xlim( 0, 180 )
@@ -508,6 +626,7 @@ class Portrait:
         self.exangles = exangles
         self.emangles = emangles
         self.intensities = intensities
+        self.vector = np.array( (self.exangles, self.emangles, self.intensities) ).T
 
         self.split_into_emission_lines()
 
@@ -545,8 +664,8 @@ class Portrait:
     
         self.lines = lines
 
-    def show_picture( self ):
-        plt.matshow( self.picture, origin='bottom')
+    def show_portrait_matrix( self ):
+        plt.matshow( self.matrix, origin='bottom')
         plt.plot( [0,180], [0,180], 'k-' )
         plt.xlim( 0, 180 )
         plt.ylim( 0, 180 )      

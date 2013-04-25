@@ -17,6 +17,7 @@ movies = [ Movie( prefix+"AM633-%03d.SPE" % (d), \
 for m in movies: 
     m.define_background_spot( [0,0,89,511] )
     m.define_spot( [220,180,330,300], label='transmission blob' )
+    m.define_spot( [220,180,330,300], label='and another one' )
     m.chew()
     print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS[0],m.spots[0].M_ex[0],m.spots[0].M_em[0])
 
