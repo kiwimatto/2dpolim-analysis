@@ -1,5 +1,7 @@
 from util_2d import *
 
+#hurro
+
 ##movie = Movie( '01/AM01.SPE', '01/AMtest1_ex.txt', '01/AMtest1_em.txt' )
 # movie.define_spot( [60,76,85,95], label='transmission blob' )
 # movie.chew()
