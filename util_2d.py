@@ -59,17 +59,17 @@ class Movie:
         # work out frame-dependent intensities for that spot
         # - mean:
         meanI  = np.sum( np.sum( \
-                self.camera_data.rawdata[:, coords[0]:coords[2]+1, coords[1]:coords[3]+1], \
+                self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                     axis=2), axis=1 )
         meanI /= s.width*s.height
         # - maximum:
         maxI = np.max( np.max( \
-                self.camera_data.rawdata[:, coords[0]:coords[2]+1, coords[1]:coords[3]+1], \
+                self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                     axis=2), axis=1 )
         
         # - minimum:
         minI = np.min( np.min( \
-                self.camera_data.rawdata[:, coords[0]:coords[2]+1, coords[1]:coords[3]+1], \
+                self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                     axis=2), axis=1 )
         # store all that
         s.min_I  = minI
@@ -77,8 +77,8 @@ class Movie:
         s.mean_I = meanI
 
         self.bg = s
-        
 
+        
 
     def define_spot( self, coords, intensity_type='mean', bg_correction=True, label=None ):
         """Defines a new spot object and adds it to the list.
@@ -105,20 +105,20 @@ class Movie:
         # work out frame-dependent intensities for that spot
         if intensity_type=='mean':
             I  = np.sum( np.sum( \
-                    self.camera_data.rawdata[:, coords[0]:coords[2]+1, coords[1]:coords[3]+1], \
+                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 )
             I /= s.width*s.height
             if bg_correction:
                 I -= self.bg.mean_I
         elif intensity_type=='max':
             I = np.max( np.max( \
-                    self.camera_data.rawdata[:, coords[0]:coords[2]+1, coords[1]:coords[3]+1], \
+                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 )
             if bg_correction:
                 I -= self.bg.max_I
         elif intensity_type=='min':
             I = np.min( np.min( \
-                    self.camera_data.rawdata[:, coords[0]:coords[2]+1, coords[1]:coords[3]+1], \
+                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 )
             if bg_correction:
                 I -= self.bg.min_I
@@ -342,6 +342,7 @@ class Movie:
             # fit all verticals in parallel
 
             for si in range(len(self.spots)):
+                print "spot fit done (%d/%d)" % (si,pi)
                 # collect list of unique emission angles
                 emangles = [l.emangle for l in self.spots[si].portraits[pi].lines]
                 # turn into array, transpose and squeeze
@@ -511,10 +512,15 @@ class Movie:
         # now go over all spots
         for si in range(len(self.spots)):
 
+            print "si=%d" % (si),
+#            import sys
+#            sys.stdout.flush()
+
             # if we deviate from the normalized sum by more than 5%,
             # we shouldn't use this ruler
-            if np.abs(np.sum( self.peaks[:,si] )-1) > .05:
-                return np.nan
+            if np.abs(np.sum( self.peaks[:,si] )-1) > .08:
+                print 'fuck. %f' % (np.sum(self.peaks[:,si]))
+                self.spots[si].ET_ruler = np.nan
             
             # now let's rule
             crossdiff = self.peaks[1,si]-self.peaks[3,si]
@@ -558,11 +564,17 @@ class Movie:
 
 
     def chew( self, quiet=False, loud=False ):
+        print "collecting data..."
         self.collect_data()
+        print "startstop..."
         self.startstop()
+        print "assigning portrait data..."
         self.assign_portrait_data()
+        print "fitting all portraits"
         self.fit_all_portraits()
+        print "finding mod depths and phases..."
         self.find_modulation_depths_and_phases()
+        print "ETruler..."
         self.ETrulerFFT()
 
         if not quiet:
@@ -584,12 +596,11 @@ class Movie:
                 print "\tLS: %f" % (spot.LS)
 
 
-    def show_average_matrix( self ):
-        plt.matshow( self.averageportrait, origin='bottom')
-        plt.plot( [0,180], [0,180], 'k-' )
-        plt.xlim( 0, 180 )
-        plt.ylim( 0, 180 )      
-
+    # def show_average_matrix( self ):
+    #     plt.matshow( self.averageportrait, origin='bottom')
+    #     plt.plot( [0,180], [0,180], 'k-' )
+    #     plt.xlim( 0, 180 )
+    #     plt.ylim( 0, 180 )      
 
 
 
@@ -601,6 +612,7 @@ class CameraData:
         self.rawdata_fileobject = PrincetonSPEFile( self.filename )
         self.rawdata            = self.rawdata_fileobject.getData().astype(np.float64)
         self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
+        self.average_image      = np.mean( self.rawdata, axis=0 )
 
         ###  extract or generate time stamps ###
         #  here we do not have timestamps for each frame, so we

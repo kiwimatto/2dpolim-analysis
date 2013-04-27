@@ -1,8 +1,29 @@
 import numpy as np
 
 
-def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot,\
-                                              mod_depth_excitation, phase_excitation ):
+def err_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot,\
+                                              mod_depth_excitation, phase_excitation,\
+                                              which_error='chi2' ):
+
+    Fem = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, \
+                                                    mod_depth_excitation, phase_excitation, \
+                                                    data_style)
+    Fem  /= np.sum(Fem)    # unless an axis is specified, np.sum() will sum all elements, ...
+    Ftot /= np.sum(Ftot)   # ... regardless of array dimension
+
+    # compute error
+    if which_error=='chi2':
+        err = np.sum( (Fem-Ftot)**2 )
+    elif which_error=='R2':
+        err = np.sum( (Fem-Ftot)**2 )/np.sum( (Ftot-np.mean(Ftot))**2 )
+    else:
+        ValueError("Unknown value for which_error: %s  (should be 'chi2' or 'R2')" % (which_error))
+
+
+
+def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, \
+                                              mod_depth_excitation, phase_excitation, \
+                                              data_style):
     mod_depth_funnel = mf = params[0]
     energy_transfer  = et = params[1]
     theta_funnel     = tf = params[2]
@@ -11,7 +32,11 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot,\
     m_ex  = mod_depth_excitation
     ph_ex = phase_excitation
 
-    EX, EM = np.meshgrid( ex_angles, em_angles )
+    # if data_style=='vector':
+    #     EX, EM = ex_angles, em_angles 
+    # elif data_style=='matrix':    
+    #     EX, EM = np.meshgrid( ex_angles, em_angles )
+    EX, EM = ex_angles, em_angles 
 
     # calculate angle between off-axis dipoles in symmetric model
     alpha = 0.5 * np.arccos( .5*(((gr+2)*m_ex)-gr) )
@@ -24,16 +49,13 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot,\
     EnNoET += gr*np.cos( EX-ph_ex )**2 * np.cos( EM-ph_ex )**2
     EnNoET +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
 
-    Fnoet = EnNoET / 2+gr
+    Fnoet = EnNoET / (2+gr)
 
     Fet   = .25 * (1+m_ex*np.cos(2*(EX-ph_ex))) * (1+mf*np.cos(2*(EM-theta_funnel-ph_ex)))
 
     Fem   = et*Fet + (1-et)*Fnoet
-    Fem  /= np.sum(Fem)
-    Ftot /= np.sum(Ftot)
 
-    chi2 = np.sum( (Fem-Ftot)**2 )
-    return chi2
+    return Fem.flatten()
 
 
 
