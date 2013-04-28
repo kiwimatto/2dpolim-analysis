@@ -60,17 +60,17 @@ class Movie:
         # - mean:
         meanI  = np.sum( np.sum( \
                 self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                    axis=2), axis=1 )
+                    axis=2), axis=1 ).astype( np.float )
         meanI /= s.width*s.height
         # - maximum:
         maxI = np.max( np.max( \
                 self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                    axis=2), axis=1 )
+                    axis=2), axis=1 ).astype( np.float )
         
         # - minimum:
         minI = np.min( np.min( \
                 self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                    axis=2), axis=1 )
+                    axis=2), axis=1 ).astype( np.float )
         # store all that
         s.min_I  = minI
         s.max_I  = maxI
@@ -106,20 +106,20 @@ class Movie:
         if intensity_type=='mean':
             I  = np.sum( np.sum( \
                     self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                        axis=2), axis=1 )
+                        axis=2), axis=1 ).astype( np.float )
             I /= s.width*s.height
             if bg_correction:
                 I -= self.bg.mean_I
         elif intensity_type=='max':
             I = np.max( np.max( \
                     self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                        axis=2), axis=1 )
+                        axis=2), axis=1 ).astype( np.float )
             if bg_correction:
                 I -= self.bg.max_I
         elif intensity_type=='min':
             I = np.min( np.min( \
                     self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                        axis=2), axis=1 )
+                        axis=2), axis=1 ).astype( np.float )
             if bg_correction:
                 I -= self.bg.min_I
         else:
@@ -610,7 +610,7 @@ class CameraData:
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
         self.filename           = spe_filename
         self.rawdata_fileobject = PrincetonSPEFile( self.filename )
-        self.rawdata            = self.rawdata_fileobject.getData().astype(np.float64)
+        self.rawdata            = self.rawdata_fileobject.getData()#.astype(np.float64)
         self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
         self.average_image      = np.mean( self.rawdata, axis=0 )
 
