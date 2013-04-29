@@ -570,8 +570,6 @@ class Movie:
 
 
 
-
-
     def chew( self, quiet=False, loud=False ):
         print "collecting data..."
         self.collect_data()
@@ -604,14 +602,11 @@ class Movie:
                 print "\tPhase in emission  : %f" % (spot.phase_em)
                 print "\tLS: %f" % (spot.LS)
 
-
     # def show_average_matrix( self ):
     #     plt.matshow( self.averageportrait, origin='bottom')
     #     plt.plot( [0,180], [0,180], 'k-' )
     #     plt.xlim( 0, 180 )
     #     plt.ylim( 0, 180 )      
-
-
 
 
 class CameraData:
@@ -641,15 +636,14 @@ class Spot:
         self.bg_corrected   = None
 
 
-
 class Portrait:
     def __init__( self, exangles, emangles, intensities ):
         self.exangles = exangles
         self.emangles = emangles
         self.intensities = intensities
-        self.vector = np.array( (self.exangles, self.emangles, self.intensities) ).T
-
+#        self.vector = np.array( (self.exangles, self.emangles, self.intensities) ).T
         self.split_into_emission_lines()
+        del(self.intensities)
 
     def split_into_emission_lines( self ):
         """Splits the portrait into the flat emission parts."""
