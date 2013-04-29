@@ -430,16 +430,16 @@ class Movie:
             d = np.mean(ap, axis=0)
             assert a.size==d.size
             ph, I, M, r   = CosineFitter( a, d ) 
-            spot.phase_ex = ph 
-            spot.M_ex     = M
+            spot.phase_ex = ph[0]
+            spot.M_ex     = M[0]
 
             # emission
             a = self.emission_angles_grid
             d = np.mean(ap, axis=1)
             assert a.size==d.size
             ph, I, M, r   = CosineFitter( a, d ) 
-            spot.phase_em = ph
-            spot.M_em     = M
+            spot.phase_em = ph[0]
+            spot.M_em     = M[0]
        
             # luminescence shift
             LS = spot.phase_ex - spot.phase_em

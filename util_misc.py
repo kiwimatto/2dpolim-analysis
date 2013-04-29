@@ -63,11 +63,21 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
         ax.add_patch( p )
 
     # prepare intensities, etc
-    inten = []
-    Mex   = []
+    mean_intensities = []
+    Ms_ex     = []
+    Ms_ex     = []
+    phases_ex = []
+    phases_em = []
+    LSs       = []
+    ET_rulers = []
+
     for ss in movie.spots:
-        inten.append( np.mean(ss.intensity) )
-        Mex.append( ss.M_ex[0] )
+        mean_intensities.append( np.mean(ss.intensity) )
+        Ms_ex.append( ss.M_ex )
+        Ms_em.append( ss.M_em )
+        phases_ex.append( ss.phase_ex )
+        phases_em.append( ss.phase_em )
+        LSs.append( ss.LS )
 
     intensity = np.array(inten)
     Mex = np.array(Mex)
