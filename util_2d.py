@@ -43,7 +43,6 @@ class Movie:
 
         # store phase offset
 #        self.phase_offset_excitation = phase_offset_excitation
-
         # set data mode, used by collect_data() and startstop()
         self.datamode = datamode
 

@@ -86,13 +86,26 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     Mex = (Mex-np.min(Mex))/np.max(Mex)
 
     # make a patch for each spot
+    
+    xdim=movie.spots[-1].coords[2]-movie.spots[0].coords[0]
+    ydim=movie.spots[-1].coords[3]-movie.spots[0].coords[1]
+    fs=np.zeros((ydim,xdim))
+    xinit = movie.spots[0].coords[0]
+    yinit = movie.spots[0].coords[1]
+     
     for si,s in enumerate(movie.spots):
+        xi = s.coords[0]-xinit
+        xf = s.coords[2]-xinit
+        yi = s.coords[1]-yinit
+        yf = s.coords[3]-yinit
 
         # determine color (color axes 
         if what=='M_ex':
             col = colormap( Mex[si] )
+            fs[yi:yf,xi:xf] = s.M_ex[0]
         elif what=='M_em':
             col = colormap( s.M_em[0] )
+            fs[yi:yf,xi:xf] = s.M_em[0]
         elif what=='phase_ex':
             # get all phases
             phases = []
@@ -102,6 +115,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
             # scale to range 0--1
             pha = (pha-np.min(pha))/np.max(pha)
             col = colormap( pha[si] )
+            fs[yi:yf,xi:xf] = s.phase_ex[0]
         elif what=='phase_em':
             # get all phases
             phases = []
@@ -111,19 +125,33 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
             # scale to range 0--1
             pha = (pha-np.min(pha))/np.max(pha)
             col = colormap( pha[si] )
+            fs[yi:yf,xi:xf] = s.phase_em[0]
         elif what=='LS':
             col = colormap( s.LS[0] )
+            fs[yi:yf,xi:xf] = s.LS[0]
         elif what=='ET_ruler':
             col = colormap( s.ET_ruler )
+            fs[yi:yf,xi:xf] = s.ET_ruler
         elif what=='mean intensity':
             col = colormap( intensity[si] )
+            fs[yi:yf,xi:xf] = s.intensity[0]
+            print yi, yf
+            print xi, xf
+            print s.intensity[0]
+            import time
+            time.sleep(.5)
+
         else:
             print "Not sure how to interpret what=%s" % (what)
             return
 
         p = Rectangle((s.coords[0],s.coords[1]), s.width, s.height, facecolor=col, edgecolor=None, alpha=1)
         ax.add_patch( p )
+    
+    print fs[100:120,100:120]
+    np.savetxt(what+'data.txt', fs)
 
+    
     ax.figure.canvas.draw()
 
         
