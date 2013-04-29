@@ -65,7 +65,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     # prepare intensities, etc
     mean_intensities = []
     Ms_ex     = []
-    Ms_ex     = []
+    Ms_em     = []
     phases_ex = []
     phases_em = []
     LSs       = []
@@ -78,74 +78,72 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
         phases_ex.append( ss.phase_ex )
         phases_em.append( ss.phase_em )
         LSs.append( ss.LS )
+        ET_rulers.append( ss.ET_ruler )
 
-    intensity = np.array(inten)
-    Mex = np.array(Mex)
+    intensity = np.array(mean_intensities)
+    M_ex = np.array(Ms_ex)
+    M_em = np.array(Ms_em)
+    phase_ex = np.array(phases_ex)
+    phase_em = np.array(phases_em)
+    LS = np.array(LSs)
+    ET_ruler = np.array(ET_rulers)
 
-    intensity = (intensity-np.min(intensity))/np.max(intensity)                
-    Mex = (Mex-np.min(Mex))/np.max(Mex)
+    # rescale values to color range 
+    intensity_color = (intensity-np.min(intensity))/np.max(intensity)                
+    M_ex_color = (M_ex-np.min(M_ex))/np.max(M_ex)
+    M_em_color = (M_em-np.min(M_em))/np.max(M_em)
+    phase_ex_color = (phase_ex-np.min(phase_ex))/np.max(phase_ex)
+    phase_em_color = (phase_em-np.min(phase_em))/np.max(phase_em)
+    LS_color = (LS-np.min(LS))/np.max(LS)
+    ET_ruler_color = (ET_ruler-np.min(ET_ruler))/np.max(ET_ruler)
 
-    # make a patch for each spot
-    
-    xdim=movie.spots[-1].coords[2]-movie.spots[0].coords[0]
-    ydim=movie.spots[-1].coords[3]-movie.spots[0].coords[1]
+    # edges! the +1 accounts for the fact that a spot includes its edges
+    xdim=movie.spots[-1].coords[2]-movie.spots[0].coords[0]+1
+    ydim=movie.spots[-1].coords[3]-movie.spots[0].coords[1]+1
     fs=np.zeros((ydim,xdim))
     xinit = movie.spots[0].coords[0]
     yinit = movie.spots[0].coords[1]
      
     for si,s in enumerate(movie.spots):
         xi = s.coords[0]-xinit
-        xf = s.coords[2]-xinit
+        xf = s.coords[2]-xinit+1  # edges...
         yi = s.coords[1]-yinit
-        yf = s.coords[3]-yinit
+        yf = s.coords[3]-yinit+1
 
         # determine color (color axes 
         if what=='M_ex':
-            col = colormap( Mex[si] )
-            fs[yi:yf,xi:xf] = s.M_ex[0]
+            col = colormap( M_ex_color[si] )
+            fs[yi:yf,xi:xf] = s.M_ex
         elif what=='M_em':
-            col = colormap( s.M_em[0] )
-            fs[yi:yf,xi:xf] = s.M_em[0]
+            col = colormap( M_em_color[si] )
+            fs[yi:yf,xi:xf] = s.M_em
         elif what=='phase_ex':
-            # get all phases
-            phases = []
-            for ss in movie.spots:
-                phases.append( ss.phase_ex[0] )
-            pha = np.array(phases)
-            # scale to range 0--1
-            pha = (pha-np.min(pha))/np.max(pha)
-            col = colormap( pha[si] )
-            fs[yi:yf,xi:xf] = s.phase_ex[0]
+            col = colormap( phase_ex_color[si] )
+            fs[yi:yf,xi:xf] = s.phase_ex
         elif what=='phase_em':
-            # get all phases
-            phases = []
-            for ss in movie.spots:
-                phases.append( ss.phase_em[0] )
-            pha = np.array(phases)
-            # scale to range 0--1
-            pha = (pha-np.min(pha))/np.max(pha)
-            col = colormap( pha[si] )
-            fs[yi:yf,xi:xf] = s.phase_em[0]
+            col = colormap( phase_em_color[si] )
+            fs[yi:yf,xi:xf] = s.phase_em
         elif what=='LS':
-            col = colormap( s.LS[0] )
-            fs[yi:yf,xi:xf] = s.LS[0]
+            col = colormap( LS_color[si] )
+            fs[yi:yf,xi:xf] = s.LS
         elif what=='ET_ruler':
-            col = colormap( s.ET_ruler )
+            col = colormap( ET_ruler_color[si] )
             fs[yi:yf,xi:xf] = s.ET_ruler
         elif what=='mean intensity':
-            col = colormap( intensity[si] )
-            fs[yi:yf,xi:xf] = s.intensity[0]
-            print yi, yf
-            print xi, xf
-            print s.intensity[0]
-            import time
-            time.sleep(.5)
+            col = colormap( intensity_color[si] )
+            fs[yi:yf,xi:xf] = intensity[si]
+            # print yi, yf
+            # print xi, xf
+            # print s.intensity[0]
+            # import time
+            # time.sleep(.5)
 
         else:
             print "Not sure how to interpret what=%s" % (what)
             return
 
-        p = Rectangle((s.coords[0],s.coords[1]), s.width, s.height, facecolor=col, edgecolor=None, alpha=1)
+        p = Rectangle((s.coords[0],s.coords[1]), s.width, s.height, \
+                          facecolor=col, edgecolor=None, linewidth=0, alpha=1)
         ax.add_patch( p )
     
     print fs[100:120,100:120]
