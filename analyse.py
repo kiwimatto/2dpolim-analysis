@@ -18,7 +18,7 @@ m = Movie( prefix+"S3-633nm-OD01-675LP.SPE", prefix+"MS-S3-633nm-OD01-675LP.txt"
                phase_offset_excitation=global_phase )
 m.define_background_spot( [0,0,89,511] )
     
-grid_image_section_into_squares_and_define_spots( m, res=8,bounds=[300,200,400,280] )
+grid_image_section_into_squares_and_define_spots( m, res=10,bounds=[300,200,400,280] )
 
 #    m.define_spot( [220,180,330,300], label='and another one' )
 m.chew()

@@ -503,22 +503,21 @@ class Movie:
         i4 = i1*(slope+1)
         df = i1/4
         
-#        print i1,i2,i3,i4,df
-
         self.peaks = np.array( [ np.sum(normpowerspectra[:, np.round(ii-df):np.round(ii+df)], axis=1) \
                       for ii in [i1,i2,i3,i4] ] )
 
         # now go over all spots
-        for si in range(len(self.spots)):
+        cet=0
+        for si,s in enumerate(self.spots):
 
-            print "si=%d" % (si),
+            print "si=%d\t mod_ex=%f" % (si,s.M_ex),
 #            import sys
 #            sys.stdout.flush()
 
             # if we deviate from the normalized sum by more than 5%,
             # we shouldn't use this ruler
             if np.abs(np.sum( self.peaks[:,si] )-1) > .08:
-                print 'fuck. %f' % (np.sum(self.peaks[:,si]))
+                print 'fuck. Data peaks are weird... %f' % (np.sum(self.peaks[:,si]))
                 self.spots[si].ET_ruler = np.nan
             
             # now let's rule
@@ -528,8 +527,8 @@ class Movie:
             kappa     = .5 * np.arccos( .5*(3*self.spots[si].M_ex-1) ) 
             alpha     = np.array([ -kappa, 0, kappa ])
             
-            phix =   np.linspace(0,4095,4096)*np.pi/180
-            phim = 7*np.linspace(0,4095,4096)*np.pi/180
+            phix =   np.linspace(0,newdatalength-1,newdatalength)*np.pi/180
+            phim = 7*np.linspace(0,newdatalength-1,newdatalength)*np.pi/180
 
             ModelNoET = np.zeros_like( phix )
             for n in range(3):
@@ -541,9 +540,22 @@ class Movie:
             MYpeaks = np.array( [ np.sum( MYpower[np.round(ii-df):np.round(ii+df)] ) \
                                       for ii in [i1,i2,i3,i4] ] )
             MYpeaks /= np.sum(MYpeaks)
+            
+            # test again if peaks make sense
+            if np.abs(np.sum( MYpeaks )-1) > .08:
+                print 'fuck. MYpeaks is off... %f' % (np.sum( MYpeaks ))
+                self.spots[si].ET_ruler = np.nan
 
             MYcrossdiff = MYpeaks[1]-MYpeaks[3]
             # model done
+
+            print "crossdiff=%f\t MYcrossdiff=%f" % (crossdiff, MYcrossdiff)
+            print "Kappa=%f\t" % (kappa)
+            print 'Mypeaks'
+            print MYpeaks
+            
+            s.MYpower = MYpower
+
 
             ruler = 1-(crossdiff/MYcrossdiff)
 
@@ -551,6 +563,8 @@ class Movie:
                 print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
                 print "Will continue anyways and set ruler to zero or one (whichever is closer)."
                 print "You can thank me later."
+                cet+=1
+                print cet
 
             if ruler < 0:
                 ruler = 0
@@ -558,6 +572,8 @@ class Movie:
                 ruler = 1
 
             self.spots[si].ET_ruler = ruler
+        print i1,i2,i3,i4,df
+
 
 
 
