@@ -151,7 +151,9 @@ class Movie:
         Intensity = np.zeros( (self.timeaxis.size, len(self.spots)) )
         for i,s in enumerate(self.spots):
             Intensity[:,i] = self.spots[i].intensity
-        
+            self.spots[i].mean_intensity = np.mean( self.spots[i].intensity )
+            del( self.spots[i].intensity )
+
         # if Intensity.ndim==1:
         #     Nspots = 1
         #     Intensity = Intensity.reshape( (Intensity.size,1) )
@@ -577,6 +579,9 @@ class Movie:
         self.startstop()
         print "assigning portrait data..."
         self.assign_portrait_data()
+
+        del( self.data )
+
         print "fitting all portraits"
         self.fit_all_portraits()
         print "finding mod depths and phases..."
@@ -683,8 +688,7 @@ class Portrait:
         plt.matshow( self.matrix, origin='bottom')
         plt.plot( [0,180], [0,180], 'k-' )
         plt.xlim( 0, 180 )
-        plt.ylim( 0, 180 )      
-
+        plt.ylim( 0, 180 )
 
 
 class Line:
