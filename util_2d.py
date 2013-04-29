@@ -4,6 +4,7 @@ plt.interactive(1)
 from pyspec.ccd.files import PrincetonSPEFile
 from motors import NewSetupMotor, ExcitationMotor, EmissionMotor
 from fitting import CosineFitter
+import scipy.optimize as so
 
 
 class Movie:
@@ -569,6 +570,41 @@ class Movie:
 
             self.spots[si].ET_ruler = ruler
         #print i1,i2,i3,i4,df
+
+
+    def ETmodel(self,fac,pg):
+
+        from fitting import fit_portrait_single_funnel_symmetric
+
+        for s in [self.spots[0]]:
+            a0 = [s.M_ex, 0, 1]
+            EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
+            funargs = (EX, EM, s.averagematrix/np.sum(s.averagematrix), s.M_ex, s.phase_ex, 'fitting')
+
+            LB = [0.001, -np.pi/2, 0]
+            UB = [1, np.pi/2, 2*(1+s.M_ex)/(1-s.M_ex)]
+
+            a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
+                                         x0=a0, \
+                                         fprime=None, \
+                                         args=funargs, \
+                                         approx_grad=True, \
+                                         bounds=zip(LB,UB), \
+                                         factr=fac, \
+                                         pgtol=pg )
+
+            print 'fit done'
+
+            et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
+                                                                s.averagematrix/np.sum(s.averagematrix), \
+                                                                s.M_ex, s.phase_ex, mode='display' )
+
+        return bla
+
+        # fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
+        #                                           mod_depth_excitation, phase_excitation, mode )
+
+
 
 
 
