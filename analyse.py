@@ -8,17 +8,17 @@ from util_misc import grid_image_section_into_squares_and_define_spots, show_spo
 # movie.portraits[0].show_picture()
 
 
-prefix = '/media/sf_shared_with_VM/S3/S3-NoFilter/'
+prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
 global_phase = 9.0
 
 #AMdegrees = [90]#,120,150,180]
 
 #for am in AMdegrees:
-m = Movie( prefix+"S3-633nm-OD01-675LP.SPE", prefix+"MS-S3-633nm-OD01-675LP.txt", \
+m = Movie( prefix+"S3-633nm-OD01-675LP715BP.SPE", prefix+"MS-S3-633nm-OD01-675LP715BP.txt", \
                phase_offset_excitation=global_phase )
 m.define_background_spot( [0,0,89,511] )
     
-grid_image_section_into_squares_and_define_spots( m, res=10,bounds=[300,200,400,280] )
+grid_image_section_into_squares_and_define_spots( m, res=2,bounds=[100,50,450,400] )
 
 #    m.define_spot( [220,180,330,300], label='and another one' )
 m.chew()

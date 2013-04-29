@@ -146,7 +146,6 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
                           facecolor=col, edgecolor=None, linewidth=0, alpha=1)
         ax.add_patch( p )
     
-    print fs[100:120,100:120]
     np.savetxt(what+'data.txt', fs)
 
     

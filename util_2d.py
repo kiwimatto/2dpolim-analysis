@@ -510,7 +510,6 @@ class Movie:
         cet=0
         for si,s in enumerate(self.spots):
 
-            print "si=%d\t mod_ex=%f" % (si,s.M_ex),
 #            import sys
 #            sys.stdout.flush()
 
@@ -548,11 +547,6 @@ class Movie:
 
             MYcrossdiff = MYpeaks[1]-MYpeaks[3]
             # model done
-
-            print "crossdiff=%f\t MYcrossdiff=%f" % (crossdiff, MYcrossdiff)
-            print "Kappa=%f\t" % (kappa)
-            print 'Mypeaks'
-            print MYpeaks
             
             s.MYpower = MYpower
 
@@ -572,7 +566,7 @@ class Movie:
                 ruler = 1
 
             self.spots[si].ET_ruler = ruler
-        print i1,i2,i3,i4,df
+        #print i1,i2,i3,i4,df
 
 
 
