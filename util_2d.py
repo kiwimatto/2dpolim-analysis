@@ -322,12 +322,19 @@ class Movie:
                 averagematrix = np.zeros_like( s.portraits[0].matrix )
                 for p in s.portraits:
                     averagematrix += p.matrix
+
                 averagematrix /= len(s.portraits)
 
                 s.averagematrix = averagematrix
 
 
     def fit_all_portraits_spot_parallel( self, evaluate_portrait_matrices=True ):
+
+        # init average portrait matrices, so that we can write to them without
+        # having to store a matrix for each portrait
+        for s in self.spots:
+            s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+
         # we assume that the number of portraits and lines is the same 
         # for all spots (can't think of a reason why that shouldn't be the case).
         Nportraits = self.portrait_indices.shape[0]
@@ -392,17 +399,21 @@ class Movie:
                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
                     for exi in range( self.excitation_angles_grid.size ):
                         pic[:,exi] = mycos( self.emission_angles_grid, phase[si][exi], I0[si][exi], M[si][exi] )
-                    s.portraits[pi].matrix = pic
+                    s.averagematrix += pic
+#                    s.portraits[pi].matrix = pic
 
+        for s in self.spots:
+            s.averagematrix /= Nportraits
 
-        if evaluate_portrait_matrices:
-            for s in self.spots:
-                averagematrix = np.zeros_like( s.portraits[0].matrix )
-                for p in s.portraits:
-                    averagematrix += p.matrix
-                averagematrix /= len(s.portraits)
+        # if evaluate_portrait_matrices:
+        #     for s in self.spots:
+        #         averagematrix = np.zeros_like( s.portraits[0].matrix )
+        #         for p in s.portraits:
+        #             averagematrix += p.matrix
 
-                s.averagematrix = averagematrix
+        #         averagematrix /= len(s.portraits)
+
+        #         s.averagematrix = averagematrix
 
 
 

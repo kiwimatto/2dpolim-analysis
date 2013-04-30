@@ -28,7 +28,7 @@ show_mem()
 
 m.define_background_spot( [0,0,89,511] )
     
-grid_image_section_into_squares_and_define_spots( m, res=8, bounds=[100,50,450,400] )
+grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[100,50,150,100] )
 
 show_mem()
 
