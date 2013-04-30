@@ -151,6 +151,8 @@ class Movie:
         """
 
         emangles = np.array( [self.emission_motor.angle(t) for t in self.timeaxis] )
+
+        # frames are valid where emangles is not equal to -1
         validframes = emangles != -1
     
         emangles_rounded_valid = np.round(emangles[validframes], decimals=1)
@@ -362,31 +364,35 @@ class Movie:
             # part II, 'vertical fitting' --- we do each spot by itself, but 
             # fit all verticals in parallel
 
-            for si in range(len(self.spots)):
-                print "spot fit done (%d/%d)" % (si,pi)
-                # collect list of unique emission angles
-                emangles = [l.emangle for l in self.spots[si].portraits[pi].lines]
-                # turn into array, transpose and squeeze
-                emangles = np.squeeze(np.array( emangles ).T)
-                
-                # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
-                fitintensities = [ l.cosValue( self.excitation_angles_grid ) \
-                                     for l in self.spots[si].portraits[pi].lines ]
-                fitintensities = np.array( fitintensities )
+            # collect list of unique emission angles (same for all spots!)                    
+            emangles = [l.emangle for l in self.spots[0].portraits[pi].lines]
+            # turn into array, transpose and squeeze
+            emangles = np.squeeze(np.array( emangles ).T)
 
-                phase, I0, M, resi = CosineFitter( emangles, fitintensities ) 
+            # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
+            fitintensities = [ np.array( [l.cosValue( self.excitation_angles_grid ) \
+                                             for l in s.portraits[pi].lines]) for s in self.spots ]
+            fitintensities = np.hstack( fitintensities )
+            print fitintensities.shape
+
+            phase, I0, M, resi = CosineFitter( emangles, fitintensities ) 
+            print phase.shape
                 
-                # store vertical fit params
-                self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
+            # store vertical fit params
+            phase = np.hsplit(phase, len(self.spots))
+            I0    = np.hsplit(I0, len(self.spots))
+            M     = np.hsplit(M, len(self.spots))
+            resi  = np.hsplit(resi, len(self.spots))
+            for si,s in enumerate(self.spots):
+                s.portraits[pi].vertical_fit_params = [phase[si], I0[si], M[si], resi[si]]
 
                 if evaluate_portrait_matrices:
                     # evaluate portrait matrix
                     mycos = lambda a, ph, I, M: I*(1+M*(np.cos(2*(a-ph)*np.pi/180.0)))
                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
                     for exi in range( self.excitation_angles_grid.size ):
-                        pic[:,exi] = mycos( self.emission_angles_grid, phase[exi], I0[exi], M[exi] )
-
-                    self.spots[si].portraits[pi].matrix = pic
+                        pic[:,exi] = mycos( self.emission_angles_grid, phase[si][exi], I0[si][exi], M[si][exi] )
+                    s.portraits[pi].matrix = pic
 
 
         if evaluate_portrait_matrices:
@@ -397,8 +403,6 @@ class Movie:
                 averagematrix /= len(s.portraits)
 
                 s.averagematrix = averagematrix
-
-
 
 
 
@@ -445,12 +449,19 @@ class Movie:
 
 
     def find_modulation_depths_and_phases( self ):
+        # for s in self.spots:
+        #     [np.mean( s.averagematrix, axis=0 ) for s in self.spots]
+
+
+
+
         for spot in self.spots:
             ap = spot.averagematrix
 
             # excitation
             a = self.excitation_angles_grid
             d = np.mean(ap, axis=0)
+            print d.shape
             assert a.size==d.size
             ph, I, M, r   = CosineFitter( a, d ) 
             spot.phase_ex = ph[0]
@@ -637,10 +648,16 @@ class Movie:
         print "assigning portrait data..."
         self.assign_portrait_data()
 
-        del( self.data )
+        for s in self.spots:         
+            s.intensities = None     # this doesn't seem to do anything memory-wise
+        self.data = None             # this doesn't seem to do anything memory-wise
+                                     # (are these all just pointers??)
+
+        self.camera_data = None      # this helps (as expected)
 
         print "fitting all portraits"
-        self.fit_all_portraits()
+#        self.fit_all_portraits()
+        self.fit_all_portraits_spot_parallel()
         print "finding mod depths and phases..."
         self.find_modulation_depths_and_phases()
         print "ETruler..."

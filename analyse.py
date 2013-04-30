@@ -1,10 +1,14 @@
 from util_2d import *
 from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data
+import time as stopwatch
 
-print "memory usage:"
-import memory
-print memory.memory()/(1024*1024)
-print memory.resident()/(1024*1024)
+def show_mem():
+    print "memory usage:"
+    import memory
+    print memory.memory()/(1024*1024)
+    print memory.resident()/(1024*1024)
+
+show_mem()
 
 ##movie = Movie( '01/AM01.SPE', '01/AMtest1_ex.txt', '01/AMtest1_em.txt' )
 # movie.define_spot( [60,76,85,95], label='transmission blob' )
@@ -21,30 +25,21 @@ global_phase = 9.0
 #for am in AMdegrees:
 m = Movie( prefix+"S3-633nm-OD01-675LP715BP.SPE", prefix+"MS-S3-633nm-OD01-675LP715BP.txt", \
                phase_offset_excitation=global_phase )
-print "memory usage:"
-import memory
-print memory.memory()/(1024*1024)
-print memory.resident()/(1024*1024)
+show_mem()
 
 m.define_background_spot( [0,0,89,511] )
     
 grid_image_section_into_squares_and_define_spots( m, res=40, bounds=[100,50,450,400] )
 
-print "memory usage:"
-import memory
-print memory.memory()/(1024*1024)
-print memory.resident()/(1024*1024)
-
+show_mem()
 
 #    m.define_spot( [220,180,330,300], label='and another one' )
+tstart = stopwatch.time()
 m.chew()
+print "time taken: %ds" % (stopwatch.time()-tstart)
 #    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
-
-print "memory usage:"
-import memory
-print memory.memory()/(1024*1024)
-print memory.resident()/(1024*1024)
+show_mem()
 
 
 
