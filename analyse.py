@@ -1,6 +1,5 @@
 from util_2d import *
 from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data
-import time as stopwatch
 
 def show_mem():
     print "memory usage:"
@@ -29,14 +28,12 @@ show_mem()
 
 m.define_background_spot( [0,0,89,511] )
     
-grid_image_section_into_squares_and_define_spots( m, res=40, bounds=[100,50,450,400] )
+grid_image_section_into_squares_and_define_spots( m, res=8, bounds=[100,50,450,400] )
 
 show_mem()
 
 #    m.define_spot( [220,180,330,300], label='and another one' )
-tstart = stopwatch.time()
 m.chew()
-print "time taken: %ds" % (stopwatch.time()-tstart)
 #    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
 show_mem()

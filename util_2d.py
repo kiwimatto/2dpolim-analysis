@@ -449,39 +449,52 @@ class Movie:
 
 
     def find_modulation_depths_and_phases( self ):
-        # for s in self.spots:
-        #     [np.mean( s.averagematrix, axis=0 ) for s in self.spots]
 
+        # projection onto the excitation axis (ie over all emission angles),
+        # for all spots, one per column
+        proj_ex = np.array( [np.mean( s.averagematrix, axis=0 ) for s in self.spots] ).T
+        # same for projection onto emission axis
+        proj_em = np.array( [np.mean( s.averagematrix, axis=1 ) for s in self.spots] ).T
 
+        # fitting
+        ph_ex, I_ex, M_ex, r_ex = CosineFitter( self.excitation_angles_grid, proj_ex )
+        ph_em, I_em, M_em, r_em = CosineFitter( self.emission_angles_grid, proj_em )
 
+        # assignment
+        LS = ph_ex - ph_em
+        LS[LS >  90] -= 180.0
+        LS[LS < -90] += 180.0
+        for si,s in enumerate(self.spots):
+            s.phase_ex = ph_ex[si]
+            s.M_ex     = M_ex[si]
+            s.LS       = LS[si]
 
-        for spot in self.spots:
-            ap = spot.averagematrix
+        # for spot in self.spots:
+        #     ap = spot.averagematrix
 
-            # excitation
-            a = self.excitation_angles_grid
-            d = np.mean(ap, axis=0)
-            print d.shape
-            assert a.size==d.size
-            ph, I, M, r   = CosineFitter( a, d ) 
-            spot.phase_ex = ph[0]
-            spot.M_ex     = M[0]
+        #     # excitation
+        #     a = self.excitation_angles_grid
+        #     d = np.mean(ap, axis=0)
+        #     assert a.size==d.size
+        #     ph, I, M, r   = CosineFitter( a, d ) 
+        #     spot.phase_ex = ph[0]
+        #     spot.M_ex     = M[0]
 
-            # emission
-            a = self.emission_angles_grid
-            d = np.mean(ap, axis=1)
-            assert a.size==d.size
-            ph, I, M, r   = CosineFitter( a, d ) 
-            spot.phase_em = ph[0]
-            spot.M_em     = M[0]
+        #     # emission
+        #     a = self.emission_angles_grid
+        #     d = np.mean(ap, axis=1)
+        #     assert a.size==d.size
+        #     ph, I, M, r   = CosineFitter( a, d ) 
+        #     spot.phase_em = ph[0]
+        #     spot.M_em     = M[0]
        
-            # luminescence shift
-            LS = spot.phase_ex - spot.phase_em
-            if LS>90:
-                LS -= 180
-            elif LS<-90:
-                LS += 180
-            spot.LS = LS
+        #     # luminescence shift
+        #     LS = spot.phase_ex - spot.phase_em
+        #     if LS>90:
+        #         LS -= 180
+        #     elif LS<-90:
+        #         LS += 180
+        #     spot.LS = LS
 
 
     def ETrulerFFT( self, slope=7, newdatalength=2048 ):
@@ -659,7 +672,12 @@ class Movie:
 #        self.fit_all_portraits()
         self.fit_all_portraits_spot_parallel()
         print "finding mod depths and phases..."
+
+        import time as stopwatch
+        tstart = stopwatch.time()
         self.find_modulation_depths_and_phases()
+        print "time taken: %ds" % (stopwatch.time()-tstart)
+
         print "ETruler..."
         self.ETrulerFFT()
 
