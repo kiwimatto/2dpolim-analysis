@@ -53,82 +53,27 @@ class Movie:
 
 
 
-    def define_background_spot( self, coords ):
+    def define_background_spot( self, coords, intensity_type='mean' ):
         # create new spot object
-        s = Spot( coords, label='background area' )
-        # work out frame-dependent intensities for that spot
-        # - mean:
-        meanI  = np.sum( np.sum( \
-                self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                    axis=2), axis=1 ).astype( np.float )
-        meanI /= s.width*s.height
-        # - maximum:
-        maxI = np.max( np.max( \
-                self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                    axis=2), axis=1 ).astype( np.float )
-        
-        # - minimum:
-        minI = np.min( np.min( \
-                self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                    axis=2), axis=1 ).astype( np.float )
-        # store all that
-        s.min_I  = minI
-        s.max_I  = maxI
-        s.mean_I = meanI
-
-        self.bg = s
+        s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, label='background area' )
+        self.bg_spot = s
 
         
 
-    def define_spot( self, coords, intensity_type='mean', bg_correction=True, label=None ):
+    def define_spot( self, coords, bg_correction=True, intensity_type='mean', label=None ):
         """Defines a new spot object and adds it to the list.
-        There's something noteworthy (speak: important) about the coordinates
-        which define the box that is the 'spot'. First of all, the convention
-        is [left, bottom, right, top], where the coordinates (0,0) define the
-        _lower left corner_ of the image. If you plot an image with matplotlib's 
-        imshow() or matshow(), then the origin is in the _top left_ (the way 
-        you would write a matrix on paper) --- so there's potential for confusion
-        here. Secondly, the coordinates given are interpreted as inclusive 
-        boundaries, so that [3,3,5,5] gives a 3x3 spot from which intensities 
-        are computed. This explains the occurence of various +1s in the code 
-        below...
-
         FIXME: make sure coordinate definitions do not exceed frame size
-
         TO-DO: how about being able to specify center+radius ?
-
         """
 
         # create new spot object
-        s = Spot( coords, label )
-    
-        # work out frame-dependent intensities for that spot
-        if intensity_type=='mean':
-            I  = np.sum( np.sum( \
-                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                        axis=2), axis=1 ).astype( np.float )
-            I /= s.width*s.height
-            if bg_correction:
-                I -= self.bg.mean_I
-        elif intensity_type=='max':
-            I = np.max( np.max( \
-                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                        axis=2), axis=1 ).astype( np.float )
-            if bg_correction:
-                I -= self.bg.max_I
-        elif intensity_type=='min':
-            I = np.min( np.min( \
-                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
-                        axis=2), axis=1 ).astype( np.float )
-            if bg_correction:
-                I -= self.bg.min_I
+        if bg_correction==True:
+            # this will break if there's no bg-spot defined yet
+            s = Spot( self.camera_data.rawdata, coords, \
+                          bg=self.bg_spot.intensity, int_type='mean', label=label )
         else:
-            raise ValueError("Don't know what to do for intensity_type %s" % (intensity_type))
-
-        # store all that, subtract bg
-        s.intensity_type = intensity_type
-        s.bg_corrected = bg_correction
-        s.intensity = I
+            s = Spot( self.camera_data.rawdata, coords, \
+                          bg=0, int_type='mean', label=label )
         # append spot object to spots list
         self.spots.append( s )
 
@@ -378,6 +323,82 @@ class Movie:
                 averagematrix /= len(s.portraits)
 
                 s.averagematrix = averagematrix
+
+
+    def fit_all_portraits_spot_parallel( self, evaluate_portrait_matrices=True ):
+        # we assume that the number of portraits and lines is the same 
+        # for all spots (can't think of a reason why that shouldn't be the case).
+        Nportraits = self.portrait_indices.shape[0]
+        Nlines     = len( self.spots[0].portraits[0].lines )
+
+        # for each portrait ---- outermost loop, we do portraits in series
+        for pi in range(Nportraits):
+            # averageportrait = np.zeros_like( portraitlist[0].matrix )
+            # for p in spot.portraits:
+            #     averageportrait += p.matrix
+            # averageportrait /= len(spot.portraits)
+
+            # spot.averageportrait = averageportrait
+
+            # part I, 'horizontal fitting' of the lines of constant emission angles
+
+            # for each line ---- we do lines in series, __but all spots in parallel__:
+            for li in range(Nlines):
+
+                # get excitation angle array (same for all spots!)
+                exangles    = self.spots[0].portraits[pi].lines[li].exangles
+
+                # create list of intensity arrays (one array for each spot)
+                intensities = [spot.portraits[pi].lines[li].intensities for spot in self.spots]
+                # turn into numpy array and transpose
+                intensities = np.array( intensities ).T
+
+                phase, I0, M, resi = CosineFitter( exangles, intensities ) 
+
+                # write cosine parameters into line object
+                for si in range(len(self.spots)):
+                    self.spots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
+
+            # part II, 'vertical fitting' --- we do each spot by itself, but 
+            # fit all verticals in parallel
+
+            for si in range(len(self.spots)):
+                print "spot fit done (%d/%d)" % (si,pi)
+                # collect list of unique emission angles
+                emangles = [l.emangle for l in self.spots[si].portraits[pi].lines]
+                # turn into array, transpose and squeeze
+                emangles = np.squeeze(np.array( emangles ).T)
+                
+                # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
+                fitintensities = [ l.cosValue( self.excitation_angles_grid ) \
+                                     for l in self.spots[si].portraits[pi].lines ]
+                fitintensities = np.array( fitintensities )
+
+                phase, I0, M, resi = CosineFitter( emangles, fitintensities ) 
+                
+                # store vertical fit params
+                self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
+
+                if evaluate_portrait_matrices:
+                    # evaluate portrait matrix
+                    mycos = lambda a, ph, I, M: I*(1+M*(np.cos(2*(a-ph)*np.pi/180.0)))
+                    pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+                    for exi in range( self.excitation_angles_grid.size ):
+                        pic[:,exi] = mycos( self.emission_angles_grid, phase[exi], I0[exi], M[exi] )
+
+                    self.spots[si].portraits[pi].matrix = pic
+
+
+        if evaluate_portrait_matrices:
+            for s in self.spots:
+                averagematrix = np.zeros_like( s.portraits[0].matrix )
+                for p in s.portraits:
+                    averagematrix += p.matrix
+                averagematrix /= len(s.portraits)
+
+                s.averagematrix = averagematrix
+
+
 
 
 
@@ -667,14 +688,51 @@ class CameraData:
 
 
 class Spot:
-    def __init__(self, coords, label):
+    def __init__(self, rawdata, coords, bg, int_type, label):
+        """
+        There's something noteworthy (speak: important) about the coordinates
+        which define the box that is the 'spot'. First of all, the convention
+        is [left, bottom, right, top], where the coordinates (0,0) define the
+        _lower left corner_ of the image. If you plot an image with matplotlib's 
+        imshow() or matshow(), then the origin is in the _top left_ (the way 
+        you would write a matrix on paper) --- so there's potential for confusion
+        here. Secondly, the coordinates given are interpreted as inclusive 
+        boundaries, so that [3,3,5,5] gives a 3x3 spot from which intensities 
+        are computed. This explains the occurence of various +1s in the code 
+        below...
+        """
+
         self.coords = coords    #[left, bottom, right, top]
         self.label  = label
         self.width  = coords[2] -coords[0] +1
         self.height = coords[3] -coords[1] +1
-        self.intensity_type = None
-        self.intensity      = None
-        self.bg_corrected   = None
+
+        # work out frame-dependent intensities for that spot
+        # - mean:
+        if int_type=='mean':
+            I  = np.sum( np.sum( \
+                    rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
+                        axis=2), axis=1 ).astype( np.float )
+            I /= self.width*self.height
+        elif int_type=='max':
+            # - maximum:
+            I = np.max( np.max( \
+                    rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
+                        axis=2), axis=1 ).astype( np.float )
+        elif int_type=='min':
+            # - minimum:
+            I = np.min( np.min( \
+                    self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
+                        axis=2), axis=1 ).astype( np.float )
+        else:
+            ValueError("Spot __init__ did not understand int_type='%s' (should be mean|max|min)" % (int_type))
+
+        # remove background
+        I -= bg
+
+        self.intensity_type = int_type
+        self.intensity      = I
+        self.bg_correction  = bg
 
 
 class Portrait:
