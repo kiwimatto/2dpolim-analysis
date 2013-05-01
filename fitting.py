@@ -97,6 +97,64 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
         return
 
 
+
+
+
+def CosineFitter_mpi_master( angles, data ):
+
+    assert angles.ndim == 1
+    assert data.shape[0] == angles.size
+
+    # if data is a 1d-array, then turn it into a 2d with singleton dimension
+    if data.ndim==1:
+        data = data.reshape( (data.size,1) )
+    
+    import sys
+    from mpi4py import MPI
+    # comm = MPI.COMM_WORLD
+    # myrank = comm.Get_rank()
+    # nprocs = comm.Get_size()
+
+    Nprocs = 4
+
+#    sdata = np.hsplit(data, Nprocs)
+
+    comm = MPI.COMM_SELF
+    comm.Set_name('spawner')
+    slaveintercomm = comm.Spawn(sys.executable,
+                                args=['cosine_fitter_mpi_slave.py', \
+                                          str(data.shape[0]), \
+                                          str(data.shape[1]) ],
+                                maxprocs=Nprocs)
+
+#    print 'spawner'
+#    print comm
+    
+    for n in range(Nprocs):
+        localcolumns = range(n,data.shape[1],Nprocs)
+#        print 'spawner sending data, len(localcolumns)=',len(localcolumns)
+        # send out data
+        slaveintercomm.Send( angles, dest=n, tag=n*11 )
+        d = data[:,localcolumns].copy()
+#        print d
+        slaveintercomm.Send( d, dest=n, tag=n*123 )
+
+    results = np.zeros( (4, data.shape[1]) )
+    for n in range(Nprocs):        
+        localcolumns = range(n,data.shape[1],Nprocs)
+#        print "receiving...%d" % (n)
+        r = np.zeros( (4,len(localcolumns)) )
+#        print 'spawner expecting r.shape=',r.shape
+        slaveintercomm.Recv( r, source=n, tag=n*5 )
+        results[:,localcolumns] = r   
+
+    slaveintercomm.Disconnect()
+
+    return results[0,:], results[1,:], results[2,:], results[3,:]
+
+
+
+
 def CosineFitter( angles, data ):
 
     assert angles.ndim == 1

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 plt.interactive(1)
 from pyspec.ccd.files import PrincetonSPEFile
 from motors import NewSetupMotor, ExcitationMotor, EmissionMotor
-from fitting import CosineFitter
+from fitting import CosineFitter, CosineFitter_mpi_master
 import scipy.optimize as so
 
 
@@ -14,10 +14,16 @@ class Movie:
                       emission_motor_filename=None, \
                       phase_offset_excitation=0, \
                       datamode='validdata', \
-                      which_setup='new setup'):
+                      which_setup='new setup', \
+                      use_mpi=True ):
 
         # get those objects going
         self.camera_data      = CameraData( spe_filename )
+
+        if use_mpi:
+            self.cos_fitter = CosineFitter_mpi_master
+        else:
+            self.cos_fitter = CosineFitter
 
         if which_setup=='old setup':
             self.excitation_motor = ExcitationMotor( excitation_motor_filename, \
@@ -281,7 +287,7 @@ class Movie:
                 # turn into numpy array and transpose
                 intensities = np.array( intensities ).T
 
-                phase, I0, M, resi = CosineFitter( exangles, intensities ) 
+                phase, I0, M, resi = self.cos_fitter( exangles, intensities ) 
 
                 # write cosine parameters into line object
                 for si in range(len(self.spots)):
@@ -302,7 +308,7 @@ class Movie:
                                      for l in self.spots[si].portraits[pi].lines ]
                 fitintensities = np.array( fitintensities )
 
-                phase, I0, M, resi = CosineFitter( emangles, fitintensities ) 
+                phase, I0, M, resi = self.cos_fitter( emangles, fitintensities ) 
                 
                 # store vertical fit params
                 self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
@@ -359,10 +365,12 @@ class Movie:
 
                 # create list of intensity arrays (one array for each spot)
                 intensities = [spot.portraits[pi].lines[li].intensities for spot in self.spots]
+
                 # turn into numpy array and transpose
                 intensities = np.array( intensities ).T
 
-                phase, I0, M, resi = CosineFitter( exangles, intensities ) 
+                exa = exangles.copy()
+                phase, I0, M, resi = self.cos_fitter( exa, intensities ) 
 
                 # write cosine parameters into line object
                 for si in range(len(self.spots)):
@@ -382,7 +390,7 @@ class Movie:
             fitintensities = np.hstack( fitintensities )
             print fitintensities.shape
 
-            phase, I0, M, resi = CosineFitter( emangles, fitintensities ) 
+            phase, I0, M, resi = self.cos_fitter( emangles, fitintensities ) 
             print phase.shape
                 
             # store vertical fit params
@@ -468,8 +476,8 @@ class Movie:
         proj_em = np.array( [np.mean( s.averagematrix, axis=1 ) for s in self.spots] ).T
 
         # fitting
-        ph_ex, I_ex, M_ex, r_ex = CosineFitter( self.excitation_angles_grid, proj_ex )
-        ph_em, I_em, M_em, r_em = CosineFitter( self.emission_angles_grid, proj_em )
+        ph_ex, I_ex, M_ex, r_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
+        ph_em, I_em, M_em, r_em = self.cos_fitter( self.emission_angles_grid, proj_em )
 
         # assignment
         LS = ph_ex - ph_em
@@ -681,14 +689,14 @@ class Movie:
 
         print "fitting all portraits"
 #        self.fit_all_portraits()
-        self.fit_all_portraits_spot_parallel()
-        print "finding mod depths and phases..."
 
         import time as stopwatch
         tstart = stopwatch.time()
-        self.find_modulation_depths_and_phases()
-        print "time taken: %ds" % (stopwatch.time()-tstart)
+        self.fit_all_portraits_spot_parallel()
+        print "time taken: %fs" % (stopwatch.time()-tstart)
 
+        print "finding mod depths and phases..."
+        self.find_modulation_depths_and_phases()
         print "ETruler..."
         self.ETrulerFFT()
 
