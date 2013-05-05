@@ -27,7 +27,7 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
                                               mod_depth_excitation, phase_excitation, mode ):
     mod_depth_funnel = mf = params[0]
 #    energy_transfer  = et = params[1]
-    theta_funnel     = tf = params[1]
+    theta_funnel     = tf = params[1]     # in radians
     geometric_ratio  = gr = params[2]
 
     m_ex  = mod_depth_excitation
@@ -38,7 +38,10 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     # elif data_style=='matrix':    
     #     EX, EM = np.meshgrid( ex_angles, em_angles )
 
-    EX, EM, Ftot = ex_angles.flatten()*np.pi/180.0, em_angles.flatten()*np.pi/180.0, Ftot.flatten()
+    N_ex_angles = ex_angles.shape[1]   # because ex_angles was generated via meshgrid
+    N_em_angles = ex_angles.shape[0]   # ...
+
+    EX, EM = ex_angles.flatten()*np.pi/180.0, em_angles.flatten()*np.pi/180.0
 
     # calculate angle between off-axis dipoles in symmetric model
     alpha = 0.5 * np.arccos( .5*(((gr+2)*m_ex)-gr) )
@@ -69,28 +72,34 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     # solver to do this step.
 
     A = (Fet-Fnoet).reshape( (Fet.size,1) )
-    res = np.linalg.lstsq( A, Ftot-Fnoet )
-    et = res[0]
+    print mode
 
-    print et
+    if mode=='generate data':
+        et = Ftot
+    else:
+        Ftot = Ftot.flatten()
+        res = np.linalg.lstsq( A, Ftot-Fnoet )
+        et = res[0]
+        print et
 
     Fem = et*Fet + (1-et)*Fnoet 
 
     if mode=="fitting":
         return res[1]   # this is the residual straight from the least-squares fit
 #        return Ftot - (et*Fet + (1-et)*Fnoet)
+    elif mode=="generate data":
+        return Fem.reshape((N_em_angles,N_ex_angles))
     elif mode=="display":
         import matplotlib.pyplot as plt
         fig = plt.figure()
         ax = fig.add_subplot(2,2,1)
-        ax.imshow( ex_angles.reshape((181,181)), interpolation='none' )
+        ax.imshow( ex_angles.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
         ax = fig.add_subplot(2,2,2)
-        plt.imshow( em_angles.reshape((181,181)), interpolation='none' )
+        plt.imshow( em_angles.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
         ax = fig.add_subplot(2,2,3)
-        plt.imshow( Ftot.reshape((181,181)), interpolation='none' )
+        plt.imshow( Ftot.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
         ax = fig.add_subplot(2,2,4)
-        ax.imshow( Fem.reshape((181,181)), interpolation='none' )
-
+        ax.imshow( Fem.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
         return et, Fem
     else:
         raise ValueError("Don't know mode %s. Bombing out..." % (mode))
@@ -155,6 +164,88 @@ def CosineFitter_mpi_master( angles, data ):
 
 
 
+def CosineFitter_new( angles, data ):
+
+    assert angles.ndim == 1
+    assert data.shape[0] == angles.size
+
+    # if data is a 1d-array, then turn it into a 2d with singleton dimension
+    if data.ndim==1:
+        data = data.reshape( (data.size,1) )
+    
+    # how many data columns do we have?
+    Nspots = data.shape[1]
+
+    Nphases = 91
+    phases  = np.linspace( 0, 90, Nphases )
+
+    rm = residualmatrix    = np.zeros( (phases.size, Nspots) )
+    cm = coefficientmatrix = np.zeros( (phases.size, 2, Nspots) )
+
+    # we'll init all phase-shifts at once, giving
+    # a separate column for each phase offset
+    # (these next two lines are beautiful, enjoy)
+    shiftcos = np.cos( 2*np.pi/180.0*reduce( np.add, np.meshgrid( -phases, angles ) ) )
+    er=np.vstack((np.ones(shiftcos.shape),shiftcos)).reshape((shiftcos.shape[0],shiftcos.shape[1]*2), order='F')
+
+    # now er starts with a columns of ones, followed by a phase-shifted cosine,
+    # followed by another column of ones, followed by the next phase-shifted cosine, etc ...
+    # Why this arrangement? --- first, we have the cosines still available when the fits are done,
+    # and second, I can pass contiguous arrays to np.linalg.lstsq(), which should help speed-wise
+    # (though i haven't tested this).
+
+    # bestpis   = np.zeros( (Nspots,), dtype=np.int )
+    # bestresis = np.ones( (Nspots,) )*np.inf
+    # bestfitpa = np.zeros( (2,Nspots) )
+    for pi,phase in enumerate( phases ):
+        # perform linear fit
+        f = np.linalg.lstsq( er[:,2*pi:2*pi+2], data )
+        residualmatrix[pi,:] = f[1]
+        cm[pi,:,:] = f[0][:]
+
+        # # for which spots is the current fit better than anythings we've seen before?
+        # wherebetter = f[1]<bestresis
+        # # update the list of best known residuals
+        # bestresis[wherebetter] = f[1][wherebetter]
+        # # write the phase index into a similar list
+        # bestpis[wherebetter]   = pi
+        # # as well as the resulting fit parameters
+        # bestfitpa[:,wherebetter] = f[0][:,wherebetter]
+
+    mm = minindices = np.argmin( residualmatrix, axis=0 )
+    rp = resultingphases = phases[minindices]
+
+    I_0 = np.zeros( (Nspots,) )
+    M_0 = np.zeros( (Nspots,) )
+    resi = np.zeros( (Nspots,) )
+    fit  = np.zeros( (angles.size, Nspots) )
+
+    rawfitpars = np.zeros( (2,Nspots) )
+
+    for i in range(Nspots):
+
+        fit[:,i]     = np.dot( er[:,2*mm[i]:2*mm[i]+2], cm[mm[i],:,i] )
+        rawfitpars[:,i] = cm[mm[i],:,i]
+
+        # phases are given by the minimum index, but
+        # need correction if second coeff is <0
+        if cm[mm[i],1,i] < 0:
+            rp[i] -= 90
+            # fix that coeff for use below
+            cm[mm[i],1,i] *= -1
+        
+        # I_0 is given by the first coefficient
+        I_0[i] = cm[mm[i],0,i]
+
+        # now modulation is given by the ratio of c2/c1
+        M_0[i] = cm[mm[i],1,i]/cm[mm[i],0,i]
+
+        # also collect residuals of these minima
+        resi[i] = rm[mm[i],i]
+
+    return rp, I_0, M_0, resi, fit, rawfitpars
+
+
 def CosineFitter( angles, data ):
 
     assert angles.ndim == 1
@@ -179,8 +270,8 @@ def CosineFitter( angles, data ):
     for pi,phase in enumerate( phases ):
         # write phase-shifted cos**2 into second column
         er[:,1] = np.cos( 2*(angles-phase)*np.pi/180.0 )
-        # perform linear fit 
-        f = np.linalg.lstsq( er, data ) 
+        # perform linear fit
+        f = np.linalg.lstsq( er, data )
         residualmatrix[pi,:] = f[1]
         cm[pi,:,:] = f[0][:]
 
@@ -189,6 +280,8 @@ def CosineFitter( angles, data ):
     I_0 = np.zeros( (Nspots,) )
     M_0 = np.zeros( (Nspots,) )
     resi = np.zeros( (Nspots,) )
+    fit  = np.zeros( (angles.size, Nspots) )
+
 
     for i in range(Nspots):
         # phases are given by the minimum index, but
@@ -207,7 +300,8 @@ def CosineFitter( angles, data ):
         # also collect residuals of these minima
         resi[i] = rm[mm[i],i]
 
-    return rp, I_0, M_0, resi
+    return rp, I_0, M_0, resi, []
+
 
 
 

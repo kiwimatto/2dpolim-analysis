@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from datetime import datetime, timedelta
 
@@ -151,4 +152,140 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     
     ax.figure.canvas.draw()
 
+
+
+def create_test_data_set():
+
+    Npixel_x = 64
+    Npixel_y = 64
+    Nframes  = 1000
+
+    # incident intensity distribution as a simple 2d gaussian
+    pos_x = 32
+    pos_y = 25
+    sigma_x = sigma_y = 7
+    X,Y = np.meshgrid( np.arange(Npixel_x,dtype=float), np.arange(Npixel_y,dtype=float) )
+    laserspot = .5/(np.pi*sigma_x*sigma_y) * \
+        np.exp( -.5*(X-pos_x)**2/sigma_x**2 -.5*(Y-pos_y)**2/sigma_y**2 )
+
+    assert np.abs(np.sum(laserspot)-1) < 1e-3  # make sure this thing is normalized
+
+    ex_angle_increment_per_sec  = 100.0
+    em_angle_change_every_N_sec = 4.0
+    em_increment                = 45.0
+    shutter_off_time            = .1
+
+    Nframes = 1000
+    integration_time = .1
+    timer_step = .05
+
+    timer = np.arange( 0, Nframes*integration_time, timer_step )
+
+    exa = np.zeros_like(timer)
+    ema = np.zeros_like(timer)
+    shutter = np.ones_like(timer, dtype=np.bool)
+    data = np.zeros( (Nframes, Npixel_x, Npixel_y) )
+
+    md_ex = np.random.random(size=(Npixel_y,Npixel_x))
+    md_fu = np.random.random(size=(Npixel_y,Npixel_x))
+    phase_ex = np.random.random(size=(Npixel_y,Npixel_x))*np.pi
+    phase_fu = np.random.random(size=(Npixel_y,Npixel_x))*np.pi
+    gr = np.random.random(size=(Npixel_y,Npixel_x))
+    et = np.random.random(size=(Npixel_y,Npixel_x))
+
+    alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
+
+    ph_ii_minus = phase_ex - alpha
+    ph_ii_plus  = phase_ex + alpha
+    
+    curframe = -1
+    for i in range(len(timer)):
+        print '.',
+        exa[i] = ex_angle_increment_per_sec*timer[i]  # assuming we start at 0deg
+        ema[i] = np.floor(timer[i]/em_angle_change_every_N_sec) * em_increment
+
+        if np.mod(timer[i],em_angle_change_every_N_sec) <= shutter_off_time: 
+            if not timer[i] <= shutter_off_time:  # stay on at start
+                shutter[i] = 0
+
+        which_frame_now = np.floor(timer[i]/integration_time)
+        if not curframe == which_frame_now:
+            curframe = which_frame_now
+            Fnoet  =    np.cos( exa[i]-ph_ii_minus )**2 * np.cos( ema[i]-ph_ii_minus )**2
+            Fnoet += gr*np.cos( exa[i]-phase_ex )**2    * np.cos( ema[i]-phase_ex )**2
+            Fnoet +=    np.cos( exa[i]-ph_ii_plus )**2  * np.cos( ema[i]-ph_ii_plus )**2
         
+            Fnoet /= (2+gr)
+            Fnoet /= np.sum(Fnoet)
+
+            Fet   = .25 * (1+md_ex*np.cos(2*(exa[i]-phase_ex))) * (1+md_fu*np.cos(2*(ema[i]-phase_fu-phase_ex)))
+            Fet  /= np.sum(Fet)
+    
+            data[which_frame_now,:,:] = (et*Fet + (1-et)*Fnoet) * laserspot
+            print 'frame number %d done' % which_frame_now
+
+    writeTestDataMotorFile(timer,exa,ema,shutter)
+    writeTestDataFile(data)
+
+    import matplotlib.pyplot as plt
+    plt.interactive(True)
+    plt.imshow( laserspot )
+
+
+def writeTestDataMotorFile(timer,exa,ema,shutter):
+    towrite = ['Date       Time         Motor Em        Motor Ex        Shutter Status\n']
+    starttime = time.time()
+    for i in range(len(timer)):
+        # construct line to print, first: data-time string
+        line  = time.strftime( '%d/%m/%Y %H:%M:%S', time.localtime(starttime+timer[i]) )
+        line += '.%02d\t' % np.int(100*np.mod(timer[i],1))   # add some fractional seconds
+        line += '%E\t' % ema[i]       #
+        line += '%E\t' % exa[i]       # 
+        if shutter[i]:
+            line += 'open' 
+        else:
+            line += 'close'
+        line += '\n'
+        towrite.append( line )
+
+    f = open('testmotordata.txt','w')
+    f.writelines( towrite )
+    f.close()
+
+
+def writeTestDataFile(data):
+    np.save( 'testdata.npy', data )
+
+
+def generate_single_funnel_test_data( excitation_angles, emission_angles, \
+                                          md_ex=0, md_fun=1, \
+                                          phase_ex=0, phase_fun=0, \
+                                          gr=1.0, et=1.0 ):
+
+    from fitting import fit_portrait_single_funnel_symmetric
+
+    params = np.zeros((3,))
+    params[0] = md_fun     # mod depth of the funnel
+    params[1] = phase_fun  # angle of the funnel
+    params[2] = gr         # geometric ratio of the dipole amplitudes
+
+    ex_angles, em_angles = np.meshgrid( excitation_angles, emission_angles )
+    Ftot = et             # in the 'generate data' mode, Ftot is interpreted as the energy transfer level
+
+    mod_depth_excitation = md_ex
+    phase_excitation     = phase_ex
+
+    # using fit function to generate data
+    Fem = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
+                                                    mod_depth_excitation, phase_excitation, \
+                                                    mode='generate data' )
+
+    return Fem.flatten()
+
+    # import matplotlib.pyplot as plt
+    # plt.interactive(True)
+    # plt.matshow( Fem, origin='bottom' )
+#    plt.colorbar()
+
+
+    

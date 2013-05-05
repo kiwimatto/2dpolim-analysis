@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 plt.interactive(1)
 from pyspec.ccd.files import PrincetonSPEFile
 from motors import NewSetupMotor, ExcitationMotor, EmissionMotor
-from fitting import CosineFitter, CosineFitter_mpi_master
+from fitting import CosineFitter, CosineFitter_new, CosineFitter_mpi_master
 import scipy.optimize as so
 
 
@@ -15,13 +15,13 @@ class Movie:
                       phase_offset_excitation=0, \
                       datamode='validdata', \
                       which_setup='new setup', \
-                      use_mpi=True ):
+                      use_new_fitter=True ):
 
         # get those objects going
         self.camera_data      = CameraData( spe_filename )
 
-        if use_mpi:
-            self.cos_fitter = CosineFitter_mpi_master
+        if use_new_fitter:
+            self.cos_fitter = CosineFitter_new
         else:
             self.cos_fitter = CosineFitter
 
@@ -156,19 +156,22 @@ class Movie:
         thoroughly in the future, but for now: Handle with care.
         """
 
-        emangles = np.array( [self.emission_motor.angle(t) for t in self.timeaxis] )
+        emangles = np.array( [self.emission_motor.angle(t,self.camera_data.exposuretime) \
+                                  for t in self.timeaxis] )
 
         # frames are valid where emangles is not equal to -1
         validframes = emangles != -1
     
         emangles_rounded_valid = np.round(emangles[validframes], decimals=1)
         number_of_lines = np.unique( emangles_rounded_valid ).size
+#        print "number_of_lines: %d" % number_of_lines
 
         # edge 'detection'
         d = np.diff( emangles_rounded_valid )
         d[0] = 1
         d[d!=0] = 1
         d = np.concatenate( (d, np.array([1])) )
+ #       print d
         edges    = d.nonzero()[0]
         # average edge width
         avewidth = np.mean( np.diff( edges )[:-1] )
@@ -333,6 +336,83 @@ class Movie:
 
                 s.averagematrix = averagematrix
 
+    def fit_all_lines_spot_parallel( self ):
+        # init average portrait matrices, so that we can write to them without
+        # having to store a matrix for each portrait
+        for s in self.spots:
+            s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+
+        # we assume that the number of portraits and lines is the same 
+        # for all spots (can't think of a reason why that shouldn't be the case).
+        Nportraits = self.portrait_indices.shape[0]
+        Nlines     = len( self.spots[0].portraits[0].lines )
+
+        # for each portrait ---- outermost loop, we do portraits in series
+        for pi in range(Nportraits):
+            # averageportrait = np.zeros_like( portraitlist[0].matrix )
+            # for p in spot.portraits:
+            #     averageportrait += p.matrix
+            # averageportrait /= len(spot.portraits)
+
+            # spot.averageportrait = averageportrait
+
+            # part I, 'horizontal fitting' of the lines of constant emission angles
+
+            # for each line ---- we do lines in series, __but all spots in parallel__:
+            for li in range(Nlines):
+
+                # get excitation angle array (same for all spots!)
+                exangles    = self.spots[0].portraits[pi].lines[li].exangles
+
+                # create list of intensity arrays (one array for each spot)
+                intensities = [spot.portraits[pi].lines[li].intensities for spot in self.spots]
+
+                # turn into numpy array and transpose
+                intensities = np.array( intensities ).T
+
+                exa = exangles.copy()
+                phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
+
+                # write cosine parameters into line object
+                for si in range(len(self.spots)):
+                    self.spots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
+
+    def compute_modulation_in_emission( self,portrait ):
+        # part II, 'vertical fitting' --- we do each spot by itself, but 
+        # fit all verticals in parallel
+
+        # collect list of unique emission angles (same for all spots!)                    
+        emangles = [l.emangle for l in portrait.lines]
+        # turn into array, transpose and squeeze
+        emangles = np.squeeze(np.array( emangles ).T)
+
+        # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
+        fitintensities = np.array([l.cosValue( self.excitation_angles_grid ) for l in portrait.lines])
+
+        phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
+        
+        # phasor addition!
+        proj_em = np.real( rawfitpars[0,:] * np.exp( 1j*rawfitpars[1,:]*np.pi/180.0 ) \
+                               * np.exp( 1j*self.emission_angles_grid ) )
+
+        phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( self.emission_angles_grid, proj_em ) 
+        portrait.phase_em = phase[0]
+        portrait.M_em = M
+        
+
+                
+#             # evaluate portrait matrix
+#                     mycos = lambda a, ph, I, M: I*(1+M*(np.cos(2*(a-ph)*np.pi/180.0)))
+#                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+#                     for exi in range( self.excitation_angles_grid.size ):
+#                         pic[:,exi] = mycos( self.emission_angles_grid, phase[si][exi], I0[si][exi], M[si][exi] )
+#                     s.averagematrix += pic
+# #                    s.portraits[pi].matrix = pic
+
+#         for s in self.spots:
+#             s.averagematrix /= Nportraits
+
+
 
     def fit_all_portraits_spot_parallel( self, evaluate_portrait_matrices=True ):
 
@@ -370,7 +450,7 @@ class Movie:
                 intensities = np.array( intensities ).T
 
                 exa = exangles.copy()
-                phase, I0, M, resi = self.cos_fitter( exa, intensities ) 
+                phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
 
                 # write cosine parameters into line object
                 for si in range(len(self.spots)):
@@ -390,8 +470,8 @@ class Movie:
             fitintensities = np.hstack( fitintensities )
             print fitintensities.shape
 
-            phase, I0, M, resi = self.cos_fitter( emangles, fitintensities ) 
-            print phase.shape
+            phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
+#            print phase.shape
                 
             # store vertical fit params
             phase = np.hsplit(phase, len(self.spots))
@@ -476,8 +556,8 @@ class Movie:
         proj_em = np.array( [np.mean( s.averagematrix, axis=1 ) for s in self.spots] ).T
 
         # fitting
-        ph_ex, I_ex, M_ex, r_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
-        ph_em, I_em, M_em, r_em = self.cos_fitter( self.emission_angles_grid, proj_em )
+        ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
+        ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em = self.cos_fitter( self.emission_angles_grid, proj_em )
 
         # assignment
         LS = ph_ex - ph_em
@@ -486,7 +566,11 @@ class Movie:
         for si,s in enumerate(self.spots):
             s.phase_ex = ph_ex[si]
             s.M_ex     = M_ex[si]
+            s.phase_em = ph_em[si]
+            s.M_em     = M_em[si]
             s.LS       = LS[si]
+            
+
 
         # for spot in self.spots:
         #     ap = spot.averagematrix
@@ -685,7 +769,7 @@ class Movie:
         self.data = None             # this doesn't seem to do anything memory-wise
                                      # (are these all just pointers??)
 
-        self.camera_data = None      # this helps (as expected)
+#        self.camera_data = None      # this helps (as expected)
 
         print "fitting all portraits"
 #        self.fit_all_portraits()
@@ -729,9 +813,14 @@ class CameraData:
     def __init__( self, spe_filename ):
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
         self.filename           = spe_filename
-        self.rawdata_fileobject = PrincetonSPEFile( self.filename )
-        self.rawdata            = self.rawdata_fileobject.getData()#.astype(np.float64)
-        self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
+        if self.filename.split('.')[-1]=='npy':   # we got test data, presumably
+            print "======== TEST DATA IT SEEMS =========="
+            self.rawdata      = np.load(self.filename)
+            self.exposuretime = .1    # in seconds
+        else:
+            self.rawdata_fileobject = PrincetonSPEFile( self.filename )
+            self.rawdata            = self.rawdata_fileobject.getData()#.astype(np.float64)
+            self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
         self.average_image      = np.mean( self.rawdata, axis=0 )
 
         ###  extract or generate time stamps ###
