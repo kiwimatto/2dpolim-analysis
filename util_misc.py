@@ -172,16 +172,17 @@ def create_test_data_set():
 
     maxsignal  = 1000
     laserspot *= maxsignal
+    # bg         = 2
+    # laserspot += bg
 
-
-    ex_angle_increment_per_sec  = 100.0
-    em_angle_change_every_N_sec = 4.0
-    em_increment                = 22.5
-    shutter_off_time            = .1
+    ex_angle_increment_per_sec  = 100.0  # deg/s
+    em_angle_change_every_N_sec = 4.0    # s
+    em_increment                = 22.5   # deg
+    shutter_off_time            = .1     # s
 
     Nframes = 500
-    integration_time = .1
-    timer_step = .05
+    integration_time = .1                # s
+    timer_step = .05                     # s
 
     timer      = np.arange( 0, Nframes*integration_time, timer_step )
     frametimes = np.arange( 0, Nframes*integration_time, integration_time )
@@ -190,25 +191,25 @@ def create_test_data_set():
 
     md_ex = np.random.random(size=(Npixel_y,Npixel_x))
     md_fu = np.random.random(size=(Npixel_y,Npixel_x))
-    phase_ex = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi
-    phase_fu = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi
+    phase_ex = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi   # rad
+    phase_fu = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi   # rad
     gr = np.random.random(size=(Npixel_y,Npixel_x))
     et = np.random.random(size=(Npixel_y,Npixel_x))
 
-    alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
+    alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )   # rad
 
-    ph_ii_minus = phase_ex - alpha
-    ph_ii_plus  = phase_ex + alpha
+    ph_ii_minus = phase_ex - alpha   # rad
+    ph_ii_plus  = phase_ex + alpha   # rad
     
     exaframe = np.zeros( (Nframes,) )
     emaframe = np.zeros( (Nframes,) )
     for i in range(len(frametimes)):
-        ex = ex_angle_increment_per_sec*frametimes[i] 
-        em = np.floor(frametimes[i]/em_angle_change_every_N_sec) * em_increment
-        exaframe[i] = ex
-        emaframe[i] = em
-        ex *= np.pi/180.0
-        em *= np.pi/180.0
+        ex = ex_angle_increment_per_sec*frametimes[i]   # deg
+        em = np.floor(frametimes[i]/em_angle_change_every_N_sec) * em_increment  # deg
+        exaframe[i] = ex   # deg
+        emaframe[i] = em   # deg
+        ex *= np.pi/180.0    # rad
+        em *= np.pi/180.0    # rad
 
         Fnoet  =    np.cos( ex-ph_ii_minus )**2 * np.cos( em-ph_ii_minus )**2
         Fnoet += gr*np.cos( ex-phase_ex )**2    * np.cos( em-phase_ex )**2
@@ -234,8 +235,8 @@ def create_test_data_set():
     shutter = np.ones_like(timer, dtype=np.bool)
     for i in range(len(timer)):
         print '.',
-        exa[i] = ex_angle_increment_per_sec*timer[i]  # assuming we start at 0deg
-        ema[i] = np.floor(timer[i]/em_angle_change_every_N_sec) * em_increment
+        exa[i] = ex_angle_increment_per_sec*timer[i]  # assuming we start at 0deg   # deg
+        ema[i] = np.floor(timer[i]/em_angle_change_every_N_sec) * em_increment      # deg
 
         if np.mod(timer[i],em_angle_change_every_N_sec) <= shutter_off_time: 
             if not timer[i] <= shutter_off_time:  # stay on at start
@@ -264,8 +265,6 @@ def create_test_data_set():
     plt.imshow( laserspot, interpolation='none' )
 
     return data, exaframe, emaframe
-
-
 
 
 def writeTestDataMotorFile(timer,exa,ema,shutter):
@@ -330,21 +329,15 @@ def generate_single_funnel_test_data( excitation_angles, emission_angles, \
                                           phase_ex=0, phase_fu=0, \
                                           gr=1.0, et=1.0 ):
 
-    import numpy as np
-
     ex, em = np.meshgrid( excitation_angles, emission_angles )
 
     alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
 
-    phase_ex *= np.pi/180.0
     ph_ii_minus = phase_ex - alpha
     ph_ii_plus  = phase_ex + alpha
     
     print ph_ii_minus
     print ph_ii_plus
-
-    ex *= np.pi/180.0
-    em *= np.pi/180.0
 
     Fnoet  =    np.cos( ex-ph_ii_minus )**2 * np.cos( em-ph_ii_minus )**2
     Fnoet += gr*np.cos( ex-phase_ex )**2    * np.cos( em-phase_ex )**2

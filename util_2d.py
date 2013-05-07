@@ -25,21 +25,24 @@ class Movie:
         else:
             self.cos_fitter = CosineFitter
 
+        # set up motors --- phase offset in radians!!!
         if which_setup=='old setup':
             self.excitation_motor = ExcitationMotor( excitation_motor_filename, \
                                                          phase_offset_excitation, \
-                                                         rotation_direction=-1)
+                                                         rotation_direction=-1, \
+                                                         optical_element='lambda_over_2_plate')
             self.emission_motor   = EmissionMotor( emission_motor_filename )
 
         elif which_setup=='new setup':
             self.excitation_motor = NewSetupMotor( excitation_motor_filename, \
                                                        which_motor='excitation', \
-                                                       phase_offset=phase_offset_excitation )
+                                                       phase_offset=phase_offset_excitation, \
+                                                       optical_element='polarizer' )
             if emission_motor_filename==None:
                 emission_motor_filename = excitation_motor_filename
             self.emission_motor = NewSetupMotor( emission_motor_filename, \
                                                      which_motor='emission', \
-                                                     phase_offset=0 )
+                                                     phase_offset=0*np.pi/180.0 )
 
 
         # where do we get our time axis from?  
@@ -54,8 +57,8 @@ class Movie:
         self.datamode = datamode
 
         # fix the excitation and emission angle grids for now
-        self.excitation_angles_grid = np.linspace(0,180,181)
-        self.emission_angles_grid = np.linspace(0,180,181)
+        self.excitation_angles_grid = np.linspace(0,np.pi,181)
+        self.emission_angles_grid = np.linspace(0,np.pi,181)
 
 
 
@@ -120,8 +123,8 @@ class Movie:
         assert Intensity.shape[0] == self.timeaxis.size    ### FIXME: is this still needed?
 
         if self.datamode=='truedata':
-            exangles = np.round(exangles, decimals=1)
-            emangles = np.round(emangles, decimals=1)
+            exangles = np.round(exangles, decimals=2)
+            emangles = np.round(emangles, decimals=2)
 
             output = np.zeros( (self.timeaxis.size, 4+Nspots) )
             for i in range( self.timeaxis.size ):
@@ -132,8 +135,8 @@ class Movie:
                 output[i,4:4+Nspots] = Intensity[i,:]
 
         elif self.datamode=='validdata':
-            emangles = np.round(emangles[validframes], decimals=1)
-            exangles = np.round(exangles[validframes], decimals=1)
+            emangles = np.round(emangles[validframes], decimals=2)
+            exangles = np.round(exangles[validframes], decimals=2)
 
             output = np.zeros( (self.Nvalidframes, 3+Nspots) )
             trueindices = validframes.nonzero()[0]
@@ -162,7 +165,7 @@ class Movie:
         # frames are valid where emangles is not equal to -1
         validframes = emangles != -1
     
-        emangles_rounded_valid = np.round(emangles[validframes], decimals=1)
+        emangles_rounded_valid = np.round(emangles[validframes], decimals=2)
         number_of_lines = np.unique( emangles_rounded_valid ).size
 #        print "number_of_lines: %d" % number_of_lines
 
@@ -173,9 +176,11 @@ class Movie:
         d = np.concatenate( (d, np.array([1])) )
  #       print d
         edges    = d.nonzero()[0]
-        # average edge width
+        # average gap size between edges
         avewidth = np.mean( np.diff( edges )[:-1] )
 
+        # if the last gap size differs more than ten percent from the average,
+        # remove it
         if not avewidth*.9 <= np.diff( edges )[-1] <= avewidth*1.1:
             edges = edges[:-1]
 
@@ -318,7 +323,7 @@ class Movie:
 
                 if evaluate_portrait_matrices:
                     # evaluate portrait matrix
-                    mycos = lambda a, ph, I, M: I*(1+M*(np.cos(2*(a-ph)*np.pi/180.0)))
+                    mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
                     for exi in range( self.excitation_angles_grid.size ):
                         pic[:,exi] = mycos( self.emission_angles_grid, phase[exi], I0[exi], M[exi] )
@@ -377,6 +382,7 @@ class Movie:
                 for si in range(len(self.spots)):
                     self.spots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
 
+
     def compute_modulation_in_emission( self,portrait ):
         # part II, 'vertical fitting' --- we do each spot by itself, but 
         # fit all verticals in parallel
@@ -392,7 +398,7 @@ class Movie:
         phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
         
         # phasor addition!
-        proj_em = np.real( rawfitpars[0,:] * np.exp( 1j*rawfitpars[1,:]*np.pi/180.0 ) \
+        proj_em = np.real( rawfitpars[0,:] * np.exp( 1j*rawfitpars[1,:] ) \
                                * np.exp( 1j*self.emission_angles_grid ) )
 
         phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( self.emission_angles_grid, proj_em ) 
@@ -493,7 +499,7 @@ class Movie:
 
                 if evaluate_portrait_matrices:
                     # evaluate portrait matrix
-                    mycos = lambda a, ph, I, M: I*(1+M*(np.cos(2*(a-ph)*np.pi/180.0)))
+                    mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
                     for exi in range( self.excitation_angles_grid.size ):
                         pic[:,exi] = mycos( self.emission_angles_grid, phase[si][exi], I0[si][exi], M[si][exi] )
@@ -599,8 +605,8 @@ class Movie:
 
         # assignment
         LS = ph_ex - ph_em
-        LS[LS >  90] -= 180.0
-        LS[LS < -90] += 180.0
+        LS[LS >  np.pi/2] -= np.pi
+        LS[LS < -np.pi/2] += np.pi
         for si,s in enumerate(self.spots):
             s.phase_ex = ph_ex[si]
             s.M_ex     = M_ex[si]
@@ -664,9 +670,9 @@ class Movie:
         # we need to exclude those to not oversample
         for s in self.spots:
             sam = s.averagematrix
-            if self.excitation_angles_grid[-1]==180.0:
+            if self.excitation_angles_grid[-1]==np.pi:
                 sam = sam[:,:-1]
-            if self.emission_angles_grid[-1]==180.0:
+            if self.emission_angles_grid[-1]==np.pi:
                 sam = sam[:-1,:]
             s.pruned_averagematrix = sam
 
@@ -758,19 +764,25 @@ class Movie:
         #print i1,i2,i3,i4,df
 
 
-    def ETmodel( self, fac=1e2, pg=1e-10, epsi=1e-12 ):
+    def ETmodel( self, fac=1e4, pg=1e-9, epsi=1e-11 ):
 
         from fitting import fit_portrait_single_funnel_symmetric
 
         for si,s in enumerate(self.spots):
             print 'ETmodel fitting spot %d' % si
-            a0 = [s.M_ex, .5, 0, 1]
+
+            # we 'correct' the modulation in excitation to be within 
+            # limits of reason (and proper arccos functionality)
+            mex = np.clip( s.M_ex, .000001, .999999 )
+
+            a0 = [mex, .4, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
-            funargs = (EX, EM, s.averagematrix, s.M_ex, s.phase_ex, 'fitting')
+            funargs = (EX, EM, s.averagematrix, mex, s.phase_ex, 'fitting')
 
             LB = [0.001, 0, -np.pi/2, 0]
-            UB = [1.000, 1,  np.pi/2, 2*(1+s.M_ex)/(1-s.M_ex)]
+            UB = [0.999999, 1,  np.pi/2, 2*(1+mex)/(1-mex)*.999]
             print "upper limit: ", 2*(1+s.M_ex)/(1-s.M_ex)
+            print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
 
             a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
                                       x0=a0, \
@@ -787,9 +799,12 @@ class Movie:
             s.ETmodel_th_fu = a[0][2]
             s.ETmodel_gr    = a[0][3]
 
-            # et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
-            #                                                     s.averagematrix, \
-            #                                                     s.M_ex, s.phase_ex, mode='display' )
+            et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
+                                                                s.averagematrix, \
+                                                                mex, s.phase_ex, mode='display' )
+
+            import time
+            time.sleep(2)
 
 
     def ETmodel_de( self, fac=1e2, pg=1e-10, epsi=1e-12 ):
@@ -951,7 +966,7 @@ class Spot:
                     self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 ).astype( np.float )
         else:
-            ValueError("Spot __init__ did not understand int_type='%s' (should be mean|max|min)" % (int_type))
+            raise ValueError("Spot __init__ did not understand int_type='%s' (should be mean|max|min)" % (int_type))
 
         # remove background
         I -= bg
@@ -1048,7 +1063,7 @@ class Line:
         self.resi = residuals
         
     def cosValue( self, angle ):
-        return self.I0 * (1+self.M0*np.cos( 2*(angle-self.phase)*np.pi/180.0 ))
+        return self.I0 * ( 1+self.M0*np.cos( 2*(angle-self.phase) ) )
 
 
 

@@ -18,7 +18,8 @@ show_mem()
 #prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
 prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/'
-global_phase = 9.0
+
+global_phase = 9.0 * np.pi/180.0   # must be in radians!!!
 
 #AMdegrees = [90]#,120,150,180]
 

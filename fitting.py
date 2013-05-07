@@ -17,7 +17,7 @@ import numpy as np
 #     elif which_error=='R2':
 #         err = np.sum( (Fem-Ftot)**2 )/np.sum( (Ftot-np.mean(Ftot))**2 )
 #     else:
-#         ValueError("Unknown value for which_error: %s  (should be 'chi2' or 'R2')" % (which_error))
+#         raise ValueError("Unknown value for which_error: %s  (should be 'chi2' or 'R2')" % (which_error))
 
 
 
@@ -33,11 +33,11 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
 
     md_fu = params[0]
     et    = params[1]
-    th_fu = params[2]     # in radians
+    th_fu = params[2]
     gr    = params[3]
 
     md_ex = mod_depth_excitation
-    ph_ex = phase_excitation * np.pi/180.0
+    ph_ex = phase_excitation
 
     # if data_style=='vector':
     #     EX, EM = ex_angles, em_angles 
@@ -47,23 +47,33 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     N_ex_angles = ex_angles.shape[1]   # because ex_angles was generated via meshgrid
     N_em_angles = ex_angles.shape[0]   # ...
 
-    EX, EM = ex_angles.flatten()*np.pi/180.0, em_angles.flatten()*np.pi/180.0
+    EX, EM = ex_angles.flatten(), em_angles.flatten()
 
     # calculate angle between off-axis dipoles in symmetric model
     alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
+#    print alpha
+    if np.isnan(alpha):
+        raise ValueError( "alpha is nan. gr=%2.20e, md_ex=%2.20e" % (gr, md_ex) )
+
+    # print ph_ex
+    # print alpha
 
     ph_ii_minus = ph_ex -alpha
     ph_ii_plus  = ph_ex +alpha
 
-    EnNoET  = np.zeros_like( EX )
-    EnNoET +=    np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
-    EnNoET += gr*np.cos( EX-ph_ex )**2 * np.cos( EM-ph_ex )**2
-    EnNoET +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
+    # print ph_ii_minus
+    # print ph_ii_plus
 
-    Fnoet  = EnNoET / (2+gr)
+    Fnoet  =    np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
+    Fnoet += gr*np.cos( EX-ph_ex )**2 * np.cos( EM-ph_ex )**2
+    Fnoet +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
+
+    Fnoet /= (2.0+gr)
 #    Fnoet /= np.sum(Fnoet)
+#    print 'Fnoet isnan: ', np.any(np.isnan(Fnoet)) 
 
     Fet   = .25 * (1+md_ex*np.cos(2*(EX-ph_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-ph_ex)))
+#    print 'Fet isnan: ', np.any(np.isnan(Fet)) 
 #    Fet  /= np.sum(Fet)
 
 
@@ -90,33 +100,51 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     #     print et
 
     Fem = et*Fet + (1-et)*Fnoet 
+#    print 'isnan: ', np.any(np.isnan(Fem)) 
 
     # max-normalize both Ftot and Fem
     Ftot /= np.max(Ftot)
     Fem  /= np.max(Fem)
 
+    # import matplotlib.pyplot as plt
+    # plt.interactive(True)
+    # plt.imshow( Fem.reshape((N_em_angles,N_ex_angles)) )
+    # plt.figure()
+    # plt.imshow( Ftot )
+    # raise hell
+
+    # print Fem.reshape((N_em_angles,N_ex_angles))
+    # print np.diag( Fem.reshape((N_em_angles,N_ex_angles)) )
+    
     resi = np.sum( (Ftot.flatten()-Fem)**2 )
 
     if mode=="fitting":
         return resi   # this is the residual straight from the least-squares fit
 #        return Ftot - (et*Fet + (1-et)*Fnoet)
     elif mode=="display":
+        Ftot = Ftot.reshape((N_em_angles,N_ex_angles))
+        Fem  = Fem.reshape((N_em_angles,N_ex_angles))        
         import matplotlib.pyplot as plt
-        fig = plt.figure()
-        ax = fig.add_subplot(2,2,1)
-        ax.imshow( ex_angles.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
-        ax = fig.add_subplot(2,2,2)
-        plt.imshow( em_angles.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
-        ax = fig.add_subplot(2,2,3)
-        plt.imshow( Ftot.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
-        ax = fig.add_subplot(2,2,4)
-        ax.imshow( Fem.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
+        fig = plt.figure( figsize=(12,6))
+        axll = fig.add_axes([.05,.1,.1,.6])
+        axlc = fig.add_axes([.15,.1,.3,.6])
+        axlt = fig.add_axes([.15,.7,.3,.1])
+        axlc.matshow( Ftot, interpolation='none', origin='bottom', vmin=0, vmax=np.max(Ftot) )
+        axll.plot( np.mean( Ftot, axis=1 ), range(N_em_angles) )
+        axlt.plot( np.mean( Ftot, axis=0 ) )
+        axrl = fig.add_axes([.55,.1,.1,.6])
+        axrc = fig.add_axes([.65,.1,.3,.6])
+        axrt = fig.add_axes([.65,.7,.3,.1])
+        axrc.matshow( np.abs(Ftot-Fem), interpolation='none', origin='bottom', vmin=0, vmax=np.max(Ftot) )
+        axrl.plot( np.mean( Fem.reshape((N_em_angles,N_ex_angles)), axis=1 ), range(N_em_angles) )
+        axrt.plot( np.mean( Fem.reshape((N_em_angles,N_ex_angles)), axis=0 ) )
+        # ax = fig.add_subplot(1,2,2)
+        # ax.imshow( Fem.reshape((N_em_angles,N_ex_angles)), interpolation='none' )
+        plt.draw()
         return et, Fem
     else:
         raise ValueError("Don't know mode %s. Bombing out..." % (mode))
         return
-
-
 
 
 
@@ -192,7 +220,7 @@ def CosineFitter_new( angles, data ):
     Nspots = data.shape[1]
 
     Nphases = 91
-    phases  = np.linspace( 0, 90, Nphases )
+    phases  = np.linspace( 0, np.pi/2, Nphases )
 
     rm = residualmatrix    = np.zeros( (phases.size, Nspots) )
     cm = coefficientmatrix = np.zeros( (phases.size, 2, Nspots) )
@@ -200,7 +228,7 @@ def CosineFitter_new( angles, data ):
     # we'll init all phase-shifts at once, giving
     # a separate column for each phase offset
     # (these next two lines are beautiful, enjoy)
-    shiftcos = np.cos( 2*np.pi/180.0*reduce( np.add, np.meshgrid( -phases, angles ) ) )
+    shiftcos = np.cos( 2*reduce( np.add, np.meshgrid( -phases, angles ) ) )
     er=np.vstack((np.ones(shiftcos.shape),shiftcos)).reshape((shiftcos.shape[0],shiftcos.shape[1]*2), order='F')
 
     # now er starts with a columns of ones, followed by a phase-shifted cosine,
@@ -245,7 +273,7 @@ def CosineFitter_new( angles, data ):
         # phases are given by the minimum index, but
         # need correction if second coeff is <0
         if cm[mm[i],1,i] < 0:
-            rp[i] -= 90
+            rp[i] -= np.pi/2
             # fix that coeff for use below
             cm[mm[i],1,i] *= -1
         
@@ -274,7 +302,7 @@ def CosineFitter( angles, data ):
     Nspots = data.shape[1]
 
     Nphases = 91
-    phases  = np.linspace( 0, 90, Nphases )
+    phases  = np.linspace( 0, np.pi/2, Nphases )
 
     rm = residualmatrix    = np.zeros( (phases.size, Nspots) )
     cm = coefficientmatrix = np.zeros( (phases.size, 2, Nspots) )
@@ -284,7 +312,7 @@ def CosineFitter( angles, data ):
 
     for pi,phase in enumerate( phases ):
         # write phase-shifted cos**2 into second column
-        er[:,1] = np.cos( 2*(angles-phase)*np.pi/180.0 )
+        er[:,1] = np.cos( 2*(angles-phase) )
         # perform linear fit
         f = np.linalg.lstsq( er, data )
         residualmatrix[pi,:] = f[1]
@@ -302,7 +330,7 @@ def CosineFitter( angles, data ):
         # phases are given by the minimum index, but
         # need correction if second coeff is <0
         if cm[mm[i],1,i] < 0:
-            rp[i] -= 90
+            rp[i] -= np.pi/2
             # fix that coeff for use below
             cm[mm[i],1,i] *= -1
         
@@ -321,8 +349,8 @@ def CosineFitter( angles, data ):
 
 
 def generate_fake_data( phase, I, M, sigma=0 ):
-    angles = np.linspace(0, 180, 181)
-    data   = I*(1+M* np.cos(2*(angles-phase)*np.pi/180.0) )
+    angles = np.linspace(0, np.pi, 181)
+    data   = I*(1+M* np.cos(2*(angles-phase)) )
     if sigma>0:
         data   += np.random.normal( size=(angles.size,), scale=sigma )
     return angles, data

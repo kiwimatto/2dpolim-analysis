@@ -29,11 +29,16 @@ class NewSetupMotor:
     values for the excitation motor.
     """
 
-    def __init__( self, filename, which_motor, phase_offset=0 ):
+    def __init__( self, filename, \
+                      which_motor, \
+                      phase_offset=0, \
+                      optical_element='polarizer'):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
         self.phase_offset = phase_offset
+        self.optical_element = optical_element
+
         self.load_motor_file( filename, which_motor )
 
 
@@ -64,12 +69,15 @@ class NewSetupMotor:
 
         self.timestamps = timestamps
         if which_motor=='excitation':
-            self.angles     = exciangles
+            self.angles     = exciangles * np.pi/180.0
         elif which_motor=='emission':
-            self.angles     = emisangles
+            self.angles     = emisangles * np.pi/180.0
         else:
             raise ValueError("Input argument which_motor to class NewSetupMotor must take values 'excitation' or 'emission'. Got: %s" % (which_motor))
         self.shutter    = shutter
+
+        if self.optical_element=='lambda_over_2_plate':
+            self.angles *= 2
 
 
     def angle(self, time, exposuretime=.1, respectShutter=True, raw=False ):
@@ -111,13 +119,13 @@ class NewSetupMotor:
                 if raw:
                     return phi
                 else:
-                    return phi % 180.0
+                    return phi % np.pi
         else:
             phi = np.interp( time, self.timestamps, self.angles ) + self.phase_offset
             if raw:
                 return phi
             else:
-                return phi % 180.0
+                return phi % np.pi
 
 
 
@@ -129,13 +137,17 @@ class ExcitationMotor:
         *   present the function such that it can be queried
     """
 
-    def __init__(self, filename, phase_offset_excitation=0, rotation_direction=-1 ):
+    def __init__(self, filename, \
+                     phase_offset_excitation=0, \
+                     rotation_direction=-1, \
+                     optical_element='lambda_over_2_plate'):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
         self.phase_offset_excitation = phase_offset_excitation
         self.rotation_direction = rotation_direction
-
+        self.optical_element = optical_element
+        
         self.load_excitation_motor_file( filename )
         self.determine_function()
 
@@ -158,7 +170,7 @@ class ExcitationMotor:
                              skiprows=1, \
                              converters={0: lambda s: deal_with_date_time_string(self, s), \
                                              1: lambda s: s=='UP'} )
-                    
+
         # timestamps in sec
         timestamps = md[:,0]
         # signal is 1 for UP events, 0 for everything else
@@ -170,17 +182,17 @@ class ExcitationMotor:
         self.endtime    = timestamps[-1]
 
 
-    def angle(self, time, do_modulus=True):
+    def angle(self, time, raw_angles=True):
         """This function will return the angle of the excitation polarization given
         a time (in seconds, counting from the start of the experiment).
         Remember, the angle of the polarization is _twice_ the angle of the polarizer.
         """
         if self.starttime <= time <= self.endtime:
             phi = self.anglefun_slope*time + self.anglefun_intercept + self.phase_offset_excitation
-            if do_modulus:
-                return phi % 180.0
-            else:
+            if raw_angles:
                 return phi
+            else:
+                return phi % np.pi
         else:
             return -1
 
@@ -191,9 +203,14 @@ class ExcitationMotor:
         """
         a = self.signals[self.signals==1]
         t = self.timestamps[self.signals==1]
-        # 720 because the polarization has rotated twice once the 
-        # polarizer (the lambda/2) has rotated once
-        a *= 720*self.rotation_direction
+        if self.optical_element=='lambda_over_2_plate':
+            # 720 because the polarization has rotated twice once the 
+            # polarizer (the lambda/2) has rotated once
+            a *= 4*np.pi*self.rotation_direction
+        elif self.optical_element=='polarizer':
+            a *= 2*np.pi*self.rotation_direction
+        else:
+            raise ValueError("Motor class doesn't know optical_element '%s'" % self.optical_element)
         a = np.cumsum(a)
 
         # make t into a 2d-array
@@ -254,7 +271,7 @@ class EmissionMotor:
         shutter    = md[:,3]
 
         self.timestamps = timestamps
-        self.angles     = emisangles
+        self.angles     = emisangles * np.pi/180.0
         self.shutter    = shutter
 
 
@@ -294,8 +311,8 @@ class EmissionMotor:
             else:
                 # interpolate angle from known angles
                 phi = np.interp( time, self.timestamps, self.angles )
-                return phi % 180.0
+                return phi % np.pi
         else:
             phi = np.interp( time, self.timestamps, self.angles )
-            return phi % 180.0
+            return phi % np.pi
 
