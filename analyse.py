@@ -16,6 +16,7 @@ show_mem()
 
 
 #prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
+#prefix = '/home/kiwimatto/Desktop/130422/S3/'
 prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/'
 global_phase = 9.0
 
@@ -23,14 +24,17 @@ global_phase = 9.0
 
 #for am in AMdegrees:
 # m = Movie( prefix+"S3-633nm-OD01-675LP715BP.SPE", prefix+"MS-S3-633nm-OD01-675LP715BP.txt", \
-#                phase_offset_excitation=global_phase, use_mpi=True )
+#                 phase_offset_excitation=global_phase, use_new_fitter=True )
 m = Movie( prefix+"testdata.npy", prefix+"testmotordata.txt", \
                phase_offset_excitation=global_phase, use_new_fitter=True )
 show_mem()
 
-m.define_background_spot( [4,50,60,60] )
+#m.define_background_spot( [0,0,89,511] )
+m.define_background_spot( [0,6,7,7] )
     
-grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[15,10,55,40] )
+#grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[240,300,242,302] )
+grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,8,1] )
+
 
 show_mem()
 

@@ -59,8 +59,9 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     ax = plt.gca()
 
     if show_bg_spot:
-        p = Rectangle((movie.bg.coords[0],movie.bg.coords[1]), movie.bg.width, movie.bg.height, \
-                          facecolor=[1,0,0,0.1], edgecolor=[1,0,0,.75])
+        p = Rectangle( (movie.bg_spot.coords[0],movie.bg_spot.coords[1]), \
+                           movie.bg_spot.width, movie.bg_spot.height, \
+                           facecolor=[1,0,0,0.1], edgecolor=[1,0,0,.75])
         ax.add_patch( p )
 
     # prepare intensities, etc
@@ -71,9 +72,9 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     phases_em = []
     LSs       = []
     ET_rulers = []
-
+    
     for ss in movie.spots:
-        mean_intensities.append( np.mean(ss.intensity) )
+        mean_intensities.append( ss.intensity_time_average )
         Ms_ex.append( ss.M_ex )
         Ms_em.append( ss.M_em )
         phases_ex.append( ss.phase_ex )
@@ -156,40 +157,41 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
 
 def create_test_data_set():
 
-    Npixel_x = 64
-    Npixel_y = 64
-    Nframes  = 1000
+    Npixel_x = 8
+    Npixel_y = 8
 
     # incident intensity distribution as a simple 2d gaussian
-    pos_x = 32
-    pos_y = 25
-    sigma_x = sigma_y = 7
+    pos_x = 3
+    pos_y = 0
+    sigma_x = sigma_y = 2
     X,Y = np.meshgrid( np.arange(Npixel_x,dtype=float), np.arange(Npixel_y,dtype=float) )
     laserspot = .5/(np.pi*sigma_x*sigma_y) * \
         np.exp( -.5*(X-pos_x)**2/sigma_x**2 -.5*(Y-pos_y)**2/sigma_y**2 )
 
-    assert np.abs(np.sum(laserspot)-1) < 1e-3  # make sure this thing is normalized
+    laserspot /= np.max(laserspot)
+
+    maxsignal  = 1000
+    laserspot *= maxsignal
+
 
     ex_angle_increment_per_sec  = 100.0
     em_angle_change_every_N_sec = 4.0
-    em_increment                = 45.0
+    em_increment                = 22.5
     shutter_off_time            = .1
 
-    Nframes = 1000
+    Nframes = 500
     integration_time = .1
     timer_step = .05
 
-    timer = np.arange( 0, Nframes*integration_time, timer_step )
+    timer      = np.arange( 0, Nframes*integration_time, timer_step )
+    frametimes = np.arange( 0, Nframes*integration_time, integration_time )
 
-    exa = np.zeros_like(timer)
-    ema = np.zeros_like(timer)
-    shutter = np.ones_like(timer, dtype=np.bool)
     data = np.zeros( (Nframes, Npixel_x, Npixel_y) )
 
     md_ex = np.random.random(size=(Npixel_y,Npixel_x))
     md_fu = np.random.random(size=(Npixel_y,Npixel_x))
-    phase_ex = np.random.random(size=(Npixel_y,Npixel_x))*np.pi
-    phase_fu = np.random.random(size=(Npixel_y,Npixel_x))*np.pi
+    phase_ex = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi
+    phase_fu = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi
     gr = np.random.random(size=(Npixel_y,Npixel_x))
     et = np.random.random(size=(Npixel_y,Npixel_x))
 
@@ -198,7 +200,38 @@ def create_test_data_set():
     ph_ii_minus = phase_ex - alpha
     ph_ii_plus  = phase_ex + alpha
     
-    curframe = -1
+    exaframe = np.zeros( (Nframes,) )
+    emaframe = np.zeros( (Nframes,) )
+    for i in range(len(frametimes)):
+        ex = ex_angle_increment_per_sec*frametimes[i] 
+        em = np.floor(frametimes[i]/em_angle_change_every_N_sec) * em_increment
+        exaframe[i] = ex
+        emaframe[i] = em
+        ex *= np.pi/180.0
+        em *= np.pi/180.0
+
+        Fnoet  =    np.cos( ex-ph_ii_minus )**2 * np.cos( em-ph_ii_minus )**2
+        Fnoet += gr*np.cos( ex-phase_ex )**2    * np.cos( em-phase_ex )**2
+        Fnoet +=    np.cos( ex-ph_ii_plus )**2  * np.cos( em-ph_ii_plus )**2
+        
+#        print Fnoet
+
+        Fnoet /= (2+gr)
+#        Fnoet /= np.max(Fnoet)
+
+        Fet   = .25 * (1+md_ex*np.cos(2*(ex-phase_ex))) \
+            * (1+md_fu*np.cos(2*(em-phase_fu-phase_ex)))
+#        Fet  /= np.sum(Fet)
+#        print et*Fet
+#        print (1-et)*Fnoet
+
+        data[i,:,:] = (et*Fet + (1-et)*Fnoet) * laserspot
+#        print et*Fet + (1-et)*Fnoet
+        print 'frame number %d done' % i
+
+    exa = np.zeros_like(timer)
+    ema = np.zeros_like(timer)
+    shutter = np.ones_like(timer, dtype=np.bool)
     for i in range(len(timer)):
         print '.',
         exa[i] = ex_angle_increment_per_sec*timer[i]  # assuming we start at 0deg
@@ -208,28 +241,31 @@ def create_test_data_set():
             if not timer[i] <= shutter_off_time:  # stay on at start
                 shutter[i] = 0
 
-        which_frame_now = np.floor(timer[i]/integration_time)
-        if not curframe == which_frame_now:
-            curframe = which_frame_now
-            Fnoet  =    np.cos( exa[i]-ph_ii_minus )**2 * np.cos( ema[i]-ph_ii_minus )**2
-            Fnoet += gr*np.cos( exa[i]-phase_ex )**2    * np.cos( ema[i]-phase_ex )**2
-            Fnoet +=    np.cos( exa[i]-ph_ii_plus )**2  * np.cos( ema[i]-ph_ii_plus )**2
-        
-            Fnoet /= (2+gr)
-            Fnoet /= np.sum(Fnoet)
 
-            Fet   = .25 * (1+md_ex*np.cos(2*(exa[i]-phase_ex))) * (1+md_fu*np.cos(2*(ema[i]-phase_fu-phase_ex)))
-            Fet  /= np.sum(Fet)
-    
-            data[which_frame_now,:,:] = (et*Fet + (1-et)*Fnoet) * laserspot
-            print 'frame number %d done' % which_frame_now
+    # print data.shape
+    # print timer.shape
+    # print exa.shape
+    # print ema.shape
+    # print exaframe.shape
+    # print emaframe.shape
 
     writeTestDataMotorFile(timer,exa,ema,shutter)
     writeTestDataFile(data)
+    writeTestDataParameters( md_ex, md_fu, phase_ex, phase_fu, gr, et )
 
     import matplotlib.pyplot as plt
-    plt.interactive(True)
-    plt.imshow( laserspot )
+    plt.interactive(True)    
+
+    plt.plot( range(data.shape[0]), data[:,0,0] )
+    plt.plot( range(data.shape[0]), exaframe/1000.0 )
+    plt.plot( range(data.shape[0]), emaframe/1000.0 )
+
+    plt.figure()
+    plt.imshow( laserspot, interpolation='none' )
+
+    return data, exaframe, emaframe
+
+
 
 
 def writeTestDataMotorFile(timer,exa,ema,shutter):
@@ -238,7 +274,7 @@ def writeTestDataMotorFile(timer,exa,ema,shutter):
     for i in range(len(timer)):
         # construct line to print, first: data-time string
         line  = time.strftime( '%d/%m/%Y %H:%M:%S', time.localtime(starttime+timer[i]) )
-        line += '.%02d\t' % np.int(100*np.mod(timer[i],1))   # add some fractional seconds
+        line += '.%02d\t' % np.int(100*np.mod(starttime+timer[i],1))   # add some fractional seconds
         line += '%E\t' % ema[i]       #
         line += '%E\t' % exa[i]       # 
         if shutter[i]:
@@ -252,40 +288,81 @@ def writeTestDataMotorFile(timer,exa,ema,shutter):
     f.writelines( towrite )
     f.close()
 
-
 def writeTestDataFile(data):
     np.save( 'testdata.npy', data )
 
+def writeTestDataParameters( md_ex, md_fu, phase_ex, phase_fu, gr, et ):
+    arr = np.dstack( [md_ex, md_fu, phase_ex, phase_fu, gr, et] )
+    np.save( 'testdataparams.npy', arr )
+
+def compareTestParamsWithOutput( movie, paramfilename ):
+    
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cmap
+    from matplotlib.patches import Rectangle
+
+    params = np.load( paramfilename )
+
+    plt.imshow( params[:,:,0], cmap=cmap.gray )
+    ax = plt.gca()
+
+#    mexs = []
+    for s in movie.spots:
+#        mexs.append( s.M_ex )
+        md_ex = params[s.coords[0],s.coords[1],0]
+        s.M_ex_diff = s.M_ex - md_ex
+        print 's.M_ex=%f\tmd_ex=%f\tdiff=%f' % (s.M_ex, md_ex, s.M_ex_diff)
+
+        col = cmap.jet(s.M_ex)
+        print col
+        p = Rectangle((s.coords[0],s.coords[1]), s.width, s.height, \
+                          facecolor=col, edgecolor=None, linewidth=0, alpha=.3)
+        
+        ax.add_patch( p )
+
+    plt.draw()
+
+
+
 
 def generate_single_funnel_test_data( excitation_angles, emission_angles, \
-                                          md_ex=0, md_fun=1, \
-                                          phase_ex=0, phase_fun=0, \
+                                          md_ex=0, md_fu=1, \
+                                          phase_ex=0, phase_fu=0, \
                                           gr=1.0, et=1.0 ):
 
-    from fitting import fit_portrait_single_funnel_symmetric
+    import numpy as np
 
-    params = np.zeros((3,))
-    params[0] = md_fun     # mod depth of the funnel
-    params[1] = phase_fun  # angle of the funnel
-    params[2] = gr         # geometric ratio of the dipole amplitudes
+    ex, em = np.meshgrid( excitation_angles, emission_angles )
 
-    ex_angles, em_angles = np.meshgrid( excitation_angles, emission_angles )
-    Ftot = et             # in the 'generate data' mode, Ftot is interpreted as the energy transfer level
+    alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
 
-    mod_depth_excitation = md_ex
-    phase_excitation     = phase_ex
+    phase_ex *= np.pi/180.0
+    ph_ii_minus = phase_ex - alpha
+    ph_ii_plus  = phase_ex + alpha
+    
+    print ph_ii_minus
+    print ph_ii_plus
 
-    # using fit function to generate data
-    Fem = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
-                                                    mod_depth_excitation, phase_excitation, \
-                                                    mode='generate data' )
+    ex *= np.pi/180.0
+    em *= np.pi/180.0
 
-    return Fem.flatten()
+    Fnoet  =    np.cos( ex-ph_ii_minus )**2 * np.cos( em-ph_ii_minus )**2
+    Fnoet += gr*np.cos( ex-phase_ex )**2    * np.cos( em-phase_ex )**2
+    Fnoet +=    np.cos( ex-ph_ii_plus )**2  * np.cos( em-ph_ii_plus )**2
+        
+    Fnoet /= (2+gr)
+    
+    Fet   = .25 * (1+md_ex*np.cos(2*(ex-phase_ex))) \
+        * (1+md_fu*np.cos(2*(em-phase_fu-phase_ex)))
+    
+    
+    Fem = et*Fet + (1-et)*Fnoet
 
-    # import matplotlib.pyplot as plt
-    # plt.interactive(True)
-    # plt.matshow( Fem, origin='bottom' )
-#    plt.colorbar()
+
+    import matplotlib.pyplot as plt
+    plt.interactive(True)
+    plt.matshow( Fem, origin='bottom' )
+    plt.colorbar()
 
 
     

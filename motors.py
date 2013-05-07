@@ -72,7 +72,7 @@ class NewSetupMotor:
         self.shutter    = shutter
 
 
-    def angle(self, time, exposuretime=.1, respectShutter=True ):
+    def angle(self, time, exposuretime=.1, respectShutter=True, raw=False ):
         """This function will return the angle of the emission polarizer given
         a time (in seconds, counting from the start of the experiment).
         Since the emission polarizer is turning in a very discrete fashion (0deg, 45deg, etc),
@@ -108,12 +108,16 @@ class NewSetupMotor:
             else:
                 # interpolate angle from known angles
                 phi = np.interp( time, self.timestamps, self.angles ) + self.phase_offset
-                return phi % 180.0
+                if raw:
+                    return phi
+                else:
+                    return phi % 180.0
         else:
             phi = np.interp( time, self.timestamps, self.angles ) + self.phase_offset
-            return phi % 180.0
-
-    
+            if raw:
+                return phi
+            else:
+                return phi % 180.0
 
 
 

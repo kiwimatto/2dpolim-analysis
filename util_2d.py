@@ -103,8 +103,8 @@ class Movie:
         Intensity = np.zeros( (self.timeaxis.size, len(self.spots)) )
         for i,s in enumerate(self.spots):
             Intensity[:,i] = self.spots[i].intensity
-            self.spots[i].mean_intensity = np.mean( self.spots[i].intensity )
-            del( self.spots[i].intensity )
+#            self.spots[i].mean_intensity = np.mean( self.spots[i].intensity )
+#            del( self.spots[i].intensity )
 
         # if Intensity.ndim==1:
         #     Nspots = 1
@@ -450,11 +450,21 @@ class Movie:
                 intensities = np.array( intensities ).T
 
                 exa = exangles.copy()
+
+                # import matplotlib.pyplot as plt
+                # plt.figure()
+                # plt.plot(exa, intensities, 'o:')
+
                 phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
+
+                # for jj in range(len(phase)):
+                #     plt.plot( exa, I0[jj]*(1+M[jj]*np.cos(2*np.pi/180.0*(exa-phase[jj]))) )
+                # raise hell
 
                 # write cosine parameters into line object
                 for si in range(len(self.spots)):
                     self.spots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
+
 
             # part II, 'vertical fitting' --- we do each spot by itself, but 
             # fit all verticals in parallel
@@ -549,6 +559,19 @@ class Movie:
 
     def find_modulation_depths_and_phases( self ):
 
+        # test = np.outer( 2*(1+.5*np.cos(2*self.emission_angles_grid*np.pi/180.0+.4)), \
+        #                      3*(1+.2*np.cos(2*self.excitation_angles_grid*np.pi/180.0+1)).reshape((\
+        #             self.excitation_angles_grid.size,1)) )
+
+        # proj_ex = np.array( [np.mean( test, axis=0 ) for s in self.spots] ).T
+        # proj_em = np.array( [np.mean( test, axis=1 ) for s in self.spots] ).T
+        # import matplotlib.pyplot as plt
+        # plt.interactive(True)
+        # plt.imshow(test)
+        # plt.figure()
+        # plt.plot( proj_ex )
+        # plt.plot( proj_em )
+
         # projection onto the excitation axis (ie over all emission angles),
         # for all spots, one per column
         proj_ex = np.array( [np.mean( s.averagematrix, axis=0 ) for s in self.spots] ).T
@@ -558,6 +581,21 @@ class Movie:
         # fitting
         ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
         ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em = self.cos_fitter( self.emission_angles_grid, proj_em )
+
+        # print ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex
+        # print ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em
+        # raise hell
+
+        # print 'uosad'
+        # print proj_ex.shape
+        # print proj_em.shape
+        # import matplotlib.pyplot as plt
+        # plt.interactive(True)
+        # plt.plot( self.excitation_angles_grid, proj_ex, 'b-' )
+        # plt.plot( self.emission_angles_grid, proj_em, 'r-' )
+        # plt.draw()
+        # import time
+        # time.sleep(1)
 
         # assignment
         LS = ph_ex - ph_em
@@ -720,34 +758,76 @@ class Movie:
         #print i1,i2,i3,i4,df
 
 
-    def ETmodel(self,fac,pg):
+    def ETmodel( self, fac=1e2, pg=1e-10, epsi=1e-12 ):
 
         from fitting import fit_portrait_single_funnel_symmetric
 
-        for s in [self.spots[0]]:
-            a0 = [s.M_ex, 0, 1]
+        for si,s in enumerate(self.spots):
+            print 'ETmodel fitting spot %d' % si
+            a0 = [s.M_ex, .5, 0, 1]
+            EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
+            funargs = (EX, EM, s.averagematrix, s.M_ex, s.phase_ex, 'fitting')
+
+            LB = [0.001, 0, -np.pi/2, 0]
+            UB = [1.000, 1,  np.pi/2, 2*(1+s.M_ex)/(1-s.M_ex)]
+            print "upper limit: ", 2*(1+s.M_ex)/(1-s.M_ex)
+
+            a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
+                                      x0=a0, \
+                                      fprime=None, \
+                                      args=funargs, \
+                                      approx_grad=True, \
+                                      epsilon=epsi, \
+                                      bounds=zip(LB,UB), \
+                                      factr=fac, \
+                                      pgtol=pg )
+            print 'fit done\t',a[0]
+            s.ETmodel_md_fu = a[0][0]
+            s.ETmodel_et    = a[0][1]
+            s.ETmodel_th_fu = a[0][2]
+            s.ETmodel_gr    = a[0][3]
+
+            # et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
+            #                                                     s.averagematrix, \
+            #                                                     s.M_ex, s.phase_ex, mode='display' )
+
+
+    def ETmodel_de( self, fac=1e2, pg=1e-10, epsi=1e-12 ):
+
+        from fitting import fit_portrait_single_funnel_symmetric
+
+        import sys
+        sys.path.insert(1,'/home/kiwimatto/Desktop/python_libs')
+        import diffevol
+
+        for si,s in enumerate(self.spots):
+            print 'ETmodel fitting spot %d' % si
+            a0 = [s.M_ex, .5, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
             funargs = (EX, EM, s.averagematrix/np.sum(s.averagematrix), s.M_ex, s.phase_ex, 'fitting')
 
-            LB = [0.001, -np.pi/2, 0]
-            UB = [1, np.pi/2, 2*(1+s.M_ex)/(1-s.M_ex)]
+            LB = [0.001, 0, -np.pi/2, 0]
+            UB = [1.000, 1,  np.pi/2, 2*(1+s.M_ex)/(1-s.M_ex)]
 
-            a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
-                                         x0=a0, \
-                                         fprime=None, \
-                                         args=funargs, \
-                                         approx_grad=True, \
-                                         bounds=zip(LB,UB), \
-                                         factr=fac, \
-                                         pgtol=pg )
+            ds = diffevol.scenario( scorefunction=fit_portrait_single_funnel_symmetric, \
+                                        parameter_limits=np.array( zip(LB,UB) ), \
+                                        Npop=40, \
+                                        goal='min', \
+                                        extras=funargs )
 
-            print 'fit done'
+            a = ds.run_until( verbosity=3 )
 
-            et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
-                                                                s.averagematrix/np.sum(s.averagematrix), \
-                                                                s.M_ex, s.phase_ex, mode='display' )
+            print 'fit done\t',a
+            # s.ETmodel_md_fu = a[0][0]
+            # s.ETmodel_et    = a[0][1]
+            # s.ETmodel_th_fu = a[0][2]
+            # s.ETmodel_gr    = a[0][3]
 
-        return bla
+
+        #     et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
+        #                                                         s.averagematrix/np.sum(s.averagematrix), \
+        #                                                         s.M_ex, s.phase_ex, mode='display' )
+        # return bla
 
         # fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
         #                                           mod_depth_excitation, phase_excitation, mode )
@@ -762,11 +842,12 @@ class Movie:
         print "startstop..."
         self.startstop()
         print "assigning portrait data..."
-        self.assign_portrait_data()
+        self.assign_portrait_data()        
 
-        for s in self.spots:         
-            s.intensities = None     # this doesn't seem to do anything memory-wise
-        self.data = None             # this doesn't seem to do anything memory-wise
+        # for s in self.spots:       
+        #     print s.intensity
+        #     s.intensity = None
+#        self.data = None             # this doesn't seem to do anything memory-wise
                                      # (are these all just pointers??)
 
 #        self.camera_data = None      # this helps (as expected)
@@ -783,6 +864,8 @@ class Movie:
         self.find_modulation_depths_and_phases()
         print "ETruler..."
         self.ETrulerFFT()
+        print "ETmodel..."
+        self.ETmodel()
 
         if not quiet:
             print "Quick report:"
@@ -875,6 +958,7 @@ class Spot:
 
         self.intensity_type = int_type
         self.intensity      = I
+        self.intensity_time_average = np.mean(I)
         self.bg_correction  = bg
 
 
@@ -883,6 +967,20 @@ class Portrait:
         self.exangles = exangles
         self.emangles = emangles
         self.intensities = intensities
+
+        # print '=== portrait ==='
+        # print exangles
+        # print emangles
+        # print intensities
+
+        # import matplotlib.pyplot as plt
+        # plt.interactive(True)
+        # plt.figure()
+        # plt.plot( exangles, intensities )
+        # plt.draw()
+        # import time
+        # time.sleep(1)
+        
 #        self.vector = np.array( (self.exangles, self.emangles, self.intensities) ).T
         self.split_into_emission_lines()
         del(self.intensities)
@@ -933,6 +1031,15 @@ class Line:
         self.exangles = exangles
         self.intensities = intensities
         self.emangle = emangle
+
+        # import matplotlib.pyplot as plt
+        # plt.interactive(True)
+        # plt.figure()
+        # plt.plot( exangles, intensities )
+        # plt.draw()
+        # import time
+        # time.sleep(1)
+
 
     def set_fit_params( self, phase, I0, M0, residuals ):
         self.phase = phase

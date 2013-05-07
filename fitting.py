@@ -21,17 +21,23 @@ import numpy as np
 
 
 
-# def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
-#                                               mod_depth_excitation, phase_excitation, mode ):
 def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
                                               mod_depth_excitation, phase_excitation, mode ):
-    mod_depth_funnel = mf = params[0]
-#    energy_transfer  = et = params[1]
-    theta_funnel     = tf = params[1]     # in radians
-    geometric_ratio  = gr = params[2]
+#def fit_portrait_single_funnel_symmetric( params, extras ):
+    # ex_angles = extras[0]
+    # em_angles = extras[1]
+    # Ftot      = extras[2]
+    # mod_depth_excitation = extras[3] 
+    # phase_excitation     = extras[4]
+    # mode                 = extras[5]
 
-    m_ex  = mod_depth_excitation
-    ph_ex = phase_excitation
+    md_fu = params[0]
+    et    = params[1]
+    th_fu = params[2]     # in radians
+    gr    = params[3]
+
+    md_ex = mod_depth_excitation
+    ph_ex = phase_excitation * np.pi/180.0
 
     # if data_style=='vector':
     #     EX, EM = ex_angles, em_angles 
@@ -44,7 +50,7 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     EX, EM = ex_angles.flatten()*np.pi/180.0, em_angles.flatten()*np.pi/180.0
 
     # calculate angle between off-axis dipoles in symmetric model
-    alpha = 0.5 * np.arccos( .5*(((gr+2)*m_ex)-gr) )
+    alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
 
     ph_ii_minus = ph_ex -alpha
     ph_ii_plus  = ph_ex +alpha
@@ -55,10 +61,10 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     EnNoET +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
 
     Fnoet  = EnNoET / (2+gr)
-    Fnoet /= np.sum(Fnoet)
+#    Fnoet /= np.sum(Fnoet)
 
-    Fet   = .25 * (1+m_ex*np.cos(2*(EX-ph_ex))) * (1+mf*np.cos(2*(EM-theta_funnel-ph_ex)))
-    Fet  /= np.sum(Fet)
+    Fet   = .25 * (1+md_ex*np.cos(2*(EX-ph_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-ph_ex)))
+#    Fet  /= np.sum(Fet)
 
 
     # We're trying to work out what et should be, along the lines of
@@ -71,24 +77,29 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     # is the 'inhomogeneity'. We use the linear algebra least-squares
     # solver to do this step.
 
-    A = (Fet-Fnoet).reshape( (Fet.size,1) )
-    print mode
+#    A = (Fet-Fnoet).reshape( (Fet.size,1) )
+#    print mode
 
-    if mode=='generate data':
-        et = Ftot
-    else:
-        Ftot = Ftot.flatten()
-        res = np.linalg.lstsq( A, Ftot-Fnoet )
-        et = res[0]
-        print et
+    # if mode=='generate data':
+    #     et = Ftot
+    # else:
+    #     Ftot = Ftot.flatten()
+    #     res = np.linalg.lstsq( A, Ftot-Fnoet )
+    #     et = res[0]
+    #     resi = res[1]
+    #     print et
 
     Fem = et*Fet + (1-et)*Fnoet 
 
+    # max-normalize both Ftot and Fem
+    Ftot /= np.max(Ftot)
+    Fem  /= np.max(Fem)
+
+    resi = np.sum( (Ftot.flatten()-Fem)**2 )
+
     if mode=="fitting":
-        return res[1]   # this is the residual straight from the least-squares fit
+        return resi   # this is the residual straight from the least-squares fit
 #        return Ftot - (et*Fet + (1-et)*Fnoet)
-    elif mode=="generate data":
-        return Fem.reshape((N_em_angles,N_ex_angles))
     elif mode=="display":
         import matplotlib.pyplot as plt
         fig = plt.figure()
@@ -168,6 +179,10 @@ def CosineFitter_new( angles, data ):
 
     assert angles.ndim == 1
     assert data.shape[0] == angles.size
+
+    # import matplotlib.pyplot as plt
+    # plt.plot(angles, data[:,0],'o:')
+    # print data.shape
 
     # if data is a 1d-array, then turn it into a 2d with singleton dimension
     if data.ndim==1:
@@ -300,7 +315,7 @@ def CosineFitter( angles, data ):
         # also collect residuals of these minima
         resi[i] = rm[mm[i],i]
 
-    return rp, I_0, M_0, resi, []
+    return rp, I_0, M_0, resi, [], []
 
 
 
