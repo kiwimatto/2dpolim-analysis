@@ -24,18 +24,19 @@ global_phase = 9.0 * np.pi/180.0   # must be in radians!!!
 #AMdegrees = [90]#,120,150,180]
 
 #for am in AMdegrees:
-# m = Movie( prefix+"S3-633nm-OD01-675LP715BP.SPE", prefix+"MS-S3-633nm-OD01-675LP715BP.txt", \
-#                 phase_offset_excitation=global_phase, use_new_fitter=True )
-m = Movie( prefix+"testdata.npy", prefix+"testmotordata.txt", \
-               phase_offset_excitation=global_phase, use_new_fitter=True )
+m = Movie( prefix+"S0-633nm-OD01-675LP823LP.SPE", prefix+"S0-633nm-OD01-675LP823LP.txt", \
+                phase_offset_excitation=global_phase, use_new_fitter=True )
+#m = Movie( prefix+"testdata.npy", prefix+"testmotordata.txt", \
+#               phase_offset_excitation=global_phase, use_new_fitter=True )
 show_mem()
 
 #m.define_background_spot( [0,0,89,511] )
 m.define_background_spot( [0,6,7,7] )
     
 #grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[240,300,242,302] )
-grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,8,1] )
+grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
 
+raise SystemExit
 
 show_mem()
 

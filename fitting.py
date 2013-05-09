@@ -20,29 +20,32 @@ import numpy as np
 #         raise ValueError("Unknown value for which_error: %s  (should be 'chi2' or 'R2')" % (which_error))
 
 
+def wrapper_for_de( params, extras ):
+    ex_angles = extras[0]
+    em_angles = extras[1]
+    Ftot      = extras[2]
+    mod_depth_excitation = extras[3] 
+    phase_excitation     = extras[4]
+    mode                 = extras[5]
+    use_least_sq         = extras[6]
+
+    result = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
+                                                       mod_depth_excitation, phase_excitation, \
+                                                       mode, use_least_sq )
+    return result
+
 
 def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
-                                              mod_depth_excitation, phase_excitation, mode ):
-#def fit_portrait_single_funnel_symmetric( params, extras ):
-    # ex_angles = extras[0]
-    # em_angles = extras[1]
-    # Ftot      = extras[2]
-    # mod_depth_excitation = extras[3] 
-    # phase_excitation     = extras[4]
-    # mode                 = extras[5]
-
+                                              mod_depth_excitation, phase_excitation, \
+                                              mode, use_least_sq=True ):
     md_fu = params[0]
-    et    = params[1]
-    th_fu = params[2]
-    gr    = params[3]
+    th_fu = params[1]
+    gr    = params[2]
+    if not use_least_sq:
+        et    = params[3]
 
     md_ex = mod_depth_excitation
     ph_ex = phase_excitation
-
-    # if data_style=='vector':
-    #     EX, EM = ex_angles, em_angles 
-    # elif data_style=='matrix':    
-    #     EX, EM = np.meshgrid( ex_angles, em_angles )
 
     N_ex_angles = ex_angles.shape[1]   # because ex_angles was generated via meshgrid
     N_em_angles = ex_angles.shape[0]   # ...
@@ -51,79 +54,56 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
 
     # calculate angle between off-axis dipoles in symmetric model
     alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
-#    print alpha
     if np.isnan(alpha):
         raise ValueError( "alpha is nan. gr=%2.20e, md_ex=%2.20e" % (gr, md_ex) )
-
-    # print ph_ex
-    # print alpha
 
     ph_ii_minus = ph_ex -alpha
     ph_ii_plus  = ph_ex +alpha
 
-    # print ph_ii_minus
-    # print ph_ii_plus
-
     Fnoet  =    np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
     Fnoet += gr*np.cos( EX-ph_ex )**2 * np.cos( EM-ph_ex )**2
     Fnoet +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
-
     Fnoet /= (2.0+gr)
-#    Fnoet /= np.sum(Fnoet)
-#    print 'Fnoet isnan: ', np.any(np.isnan(Fnoet)) 
 
     Fet   = .25 * (1+md_ex*np.cos(2*(EX-ph_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-ph_ex)))
-#    print 'Fet isnan: ', np.any(np.isnan(Fet)) 
-#    Fet  /= np.sum(Fet)
 
+    if use_least_sq:
+        # arrange Fet and Fnoet in two columns
+        cols = np.hstack([Fet.reshape((Fet.size,1)), Fnoet.reshape((Fnoet.size,1))])
 
-    # We're trying to work out what et should be, along the lines of
-    #    Ftot       = et*Fet + (1-et)*Fnoet 
-    # We can rewrite this as follows:
-    #    Ftot       = et*Fet + Fnoet - et*Fnoet
-    #    Ftot-Fnoet = et*(Fet-Fnoet)
-    # This is obviously a linear problem, ie can be thought of as Ax=b,
-    # where A=Fet-Fnoet is the 'coefficient matrix' and b=Ftot-Fnoet
-    # is the 'inhomogeneity'. We use the linear algebra least-squares
-    # solver to do this step.
-
-#    A = (Fet-Fnoet).reshape( (Fet.size,1) )
-#    print mode
-
-    # if mode=='generate data':
-    #     et = Ftot
-    # else:
-    #     Ftot = Ftot.flatten()
-    #     res = np.linalg.lstsq( A, Ftot-Fnoet )
-    #     et = res[0]
-    #     resi = res[1]
-    #     print et
-
-    Fem = et*Fet + (1-et)*Fnoet 
-#    print 'isnan: ', np.any(np.isnan(Fem)) 
-
-    # max-normalize both Ftot and Fem
-    Ftot /= np.max(Ftot)
-    Fem  /= np.max(Fem)
-
-    # import matplotlib.pyplot as plt
-    # plt.interactive(True)
-    # plt.imshow( Fem.reshape((N_em_angles,N_ex_angles)) )
-    # plt.figure()
-    # plt.imshow( Ftot )
-    # raise hell
-
-    # print Fem.reshape((N_em_angles,N_ex_angles))
-    # print np.diag( Fem.reshape((N_em_angles,N_ex_angles)) )
+        # Ftot goes into a column...
+        Ftot = Ftot.reshape((Ftot.size,1))
+        # aaand we solve for coefficients of the two columns Fet and Fnoet,
+        # such that Fot \approx a*Fet + b*Fnoet
+        res = np.linalg.lstsq( cols, Ftot )
+        # why two separate coefficients a and b, isn't it just a=et and b=(1-et)? 
+        # Almost.
+        # When we computed Fem, with et as part of the fit, we could scale Fem
+        # by it's maximum, just as we do with Ftot, before computing the error.
+        # Now, however, we do not know how to scale the model. So the coefficients
+        # then include a scaling factor: a=A*et and b=A*(1-et).
+        # Now we can recover both A=a+b and et=a/(a+b) 
     
-    resi = np.sum( (Ftot.flatten()-Fem)**2 )
+        A  = np.sum(res[0])
+        et = res[0][0]/A
+        resi = res[1]
+
+    else:
+        Ftot /= np.max(Ftot)
+        Fem   = et*Fet + (1-et)*Fnoet 
+        Fem  /= np.max(Fem)
+        A     = []
+        resi  = np.sum( (Ftot.flatten()-Fem.flatten())**2 )
+
 
     if mode=="fitting":
-        return resi   # this is the residual straight from the least-squares fit
-#        return Ftot - (et*Fet + (1-et)*Fnoet)
+        return resi   
+    elif mode=="show_et_and_A":
+        return et, A
     elif mode=="display":
-        Ftot = Ftot.reshape((N_em_angles,N_ex_angles))
+        Fem  = A*et*Fet + A*(1-et)*Fnoet 
         Fem  = Fem.reshape((N_em_angles,N_ex_angles))        
+        Ftot = Ftot.reshape((N_em_angles,N_ex_angles))
         import matplotlib.pyplot as plt
         fig = plt.figure( figsize=(12,6))
         axll = fig.add_axes([.05,.1,.1,.6])
@@ -243,6 +223,13 @@ def CosineFitter_new( angles, data ):
     for pi,phase in enumerate( phases ):
         # perform linear fit
         f = np.linalg.lstsq( er[:,2*pi:2*pi+2], data )
+        # if f[1].size==0:
+        #     print f
+        #     print np.dot(er[:,2*pi:2*pi+2],f[0])
+        #     print angles
+        #     print data
+        # print "f[1].shape=",f[1].shape
+        # print "residualmatrix[pi,:].shape=",residualmatrix[pi,:].shape
         residualmatrix[pi,:] = f[1]
         cm[pi,:,:] = f[0][:]
 

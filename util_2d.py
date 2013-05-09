@@ -44,7 +44,6 @@ class Movie:
                                                      which_motor='emission', \
                                                      phase_offset=0*np.pi/180.0 )
 
-
         # where do we get our time axis from?  
         self.timeaxis = self.camera_data.timestamps
 
@@ -57,8 +56,8 @@ class Movie:
         self.datamode = datamode
 
         # fix the excitation and emission angle grids for now
-        self.excitation_angles_grid = np.linspace(0,np.pi,181)
-        self.emission_angles_grid = np.linspace(0,np.pi,181)
+        self.excitation_angles_grid = np.linspace(0,np.pi,91)
+        self.emission_angles_grid = np.linspace(0,np.pi,91)
 
 
 
@@ -98,8 +97,10 @@ class Movie:
         [FrameNumber, excitation angle, emission angle, Intensities (Nspot columns)]    
         """
 
-        exangles = np.array( [self.excitation_motor.angle(t) for t in self.timeaxis] )
-        emangles = np.array( [self.emission_motor.angle(t) for t in self.timeaxis] )
+        exangles = np.array( [self.excitation_motor.angle(t,exposuretime=self.camera_data.exposuretime) \
+                                  for t in self.timeaxis] )
+        emangles = np.array( [self.emission_motor.angle(t,exposuretime=self.camera_data.exposuretime) \
+                                  for t in self.timeaxis] )
         validframes = emangles != -1
         self.Nvalidframes = np.sum(validframes)
 
@@ -138,6 +139,8 @@ class Movie:
             emangles = np.round(emangles[validframes], decimals=2)
             exangles = np.round(exangles[validframes], decimals=2)
 
+#            print emangles.shape
+
             output = np.zeros( (self.Nvalidframes, 3+Nspots) )
             trueindices = validframes.nonzero()[0]
             for i in range( self.timeaxis[validframes].size ):            
@@ -159,26 +162,29 @@ class Movie:
         thoroughly in the future, but for now: Handle with care.
         """
 
-        emangles = np.array( [self.emission_motor.angle(t,self.camera_data.exposuretime) \
+        emangles = np.array( [self.emission_motor.angle(t, exposuretime=self.camera_data.exposuretime) \
                                   for t in self.timeaxis] )
+#        print emangles[:10]
 
         # frames are valid where emangles is not equal to -1
         validframes = emangles != -1
     
         emangles_rounded_valid = np.round(emangles[validframes], decimals=2)
+
+#        print emangles_rounded_valid.shape
+
         number_of_lines = np.unique( emangles_rounded_valid ).size
 #        print "number_of_lines: %d" % number_of_lines
 
-        # edge 'detection'
+        # edge 'detection' via diff
         d = np.diff( emangles_rounded_valid )
         d[0] = 1
         d[d!=0] = 1
         d = np.concatenate( (d, np.array([1])) )
- #       print d
         edges    = d.nonzero()[0]
+        
         # average gap size between edges
         avewidth = np.mean( np.diff( edges )[:-1] )
-
         # if the last gap size differs more than ten percent from the average,
         # remove it
         if not avewidth*.9 <= np.diff( edges )[-1] <= avewidth*1.1:
@@ -191,6 +197,8 @@ class Movie:
         for i in range(Nportraits):
             indices[i,0] = edges[i*number_of_lines]+1
             indices[i,1] = edges[(i+1)*number_of_lines]
+
+#        print indices
 
         # These indices will discard the first frame, despite it being in principle
         # a valid frame. You can 'repair' that by doing:
@@ -207,6 +215,8 @@ class Movie:
             raise ValueError("You screwed up defining the datamode: %s" % (self.datamode))
 
         self.portrait_indices = indices
+
+        return emangles, emangles_rounded_valid, d
 
 
     def assign_portrait_data( self ):  #startstop, data, mode ):
@@ -461,6 +471,7 @@ class Movie:
                 # plt.figure()
                 # plt.plot(exa, intensities, 'o:')
 
+#                print "line"
                 phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
 
                 # for jj in range(len(phase)):
@@ -484,7 +495,9 @@ class Movie:
             fitintensities = [ np.array( [l.cosValue( self.excitation_angles_grid ) \
                                              for l in s.portraits[pi].lines]) for s in self.spots ]
             fitintensities = np.hstack( fitintensities )
-            print fitintensities.shape
+
+            # print "vertical, portrait %d" % (pi)
+            # print fitintensities.shape
 
             phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
 #            print phase.shape
@@ -696,8 +709,22 @@ class Movie:
         i2 = i1*(slope-1)
         i3 = i1*slope
         i4 = i1*(slope+1)
-        df = i1/4
+        df = i1/3
         
+        # import matplotlib.pyplot as plt
+        # plt.plot( np.arange(normpowerspectra.shape[1]), \
+        #               normpowerspectra.T, 'b' )
+        # plt.plot( np.arange(normpowerspectra.shape[1])[np.round(i1-df):np.round(i1+df)], \
+        #               normpowerspectra.T[np.round(i1-df):np.round(i1+df),:], 'r' )
+        # plt.plot( np.arange(normpowerspectra.shape[1])[np.round(i2-df):np.round(i2+df)], \
+        #               normpowerspectra.T[np.round(i2-df):np.round(i2+df),:], 'g' )
+        # plt.plot( np.arange(normpowerspectra.shape[1])[np.round(i3-df):np.round(i3+df)], \
+        #               normpowerspectra.T[np.round(i3-df):np.round(i3+df),:], 'y' )
+        # plt.plot( np.arange(normpowerspectra.shape[1])[np.round(i4-df):np.round(i4+df)], \
+        #               normpowerspectra.T[np.round(i4-df):np.round(i4+df),:], 'm' )
+        # plt.draw()
+        # raise hell
+
         self.peaks = np.array( [ np.sum(normpowerspectra[:, np.round(ii-df):np.round(ii+df)], axis=1) \
                       for ii in [i1,i2,i3,i4] ] )
 
@@ -721,8 +748,8 @@ class Movie:
             kappa     = .5 * np.arccos( .5*(3*self.spots[si].M_ex-1) ) 
             alpha     = np.array([ -kappa, 0, kappa ])
             
-            phix =   np.linspace(0,newdatalength-1,newdatalength)*np.pi/180
-            phim = 7*np.linspace(0,newdatalength-1,newdatalength)*np.pi/180
+            phix =   np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
+            phim = 7*np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
 
             ModelNoET = np.zeros_like( phix )
             for n in range(3):
@@ -731,6 +758,10 @@ class Movie:
             MYY = np.fft.fft(ModelNoET)
             MYpower = np.real( (MYY*MYY.conj()) )/MYY.size
 
+            # import matplotlib.pyplot as plt
+            # plt.plot( np.arange(MYpower.size), MYpower, 'b' )
+            # raise hell
+            
             MYpeaks = np.array( [ np.sum( MYpower[np.round(ii-df):np.round(ii+df)] ) \
                                       for ii in [i1,i2,i3,i4] ] )
             MYpeaks /= np.sum(MYpeaks)
@@ -775,12 +806,12 @@ class Movie:
             # limits of reason (and proper arccos functionality)
             mex = np.clip( s.M_ex, .000001, .999999 )
 
-            a0 = [mex, .4, 0, 1]
+            a0 = [mex, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
             funargs = (EX, EM, s.averagematrix, mex, s.phase_ex, 'fitting')
 
-            LB = [0.001, 0, -np.pi/2, 0]
-            UB = [0.999999, 1,  np.pi/2, 2*(1+mex)/(1-mex)*.999]
+            LB = [0.001,   -np.pi/2, 0]
+            UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
             print "upper limit: ", 2*(1+s.M_ex)/(1-s.M_ex)
             print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
 
@@ -793,50 +824,55 @@ class Movie:
                                       bounds=zip(LB,UB), \
                                       factr=fac, \
                                       pgtol=pg )
-            print 'fit done\t',a[0]
+
+            et,A = fit_portrait_single_funnel_symmetric( a[0], EX, EM, s.averagematrix, mex, s.phase_ex, \
+                                                             mode='show_et_and_A', use_least_sq=True)
             s.ETmodel_md_fu = a[0][0]
-            s.ETmodel_et    = a[0][1]
-            s.ETmodel_th_fu = a[0][2]
-            s.ETmodel_gr    = a[0][3]
+            s.ETmodel_th_fu = a[0][1]
+            s.ETmodel_gr    = a[0][2]
+            s.ETmodel_et    = et            
 
-            et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
-                                                                s.averagematrix, \
-                                                                mex, s.phase_ex, mode='display' )
+            print 'fit done\t',a[0],
+            print ' et=',et,
+            print ' A=',A
 
-            import time
-            time.sleep(2)
+            # et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
+            #                                                     s.averagematrix, \
+            #                                                     mex, s.phase_ex, mode='display' )
 
 
     def ETmodel_de( self, fac=1e2, pg=1e-10, epsi=1e-12 ):
 
-        from fitting import fit_portrait_single_funnel_symmetric
+        from fitting import fit_portrait_single_funnel_symmetric, wrapper_for_de
 
         import sys
         sys.path.insert(1,'/home/kiwimatto/Desktop/python_libs')
         import diffevol
+        
 
         for si,s in enumerate(self.spots):
             print 'ETmodel fitting spot %d' % si
-            a0 = [s.M_ex, .5, 0, 1]
+            mex = np.clip( s.M_ex, .000001, .999999 )
+            a0 = [mex, .5, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
-            funargs = (EX, EM, s.averagematrix/np.sum(s.averagematrix), s.M_ex, s.phase_ex, 'fitting')
+            funargs = (EX, EM, s.averagematrix, mex, s.phase_ex, 'fitting', False)
 
-            LB = [0.001, 0, -np.pi/2, 0]
-            UB = [1.000, 1,  np.pi/2, 2*(1+s.M_ex)/(1-s.M_ex)]
+            LB = [0.001, -np.pi/2, 0, 0]
+            UB = [0.999,  np.pi/2, 2*(1+mex)/(1-mex)*.999, 1]
 
-            ds = diffevol.scenario( scorefunction=fit_portrait_single_funnel_symmetric, \
+            ds = diffevol.scenario( scorefunction=wrapper_for_de, \
                                         parameter_limits=np.array( zip(LB,UB) ), \
                                         Npop=40, \
                                         goal='min', \
                                         extras=funargs )
 
-            a = ds.run_until( verbosity=3 )
+            a = ds.run_until( )
 
             print 'fit done\t',a
-            # s.ETmodel_md_fu = a[0][0]
-            # s.ETmodel_et    = a[0][1]
-            # s.ETmodel_th_fu = a[0][2]
-            # s.ETmodel_gr    = a[0][3]
+            s.ETmodel_md_fu = a[0]
+            s.ETmodel_th_fu = a[1]
+            s.ETmodel_gr    = a[2]
+            s.ETmodel_et    = a[3]
 
 
         #     et, bla = fit_portrait_single_funnel_symmetric( a[0], EX, EM, \
@@ -871,16 +907,17 @@ class Movie:
 #        self.fit_all_portraits()
 
         import time as stopwatch
-        tstart = stopwatch.time()
         self.fit_all_portraits_spot_parallel()
-        print "time taken: %fs" % (stopwatch.time()-tstart)
 
         print "finding mod depths and phases..."
         self.find_modulation_depths_and_phases()
         print "ETruler..."
         self.ETrulerFFT()
         print "ETmodel..."
+
+        tstart = stopwatch.time()
         self.ETmodel()
+        print "time taken: %fs" % (stopwatch.time()-tstart)
 
         if not quiet:
             print "Quick report:"
@@ -907,8 +944,21 @@ class Movie:
     #     plt.ylim( 0, 180 )      
 
 
+    def chew_a_bit( self, quiet=False, loud=False ):
+        self.collect_data()
+        self.startstop()
+        self.assign_portrait_data()        
+        self.fit_all_portraits_spot_parallel()
+        self.find_modulation_depths_and_phases()
+
+        print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
+            ( self.spots[0].M_ex,self.spots[0].M_em, \
+                  self.spots[0].phase_ex*180/np.pi, self.spots[0].phase_em*180/np.pi, \
+                  self.spots[0].LS*180/np.pi )
+
+
 class CameraData:
-    def __init__( self, spe_filename ):
+    def __init__( self, spe_filename, compute_frame_average=False ):
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
         self.filename           = spe_filename
         if self.filename.split('.')[-1]=='npy':   # we got test data, presumably
@@ -919,7 +969,8 @@ class CameraData:
             self.rawdata_fileobject = PrincetonSPEFile( self.filename )
             self.rawdata            = self.rawdata_fileobject.getData()#.astype(np.float64)
             self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
-        self.average_image      = np.mean( self.rawdata, axis=0 )
+        if compute_frame_average:
+            self.average_image      = np.mean( self.rawdata, axis=0 )
 
         ###  extract or generate time stamps ###
         #  here we do not have timestamps for each frame, so we
