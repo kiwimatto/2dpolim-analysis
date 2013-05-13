@@ -26,6 +26,15 @@ global_phase = 9.0 * np.pi/180.0   # must be in radians!!!
 #for am in AMdegrees:
 m = Movie( prefix+"S0-633nm-OD01-675LP823LP.SPE", prefix+"S0-633nm-OD01-675LP823LP.txt", \
                 phase_offset_excitation=global_phase, use_new_fitter=True )
+del(m)
+from guppy import hpy; h=hpy()
+w=h.heap()
+print w
+m = Movie( prefix+"S0-633nm-OD01-675LP715BP.SPE", prefix+"S0-633nm-OD01-675LP715BP.txt", \
+                phase_offset_excitation=global_phase, use_new_fitter=True )
+from guppy import hpy; h=hpy()
+w=h.heap()
+print w
 #m = Movie( prefix+"testdata.npy", prefix+"testmotordata.txt", \
 #               phase_offset_excitation=global_phase, use_new_fitter=True )
 show_mem()

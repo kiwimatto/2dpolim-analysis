@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 plt.interactive(1)
-from pyspec.ccd.files import PrincetonSPEFile
+from files import MyPrincetonSPEFile
 from motors import NewSetupMotor, ExcitationMotor, EmissionMotor
 from fitting import CosineFitter, CosineFitter_new, CosineFitter_mpi_master
 import scipy.optimize as so
@@ -885,8 +885,6 @@ class Movie:
 
 
 
-
-
     def chew( self, quiet=False, loud=False ):
         print "collecting data..."
         self.collect_data()
@@ -966,9 +964,11 @@ class CameraData:
             self.rawdata      = np.load(self.filename)
             self.exposuretime = .1    # in seconds
         else:
-            self.rawdata_fileobject = PrincetonSPEFile( self.filename )
-            self.rawdata            = self.rawdata_fileobject.getData()#.astype(np.float64)
+            self.rawdata_fileobject = MyPrincetonSPEFile( self.filename )
+            self.rawdata            = self.rawdata_fileobject.return_Array()#.astype(np.float64)
             self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
+            self.rawdata_fileobject.close_file()
+            del(self.rawdata_fileobject)
         if compute_frame_average:
             self.average_image      = np.mean( self.rawdata, axis=0 )
 
