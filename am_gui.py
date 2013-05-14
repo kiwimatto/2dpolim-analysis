@@ -150,9 +150,9 @@ class ApplicationWindow(QtGui.QMainWindow):
         if index==None:
             index = self.fileChanger.currentIndex()
 
-        callstring  = 'python '+os.path.normpath(self.pwd+'/am_analyse.py')+' '
-        callstring += os.path.normpath(self.data_directory+'/'+self.spefiles[index])+' '
-        callstring += os.path.normpath(self.data_directory+'/'+self.motorfiles[index])+' '
+        callstring  = 'python '+"\""+os.path.normpath(self.pwd+'/am_analyse.py')+"\""+' '
+        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.spefiles[index])+"\""+' '
+        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.motorfiles[index])+"\""+' '
         callstring += str(self.global_phase)+' '
         for b in self.bg_region_coords:
             callstring += str(b)+' '
@@ -173,6 +173,11 @@ class ApplicationWindow(QtGui.QMainWindow):
     def set_bg_region(self):
         coords = np.round( np.array( [self.sc.anno.x0, self.sc.anno.y0, \
                                           self.sc.anno.x1, self.sc.anno.y1] ) ).astype(np.int)
+        if coords[0]>coords[2]:
+            coords[0],coords[2]=coords[2],coords[0]
+        if coords[1]>coords[3]:
+            coords[1],coords[3]=coords[3],coords[1]
+
         self.bg_region_coords = coords
         self.sc.bg_rect.set_xy((coords[0],coords[1]))
         self.sc.bg_rect.set_width(coords[2]-coords[0])
@@ -187,6 +192,10 @@ class ApplicationWindow(QtGui.QMainWindow):
     def set_signal_region(self):
         coords = np.round( np.array( [self.sc.anno.x0, self.sc.anno.y0, \
                                           self.sc.anno.x1, self.sc.anno.y1] ) ).astype(np.int)
+        if coords[0]>coords[2]:
+            coords[0],coords[2]=coords[2],coords[0]
+        if coords[1]>coords[3]:
+            coords[1],coords[3]=coords[3],coords[1]
         self.signal_region_coords = coords
         self.sc.signal_rect.set_xy((coords[0],coords[1]))
         self.sc.signal_rect.set_width(coords[2]-coords[0])

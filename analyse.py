@@ -1,5 +1,5 @@
 from util_2d import *
-from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data
+from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data, save_spot_data
 
 def show_mem():
     print "memory usage:"
@@ -29,6 +29,7 @@ for f in ['090','120','150','180']:
                    phase_offset_excitation=global_phase, use_new_fitter=True )
 
     m.define_background_spot( [0,0,89,511] )
+
 #m.define_background_spot( [0,6,7,7] )
     
     grid_image_section_into_squares_and_define_spots( m, res=100, bounds=[200,250,300,350] )
@@ -37,6 +38,9 @@ for f in ['090','120','150','180']:
 
     m.chew_a_bit()
 #    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
+
+
+    save_spot_data(m,'LS')
 
     show_mem()
 

@@ -950,7 +950,7 @@ class Movie:
         self.find_modulation_depths_and_phases()
 
         for s in self.spots:
-            print s
+#            print s
             print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
@@ -962,10 +962,12 @@ class CameraData:
         if self.filename.split('.')[-1]=='npy':   # we got test data, presumably
             print "======== TEST DATA IT SEEMS =========="
             self.rawdata      = np.load(self.filename)
+            self.datasize     = self.rawdata.size
             self.exposuretime = .1    # in seconds
         else:
             self.rawdata_fileobject = MyPrincetonSPEFile( self.filename )
             self.rawdata            = self.rawdata_fileobject.return_Array()#.astype(np.float64)
+            self.datasize           = self.rawdata_fileobject.getSize()
             self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
             self.rawdata_fileobject.close_file()
             del(self.rawdata_fileobject)

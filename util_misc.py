@@ -40,6 +40,25 @@ def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
     return 
 
 
+def save_spot_data( movie, what='M_ex'):
+    # We assume in the following that the first spot (movie.spots[0]) is
+    # the upper left spot in the image, with the origin (0,0) of the
+    # image also being in the upper left corner of the plot.
+    # xinit = movie.spots[0].coords[0]
+    # yinit = movie.spots[0].coords[1]
+
+    fs = np.ones( (movie.camera_data.datasize[1],movie.camera_data.datasize[2]) ) * np.nan
+
+    for si,s in enumerate(movie.spots):
+        xi = s.coords[0]
+        xf = s.coords[2]+1  # edges...
+        yi = s.coords[1]
+        yf = s.coords[3]+1
+
+        fs[yi:yf,xi:xf] = getattr(s,what)
+
+    np.savetxt(what+'_output_data.txt', fs)
+        
 
 def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
 
@@ -73,6 +92,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     LSs       = []
     ET_rulers = []
     
+    # collect the data from all spots
     for ss in movie.spots:
         mean_intensities.append( ss.intensity_time_average )
         Ms_ex.append( ss.M_ex )
@@ -81,7 +101,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
         phases_em.append( ss.phase_em )
         LSs.append( ss.LS )
         ET_rulers.append( ss.ET_ruler )
-
+    # turn the lists into numpy arrays
     intensity = np.array(mean_intensities)
     M_ex = np.array(Ms_ex)
     M_em = np.array(Ms_em)
@@ -99,7 +119,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     LS_color = (LS-np.min(LS))/np.max(LS)
     ET_ruler_color = (ET_ruler-np.min(ET_ruler))/np.max(ET_ruler)
 
-    # edges! the +1 accounts for the fact that a spot includes its edges
+    # edges! the +1 accounts for the fact that a spot includes its edges (really? does it?)
     xdim=movie.spots[-1].coords[2]-movie.spots[0].coords[0]+1
     ydim=movie.spots[-1].coords[3]-movie.spots[0].coords[1]+1
     fs=np.zeros((ydim,xdim))
@@ -112,7 +132,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
         yi = s.coords[1]-yinit
         yf = s.coords[3]-yinit+1
 
-        # determine color (color axes 
+        # determine color (color axes)
         if what=='M_ex':
             col = colormap( M_ex_color[si] )
             fs[yi:yf,xi:xf] = s.M_ex
