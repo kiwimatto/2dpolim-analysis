@@ -65,7 +65,7 @@ class Movie:
         # create new spot object
         s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, label='background area' )
         self.bg_spot = s
-
+        
         
 
     def define_spot( self, coords, bg_correction=True, intensity_type='mean', label=None ):
@@ -949,10 +949,10 @@ class Movie:
         self.fit_all_portraits_spot_parallel()
         self.find_modulation_depths_and_phases()
 
-        print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
-            ( self.spots[0].M_ex,self.spots[0].M_em, \
-                  self.spots[0].phase_ex*180/np.pi, self.spots[0].phase_em*180/np.pi, \
-                  self.spots[0].LS*180/np.pi )
+        for s in self.spots:
+            print s
+            print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
+                ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
 
 class CameraData:
@@ -1027,6 +1027,9 @@ class Spot:
         self.intensity_time_average = np.mean(I)
         self.bg_correction  = bg
 
+    def __str__(self):
+        return "Spot object: int_type=%s\tlowerleft=[%d,%d]\twidth=%d\theight=%d\tlabel=%s" % \
+            (self.intensity_type, self.coords[0], self.coords[1], self.coords[2], self.coords[2], self.label)
 
 class Portrait:
     def __init__( self, exangles, emangles, intensities ):

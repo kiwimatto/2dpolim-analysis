@@ -12,14 +12,13 @@
 import sys, os
 from PyQt4 import QtGui, QtCore
 
-from numpy import arange, sin, pi
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 import matplotlib.cm as cmap
 
 import numpy as np
-from pyspec.ccd.files import PrincetonSPEFile
+#from pyspec.ccd.files import PrincetonSPEFile
 
 from util_2d import *
 import spot_picker
@@ -90,9 +89,11 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.spefiles = []
         self.m = None
 
+        self.pwd = os.path.dirname(os.path.abspath(__file__))
+
         QtGui.QMainWindow.__init__(self)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        self.setGeometry(QtCore.QRect(0,0,700,700))
+        self.setGeometry(QtCore.QRect(700,50,700,700))
         self.setWindowTitle("Artificial molecule analysis")
         
 
@@ -145,19 +146,33 @@ class ApplicationWindow(QtGui.QMainWindow):
     #     yi = np.round(event.ydata)
     #     self.pick_reporter.setText( "%5.3e W/cm^{-2} \t x=%d \t y=%d" % (self.data[yi,xi], xi, yi) )
 
-    def runAnalysis(self):
-        self.m.define_background_spot( self.bg_region_coords )
-        self.m.define_spot( self.signal_region_coords )
-        self.m.chew_a_bit()
+    def runAnalysis(self,index=None):
+        if index==None:
+            index = self.fileChanger.currentIndex()
+
+        callstring  = 'python '+os.path.normpath(self.pwd+'/am_analyse.py')+' '
+        callstring += os.path.normpath(self.data_directory+'/'+self.spefiles[index])+' '
+        callstring += os.path.normpath(self.data_directory+'/'+self.motorfiles[index])+' '
+        callstring += str(self.global_phase)+' '
+        for b in self.bg_region_coords:
+            callstring += str(b)+' '
+        for s in self.signal_region_coords:
+            callstring += str(s)+' '
+
+        os.system(callstring)
+        
+        # self.m.define_background_spot( self.bg_region_coords )
+        # self.m.define_spot( self.signal_region_coords )
+        # self.m.chew_a_bit()
 
     def runAllAnalysis(self):
         for i in range(len(self.spefiles)):
-            self.load_and_display_spe_file(index=i)
-            self.runAnalysis()
+#            self.load_and_display_spe_file(index=i)
+            self.runAnalysis(index=i)
 
     def set_bg_region(self):
         coords = np.round( np.array( [self.sc.anno.x0, self.sc.anno.y0, \
-                                          self.sc.anno.x1, self.sc.anno.y1] ) )
+                                          self.sc.anno.x1, self.sc.anno.y1] ) ).astype(np.int)
         self.bg_region_coords = coords
         self.sc.bg_rect.set_xy((coords[0],coords[1]))
         self.sc.bg_rect.set_width(coords[2]-coords[0])
@@ -171,7 +186,7 @@ class ApplicationWindow(QtGui.QMainWindow):
 
     def set_signal_region(self):
         coords = np.round( np.array( [self.sc.anno.x0, self.sc.anno.y0, \
-                                          self.sc.anno.x1, self.sc.anno.y1] ) )
+                                          self.sc.anno.x1, self.sc.anno.y1] ) ).astype(np.int)
         self.signal_region_coords = coords
         self.sc.signal_rect.set_xy((coords[0],coords[1]))
         self.sc.signal_rect.set_width(coords[2]-coords[0])
@@ -199,7 +214,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.data_directory = str(fname)
 
         # go to dir
-        os.chdir( fname )
+        os.chdir( self.data_directory )
         print "Looking for SPE data..."
         # get all filenames
         for file in os.listdir("."):
@@ -219,7 +234,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         for file in os.listdir("."):
             if file.endswith(".txt"):
                 # do we know of the corresponding spe file?
-                match = [file[:-4]==spe[:-4] for spe in self.spefiles]
+                match = [file[:-4]=='MS-'+spe[:-4] for spe in self.spefiles]
                 if any( match ):
                     where = np.nonzero(match)[0][0]
                     self.motorfiles[where] = file
@@ -242,9 +257,9 @@ class ApplicationWindow(QtGui.QMainWindow):
 
     def load_and_display_spe_file(self,index=0):
         del(self.m)
-        from guppy import hpy; h=hpy()
-        w=h.heap()
-        print w
+        # from guppy import hpy; h=hpy()
+        # w=h.heap()
+        # print w
         print "loading file %s ... " % (self.spefiles[0]),
         sys.stdout.flush()
         self.m = Movie( self.data_directory+"/"+self.spefiles[index], \

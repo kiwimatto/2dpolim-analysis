@@ -17,43 +17,28 @@ show_mem()
 
 #prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
-prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/'
-
+prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/bla/'
+          
 global_phase = 9.0 * np.pi/180.0   # must be in radians!!!
 
 #AMdegrees = [90]#,120,150,180]
 
 #for am in AMdegrees:
-m = Movie( prefix+"S0-633nm-OD01-675LP823LP.SPE", prefix+"S0-633nm-OD01-675LP823LP.txt", \
-                phase_offset_excitation=global_phase, use_new_fitter=True )
-del(m)
-from guppy import hpy; h=hpy()
-w=h.heap()
-print w
-m = Movie( prefix+"S0-633nm-OD01-675LP715BP.SPE", prefix+"S0-633nm-OD01-675LP715BP.txt", \
-                phase_offset_excitation=global_phase, use_new_fitter=True )
-from guppy import hpy; h=hpy()
-w=h.heap()
-print w
-#m = Movie( prefix+"testdata.npy", prefix+"testmotordata.txt", \
-#               phase_offset_excitation=global_phase, use_new_fitter=True )
-show_mem()
+for f in ['090','120','150','180']:
+    m = Movie( prefix+"AM633-"+f+".SPE", prefix+"MS-AM633-"+f+".txt", \
+                   phase_offset_excitation=global_phase, use_new_fitter=True )
 
-#m.define_background_spot( [0,0,89,511] )
-m.define_background_spot( [0,6,7,7] )
+    m.define_background_spot( [0,0,89,511] )
+#m.define_background_spot( [0,6,7,7] )
     
-#grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[240,300,242,302] )
-grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
+    grid_image_section_into_squares_and_define_spots( m, res=100, bounds=[200,250,300,350] )
+#grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
 
-raise SystemExit
 
-show_mem()
-
-#    m.define_spot( [220,180,330,300], label='and another one' )
-m.chew()
+    m.chew_a_bit()
 #    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
-show_mem()
+    show_mem()
 
 
 
