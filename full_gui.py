@@ -116,9 +116,6 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.fileChanger = QtGui.QComboBox(self.main_widget)
         self.fileChanger.activated.connect( self.update_file_change )
 
-        self.lambdaOver2Checkbox = QtGui.QCheckBox('lambda/2 plate?',self.main_widget)
-#        self.lambdaOver2Checkbox.
-
         self.setBGRegionButton     = QtGui.QPushButton('Set BG region', self.main_widget)
         self.setBGRegionButton.clicked.connect(self.set_bg_region)
         self.setSignalRegionButton = QtGui.QPushButton('Set signal region', self.main_widget)
@@ -133,14 +130,13 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         l.addWidget( self.globalPhaseOffsetEdit, 1,0 )
         l.addWidget( QtGui.QLabel('global phase offset in deg'), 1, 1 )
-        l.addWidget( self.lambdaOver2Checkbox, 1,2)
         l.addWidget( self.getDirButton,2,0)
         l.addWidget( self.fileChanger,3,0)
         l.addWidget( self.setBGRegionButton,2,1 )
         l.addWidget( self.setSignalRegionButton,3,1 )
-        l.addWidget( self.sc,4,0,3,3 )
-        l.addWidget( self.runButton, 6,0 )
-        l.addWidget( self.runAllButton, 6,1 )
+        l.addWidget( self.sc,4,0,2,2 )
+        l.addWidget( self.runButton, 5,0 )
+        l.addWidget( self.runAllButton, 5,1 )
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)

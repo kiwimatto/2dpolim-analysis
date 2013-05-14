@@ -17,32 +17,29 @@ show_mem()
 
 #prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
-prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/bla/'
+prefix = '/home/kiwimatto/Desktop/130514/a-MEH/'
           
-global_phase = 9.0 * np.pi/180.0   # must be in radians!!!
+global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
 #AMdegrees = [90]#,120,150,180]
 
-#for am in AMdegrees:
-for f in ['090','120','150','180']:
-    m = Movie( prefix+"AM633-"+f+".SPE", prefix+"MS-AM633-"+f+".txt", \
-                   phase_offset_excitation=global_phase, use_new_fitter=True )
+m = Movie( prefix+"aMEH-488-OD102-05.SPE", prefix+"MS-aMEH-488-OD102-05.txt", \
+               phase_offset_excitation=global_phase, use_new_fitter=True )
 
-    m.define_background_spot( [0,0,89,511] )
+m.define_background_spot( [0,0,50,511] )
 
-#m.define_background_spot( [0,6,7,7] )
     
-    grid_image_section_into_squares_and_define_spots( m, res=100, bounds=[200,250,300,350] )
+grid_image_section_into_squares_and_define_spots( m, res=4, bounds=[70,130,460,410] )
 #grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
 
 
-    m.chew_a_bit()
+m.chew_a_bit()
 #    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
 
-    save_spot_data(m,'LS')
+save_spot_data(m,'LS')
 
-    show_mem()
+show_mem()
 
 
 

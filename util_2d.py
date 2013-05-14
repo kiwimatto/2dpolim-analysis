@@ -56,8 +56,8 @@ class Movie:
         self.datamode = datamode
 
         # fix the excitation and emission angle grids for now
-        self.excitation_angles_grid = np.linspace(0,np.pi,91)
-        self.emission_angles_grid = np.linspace(0,np.pi,91)
+        self.excitation_angles_grid = np.linspace(0,np.pi,181)
+        self.emission_angles_grid = np.linspace(0,np.pi,181)
 
 
 
