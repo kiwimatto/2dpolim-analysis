@@ -63,7 +63,7 @@ class Movie:
 
     def define_background_spot( self, coords, intensity_type='mean' ):
         # create new spot object
-        s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, label='background area' )
+        s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, label='background area', is_bg_spot=True )
         self.bg_spot = s
         
         
@@ -982,7 +982,7 @@ class CameraData:
 
 
 class Spot:
-    def __init__(self, rawdata, coords, bg, int_type, label):
+    def __init__(self, rawdata, coords, bg, int_type, label, is_bg_spot=False):
         """
         There's something noteworthy (speak: important) about the coordinates
         which define the box that is the 'spot'. First of all, the convention
@@ -1021,6 +1021,10 @@ class Spot:
         else:
             raise ValueError("Spot __init__ did not understand int_type='%s' (should be mean|max|min)" % (int_type))
 
+        # special: take standard deviation if this is the background spot
+        if is_bg_spot:
+            self.std  = np.std( rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ] )
+
         # remove background
         I -= bg
 
@@ -1031,7 +1035,8 @@ class Spot:
 
     def __str__(self):
         return "Spot object: int_type=%s\tlowerleft=[%d,%d]\twidth=%d\theight=%d\tlabel=%s" % \
-            (self.intensity_type, self.coords[0], self.coords[1], self.coords[2], self.coords[2], self.label)
+            (self.intensity_type, self.coords[0], self.coords[1], \
+                 self.coords[2]-self.coords[0]+1, self.coords[3]-self.coords[1]+1, self.label)
 
 class Portrait:
     def __init__( self, exangles, emangles, intensities ):

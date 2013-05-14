@@ -29,7 +29,7 @@ m = Movie( prefix+"aMEH-488-OD102-05.SPE", prefix+"MS-aMEH-488-OD102-05.txt", \
 m.define_background_spot( [0,0,50,511] )
 
     
-grid_image_section_into_squares_and_define_spots( m, res=4, bounds=[70,130,460,410] )
+grid_image_section_into_squares_and_define_spots( m, res=8, bounds=[70,130,460,410] )
 #grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
 
 

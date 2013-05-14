@@ -2,6 +2,7 @@ import time
 import numpy as np
 from datetime import datetime, timedelta
 
+
 def deal_with_date_time_string( motorobj, datetimestring ):        
     """This function converts the date+time string into the difference time 
     (in seconds) since the start of the experiment. The first value passed 
@@ -40,24 +41,68 @@ def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
     return 
 
 
-def save_spot_data( movie, what='M_ex'):
+def trim_noisy_data( movie, what='M_ex', threshold=None ):
+
+    if what=='M_ex' or what=='M_em':
+        if threshold==None:
+            threshold = 3*movie.bg_spot.std
+        quantity  = 'intensity_time_average'
+
+    elif what=='phase_ex':
+        if threshold==None:
+            threshold = 0.1
+        quantity  = 'M_ex'
+
+    elif what=='phase_em':
+        if threshold==None:
+            threshold = 0.1
+        quantity  = 'M_em'
+
+    elif what=='LS':   # LS is a bit special here
+        if not hasattr(movie.spots[0],'phase_ex_trimmed'):
+            trim_noisy_data( movie, what='phase_ex', threshold=None )
+        if not hasattr(movie.spots[0],'phase_em_trimmed'):
+            trim_noisy_data( movie, what='phase_em', threshold=None ) 
+        for si,s in enumerate(movie.spots):
+            setattr(s,'LS_trimmed', getattr(s,'phase_ex')-getattr(s,'phase_em') )
+        return  # early return from this one
+
+    # all others go through this one
+    for si,s in enumerate(movie.spots):
+        if getattr(s,quantity) <= threshold:
+            setattr(s,what+'_trimmed', np.nan )
+        else:
+            setattr(s,what+'_trimmed', getattr(s,what) )
+
+
+def save_spot_data( movie, what='M_ex', whole_image=True ):
     # We assume in the following that the first spot (movie.spots[0]) is
     # the upper left spot in the image, with the origin (0,0) of the
     # image also being in the upper left corner of the plot.
     # xinit = movie.spots[0].coords[0]
     # yinit = movie.spots[0].coords[1]
 
-    fs = np.ones( (movie.camera_data.datasize[1],movie.camera_data.datasize[2]) ) * np.nan
-
+    xdim=movie.spots[-1].coords[2]-movie.spots[0].coords[0]+1
+    ydim=movie.spots[-1].coords[3]-movie.spots[0].coords[1]+1
+    xinit = movie.spots[0].coords[0]
+    yinit = movie.spots[0].coords[1]
+    
+    if whole_image:
+        fs = np.ones( (movie.camera_data.datasize[1],movie.camera_data.datasize[2]) ) * np.nan
+        xinit = 0
+        yinit = 0
+    else:
+        fs = np.zeros((ydim,xdim))    
+    
     for si,s in enumerate(movie.spots):
-        xi = s.coords[0]
-        xf = s.coords[2]+1  # edges...
-        yi = s.coords[1]
-        yf = s.coords[3]+1
-
+        xi = s.coords[0]-xinit
+        xf = s.coords[2]-xinit+1  # edges...
+        yi = s.coords[1]-yinit
+        yf = s.coords[3]-yinit+1
         fs[yi:yf,xi:xf] = getattr(s,what)
 
     np.savetxt(what+'_output_data.txt', fs)
+
         
 
 def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
