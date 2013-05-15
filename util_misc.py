@@ -215,8 +215,11 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     
     np.savetxt(what+'data.txt', fs)
 
-    
     ax.figure.canvas.draw()
+
+
+#def run_self_test():
+    
 
 
 
@@ -254,10 +257,8 @@ def create_test_data_set():
 
     data = np.zeros( (Nframes, Npixel_x, Npixel_y) )
 
-    md_ex    = np.outer( np.linspace(0,1,Npixel_y).reshape(Npixel_y,1),
-                         np.ones((1,Npixel_y)) )
-    md_fu    = np.outer( np.ones((1,Npixel_x)),
-                         np.linspace(0,1,Npixel_x).reshape(Npixel_x,1) )
+    md_ex    = np.outer( np.ones((Npixel_y,)), np.linspace(0,1,Npixel_x) )
+    md_fu    = np.outer( np.linspace(0,1,Npixel_y), np.ones((Npixel_x,)) )
     phase_ex = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi   # rad
     phase_fu = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi   # rad
     gr       = np.random.random(size=(Npixel_y,Npixel_x))
@@ -321,17 +322,17 @@ def create_test_data_set():
     writeTestDataFile(data)
     writeTestDataParameters( md_ex, md_fu, phase_ex, phase_fu, gr, et )
 
-    import matplotlib.pyplot as plt
-    plt.interactive(True)    
+    # import matplotlib.pyplot as plt
+    # plt.interactive(True)    
 
-    plt.plot( range(data.shape[0]), data[:,0,0] )
-    plt.plot( range(data.shape[0]), exaframe/1000.0 )
-    plt.plot( range(data.shape[0]), emaframe/1000.0 )
+    # plt.plot( range(data.shape[0]), data[:,0,0] )
+    # plt.plot( range(data.shape[0]), exaframe/1000.0 )
+    # plt.plot( range(data.shape[0]), emaframe/1000.0 )
 
-    plt.figure()
-    plt.imshow( laserspot, interpolation='none' )
+    # plt.figure()
+    # plt.imshow( laserspot, interpolation='none' )
 
-    return data, exaframe, emaframe
+    return #data, exaframe, emaframe
 
 
 def writeTestDataMotorFile(timer,exa,ema,shutter):
