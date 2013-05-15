@@ -958,13 +958,16 @@ class Movie:
 class CameraData:
     def __init__( self, spe_filename, compute_frame_average=False ):
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
+
         self.filename           = spe_filename
+
         if self.filename.split('.')[-1]=='npy':   # we got test data, presumably
             print "======== TEST DATA IT SEEMS =========="
             self.rawdata      = np.load(self.filename)
             self.datasize     = self.rawdata.size
             self.exposuretime = .1    # in seconds
-        else:
+
+        else:                                     # we got real data 
             self.rawdata_fileobject = MyPrincetonSPEFile( self.filename )
             self.rawdata            = self.rawdata_fileobject.return_Array()#.astype(np.float64)
             self.datasize           = self.rawdata_fileobject.getSize()

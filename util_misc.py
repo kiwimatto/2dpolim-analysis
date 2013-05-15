@@ -254,12 +254,14 @@ def create_test_data_set():
 
     data = np.zeros( (Nframes, Npixel_x, Npixel_y) )
 
-    md_ex = np.random.random(size=(Npixel_y,Npixel_x))
-    md_fu = np.random.random(size=(Npixel_y,Npixel_x))
+    md_ex    = np.outer( np.linspace(0,1,Npixel_y).reshape(Npixel_y,1),
+                         np.ones((1,Npixel_y)) )
+    md_fu    = np.outer( np.ones((1,Npixel_x)),
+                         np.linspace(0,1,Npixel_x).reshape(Npixel_x,1) )
     phase_ex = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi   # rad
     phase_fu = (np.random.random(size=(Npixel_y,Npixel_x))-.5) * np.pi   # rad
-    gr = np.random.random(size=(Npixel_y,Npixel_x))
-    et = np.random.random(size=(Npixel_y,Npixel_x))
+    gr       = np.random.random(size=(Npixel_y,Npixel_x))
+    et       = np.ones((Npixel_y,Npixel_x))
 
     alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )   # rad
 
