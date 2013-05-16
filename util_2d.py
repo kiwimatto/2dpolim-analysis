@@ -60,28 +60,25 @@ class Movie:
         self.emission_angles_grid = np.linspace(0,np.pi,181)
 
 
-
     def define_background_spot( self, coords, intensity_type='mean' ):
         # create new spot object
-        s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, label='background area', is_bg_spot=True )
-        self.bg_spot = s
-        
+        s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, \
+                      label='background area', is_bg_spot=True )
+        self.bg_spot = s        
         
 
-    def define_spot( self, coords, bg_correction=True, intensity_type='mean', label=None ):
+    def define_spot( self, coords, intensity_type='mean', label=None ):
         """Defines a new spot object and adds it to the list.
         FIXME: make sure coordinate definitions do not exceed frame size
         TO-DO: how about being able to specify center+radius ?
         """
 
-        # create new spot object
-        if bg_correction==True:
-            # this will break if there's no bg-spot defined yet
-            s = Spot( self.camera_data.rawdata, coords, \
-                          bg=self.bg_spot.intensity, int_type='mean', label=label )
+        if hasattr( self, 'bg_spot' ):
+            bg = self.bg_spot.intensity
         else:
-            s = Spot( self.camera_data.rawdata, coords, \
-                          bg=0, int_type='mean', label=label )
+            bg = 0
+        # create new spot object
+        s = Spot( self.camera_data.rawdata, coords, bg=bg, int_type='mean', label=label )
         # append spot object to spots list
         self.spots.append( s )
 
@@ -964,7 +961,7 @@ class CameraData:
         if self.filename.split('.')[-1]=='npy':   # we got test data, presumably
             print "======== TEST DATA IT SEEMS =========="
             self.rawdata      = np.load(self.filename)
-            self.datasize     = self.rawdata.size
+            self.datasize     = self.rawdata.shape
             self.exposuretime = .1    # in seconds
 
         else:                                     # we got real data 
