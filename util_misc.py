@@ -256,6 +256,7 @@ def run_self_test():
                     cbar_pad=.04
                     )
 
+    # M_ex
     im = grid[0].imshow(p[:,:,0], interpolation='nearest')
     grid.cbar_axes[0].colorbar(im)    
     im = grid[5].imshow(mex, interpolation='nearest')
@@ -263,6 +264,7 @@ def run_self_test():
     im = grid[10].imshow(p[:,:,0]-mex, interpolation='nearest')
     grid.cbar_axes[10].colorbar(im)
 
+    # M_em
     im = grid[1].imshow(p[:,:,1], interpolation='nearest')
     grid.cbar_axes[1].colorbar(im)
     im = grid[6].imshow(mem, interpolation='nearest')
@@ -270,6 +272,7 @@ def run_self_test():
     im = grid[11].imshow(p[:,:,1]-mem, interpolation='nearest')
     grid.cbar_axes[11].colorbar(im)
 
+    # phase_ex
     im = grid[2].imshow(p[:,:,2], interpolation='nearest')
     grid.cbar_axes[2].colorbar(im)
     im = grid[7].imshow(pex, interpolation='nearest')
@@ -277,18 +280,22 @@ def run_self_test():
     im = grid[12].imshow(p[:,:,2]-pex, interpolation='nearest')
     grid.cbar_axes[12].colorbar(im)
 
+    # phase_em
     im = grid[3].imshow(p[:,:,3], interpolation='nearest')
     grid.cbar_axes[3].colorbar(im)
     im = grid[8].imshow(pem, interpolation='nearest')
     grid.cbar_axes[8].colorbar(im)
-    im = grid[13].imshow(p[:,:,3]-pem, interpolation='nearest')
+    actual_emission_phase = p[:,:,2]+p[:,:,3] 
+    im = grid[13].imshow((actual_emission_phase)-pem, interpolation='nearest')
     grid.cbar_axes[13].colorbar(im)
 
+    # LS
     im = grid[4].imshow(p[:,:,2]-p[:,:,3], interpolation='nearest')
     grid.cbar_axes[4].colorbar(im)
     im = grid[9].imshow(pex-pem, interpolation='nearest')
     grid.cbar_axes[9].colorbar(im)
-    im = grid[14].imshow(p[:,:,2]-p[:,:,3]-(pex-pem), interpolation='nearest')
+    actual_emission_phase = p[:,:,2]+p[:,:,3]
+    im = grid[14].imshow(p[:,:,2]-actual_emission_phase-(pex-pem), interpolation='nearest')
     grid.cbar_axes[14].colorbar(im)
     
     grid[0].set_title('M_ex')
