@@ -297,9 +297,9 @@ def run_self_test():
     grid[3].set_title('phase_em')
     grid[4].set_title('LS')
 
-    grid[0].set_xlabel('test input')
-    grid[5].set_xlabel('analysis output')
-    grid[10].set_xlabel('difference')
+    grid[0].set_ylabel('test input')
+    grid[5].set_ylabel('analysis output')
+    grid[10].set_ylabel('difference')
 
 
     # a11 = f.add_subplot(3,5,1)
