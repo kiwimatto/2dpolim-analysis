@@ -434,6 +434,7 @@ class Movie:
         # having to store a matrix for each portrait
         for s in self.validspots:
             s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+            s.residual = 0
 
         # we assume that the number of portraits and lines is the same 
         # for all spots (can't think of a reason why that shouldn't be the case).
@@ -481,6 +482,11 @@ class Movie:
                     self.validspots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
 
 
+            # gather residuals for this protrait
+            for si in range(len(self.validspots)):
+                self.validspots[si].residual = np.sum( [ l.resi for l in self.validspots[si].portraits[pi].lines ] )
+
+
             # part II, 'vertical fitting' --- we do each spot by itself, but 
             # fit all verticals in parallel
 
@@ -519,6 +525,7 @@ class Movie:
 
         for s in self.validspots:
             s.averagematrix /= Nportraits
+            s.residual /= Nportraits
 
         # if evaluate_portrait_matrices:
         #     for s in self.spots:
@@ -957,7 +964,7 @@ class Movie:
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
 
-    def are_spots_valid(self, SNR=3):
+    def are_spots_valid(self, SNR=10):
         # do we actually have the background std
         bgstd = 0
         if hasattr( self, 'bg_spot' ):
@@ -968,7 +975,7 @@ class Movie:
         # then we create a new list containing valid spots only
         validspots = []   
         for s in self.spots:
-            if s.intensity_time_average > (std_multiplier * bgstd):
+            if s.intensity_time_average > (SNR * bgstd):
                 validspots.append(s)
 
         # and store in movie object

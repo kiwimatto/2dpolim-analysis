@@ -1,5 +1,6 @@
 from util_2d import *
 from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data, save_spot_data
+import time as stopwatch
 
 def show_mem():
     print "memory usage:"
@@ -23,6 +24,8 @@ global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
 #AMdegrees = [90]#,120,150,180]
 
+tstart = stopwatch.time()
+
 m = Movie( prefix+"aMEH-488-OD102-05.SPE", prefix+"MS-aMEH-488-OD102-05.txt", \
                phase_offset_excitation=global_phase, excitation_optical_element='l/2')
 
@@ -41,7 +44,7 @@ save_spot_data(m,'LS')
 
 show_mem()
 
-
+print "time taken: %fs" % (stopwatch.time()-tstart)
 
 
 raise SystemExit

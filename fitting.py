@@ -202,8 +202,8 @@ def CosineFitter_new( angles, data ):
     Nphases = 91
     phases  = np.linspace( 0, np.pi/2, Nphases )
 
-    rm = residualmatrix    = np.zeros( (phases.size, Nspots) )
-    cm = coefficientmatrix = np.zeros( (phases.size, 2, Nspots) )
+    rm = np.zeros( (phases.size, Nspots) )    # residual matrix
+    cm = np.zeros( (phases.size, 2, Nspots) ) # coefficient matrix
 
     # we'll init all phase-shifts at once, giving
     # a separate column for each phase offset
@@ -230,7 +230,7 @@ def CosineFitter_new( angles, data ):
         #     print data
         # print "f[1].shape=",f[1].shape
         # print "residualmatrix[pi,:].shape=",residualmatrix[pi,:].shape
-        residualmatrix[pi,:] = f[1]
+        rm[pi,:] = f[1]
         cm[pi,:,:] = f[0][:]
 
         # # for which spots is the current fit better than anythings we've seen before?
@@ -242,7 +242,7 @@ def CosineFitter_new( angles, data ):
         # # as well as the resulting fit parameters
         # bestfitpa[:,wherebetter] = f[0][:,wherebetter]
 
-    mm = minindices = np.argmin( residualmatrix, axis=0 )
+    mm = minindices = np.argmin( rm, axis=0 )
     rp = resultingphases = phases[minindices]
 
     I_0 = np.zeros( (Nspots,) )

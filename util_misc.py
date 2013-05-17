@@ -138,7 +138,8 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     phases_em = []
     LSs       = []
     ET_rulers = []
-    
+    residuals = []
+
     # collect the data from all spots
     for ss in movie.validspots:
         mean_intensities.append( ss.intensity_time_average )
@@ -148,6 +149,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
         phases_em.append( ss.phase_em )
         LSs.append( ss.LS )
         ET_rulers.append( ss.ET_ruler )
+        residuals.append( ss.residual )
     # turn the lists into numpy arrays
     intensity = np.array(mean_intensities)
     M_ex = np.array(Ms_ex)
@@ -156,6 +158,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     phase_em = np.array(phases_em)
     LS = np.array(LSs)
     ET_ruler = np.array(ET_rulers)
+    residual = np.array(residuals)
 
     # rescale values to color range 
     intensity_color = (intensity-np.min(intensity))/np.max(intensity)                
@@ -165,6 +168,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     phase_em_color = (phase_em-np.min(phase_em))/np.max(phase_em)
     LS_color = (LS-np.min(LS))/np.max(LS)
     ET_ruler_color = (ET_ruler-np.min(ET_ruler))/np.max(ET_ruler)
+    residual_color = (residual-np.min(residual))/np.max(residual)
 
     # edges! the +1 accounts for the fact that a spot includes its edges (really? does it?)
     xdim=movie.spots[-1].coords[2]-movie.spots[0].coords[0]+1
@@ -201,6 +205,9 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
         elif what=='mean intensity':
             col = colormap( intensity_color[si] )
             fs[yi:yf,xi:xf] = intensity[si]
+        elif what=='residual':
+            col = colormap( residual_color[si] )
+            fs[yi:yf,xi:xf] = residual[si]
             # print yi, yf
             # print xi, xf
             # print s.intensity[0]
