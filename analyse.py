@@ -7,21 +7,34 @@ from util_misc import grid_image_section_into_squares_and_define_spots, show_spo
 # movie.chew()
 # movie.portraits[0].show_picture()
 
+# Rafa: I have modified the motor file so the ex angles are multiplied by 2,
+# because Im using a l/2 plate
 
-prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
-global_phase = 9.0
+prefix = '/home/rafael/Desktop/Win/LC/130515/bMeh/'
+global_phase = 1.0
 
 #AMdegrees = [90]#,120,150,180]
 
 #for am in AMdegrees:
-m = Movie( prefix+"S3-633nm-OD01-675LP715BP.SPE", prefix+"MS-S3-633nm-OD01-675LP715BP.txt", \
+m = Movie( prefix+"bMEH-488-OD102-04.SPE", prefix+"MS-bMEH-488-OD102-04.txt", \
                phase_offset_excitation=global_phase )
-m.define_background_spot( [0,0,89,511] )
+m.define_background_spot( [0,0,50,511] )
     
-grid_image_section_into_squares_and_define_spots( m, res=2,bounds=[100,50,450,400] )
+grid_image_section_into_squares_and_define_spots( m, res=4,bounds=[70,130,460,410] )
+
 
 #    m.define_spot( [220,180,330,300], label='and another one' )
 m.chew()
+show_spot_data(m,'mean intensity')
+show_spot_data(m,'M_ex')
+show_spot_data(m,'M_em')
+show_spot_data(m,'phase_ex')
+show_spot_data(m,'phase_em')
+show_spot_data(m,'LS')
+show_spot_data(m,'ET_ruler')
+
+
+
 #    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
 raise SystemExit

@@ -59,7 +59,7 @@ class NewSetupMotor:
                             
         timestamps = md[:,0]
         emisangles = md[:,1]
-        exciangles = md[:,2]
+        exciangles = md[:,2]*2
         shutter    = md[:,3]
 
         self.timestamps = timestamps
