@@ -15,7 +15,8 @@ class Movie:
                       phase_offset_excitation=0, \
                       datamode='validdata', \
                       which_setup='new setup', \
-                      use_new_fitter=True ):
+                      use_new_fitter=True, \
+                      excitation_optical_element='l/2'):
 
         # get those objects going
         self.camera_data      = CameraData( spe_filename )
@@ -30,14 +31,14 @@ class Movie:
             self.excitation_motor = ExcitationMotor( excitation_motor_filename, \
                                                          phase_offset_excitation, \
                                                          rotation_direction=-1, \
-                                                         optical_element='lambda_over_2_plate')
+                                                         optical_element=excitation_optical_element)
             self.emission_motor   = EmissionMotor( emission_motor_filename )
 
         elif which_setup=='new setup':
             self.excitation_motor = NewSetupMotor( excitation_motor_filename, \
                                                        which_motor='excitation', \
                                                        phase_offset=phase_offset_excitation, \
-                                                       optical_element='polarizer' )
+                                                       optical_element=excitation_optical_element )
             if emission_motor_filename==None:
                 emission_motor_filename = excitation_motor_filename
             self.emission_motor = NewSetupMotor( emission_motor_filename, \

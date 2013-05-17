@@ -76,7 +76,7 @@ class NewSetupMotor:
             raise ValueError("Input argument which_motor to class NewSetupMotor must take values 'excitation' or 'emission'. Got: %s" % (which_motor))
         self.shutter    = shutter
 
-        if self.optical_element=='lambda_over_2_plate':
+        if self.optical_element=='l/2 plate':
             self.angles *= 2
 
 
