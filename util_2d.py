@@ -19,7 +19,7 @@ class Movie:
                       excitation_optical_element='l/2'):
 
         # get those objects going
-        self.camera_data      = CameraData( spe_filename )
+        self.camera_data      = CameraData( spe_filename, compute_frame_average=True )
 
         if use_new_fitter:
             self.cos_fitter = CosineFitter_new
@@ -352,13 +352,13 @@ class Movie:
     def fit_all_lines_spot_parallel( self ):
         # init average portrait matrices, so that we can write to them without
         # having to store a matrix for each portrait
-        for s in self.spots:
+        for s in self.validspots:
             s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
 
         # we assume that the number of portraits and lines is the same 
         # for all spots (can't think of a reason why that shouldn't be the case).
         Nportraits = self.portrait_indices.shape[0]
-        Nlines     = len( self.spots[0].portraits[0].lines )
+        Nlines     = len( self.validspots[0].portraits[0].lines )
 
         # for each portrait ---- outermost loop, we do portraits in series
         for pi in range(Nportraits):
@@ -375,10 +375,10 @@ class Movie:
             for li in range(Nlines):
 
                 # get excitation angle array (same for all spots!)
-                exangles    = self.spots[0].portraits[pi].lines[li].exangles
+                exangles    = self.validspots[0].portraits[pi].lines[li].exangles
 
                 # create list of intensity arrays (one array for each spot)
-                intensities = [spot.portraits[pi].lines[li].intensities for spot in self.spots]
+                intensities = [spot.portraits[pi].lines[li].intensities for spot in self.validspots]
 
                 # turn into numpy array and transpose
                 intensities = np.array( intensities ).T
@@ -387,8 +387,8 @@ class Movie:
                 phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
 
                 # write cosine parameters into line object
-                for si in range(len(self.spots)):
-                    self.spots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
+                for si in range(len(self.validspots)):
+                    self.validspots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
 
 
     def compute_modulation_in_emission( self,portrait ):
@@ -432,13 +432,13 @@ class Movie:
 
         # init average portrait matrices, so that we can write to them without
         # having to store a matrix for each portrait
-        for s in self.spots:
+        for s in self.validspots:
             s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
 
         # we assume that the number of portraits and lines is the same 
         # for all spots (can't think of a reason why that shouldn't be the case).
         Nportraits = self.portrait_indices.shape[0]
-        Nlines     = len( self.spots[0].portraits[0].lines )
+        Nlines     = len( self.validspots[0].portraits[0].lines )
 
         # for each portrait ---- outermost loop, we do portraits in series
         for pi in range(Nportraits):
@@ -455,10 +455,10 @@ class Movie:
             for li in range(Nlines):
 
                 # get excitation angle array (same for all spots!)
-                exangles    = self.spots[0].portraits[pi].lines[li].exangles
+                exangles    = self.validspots[0].portraits[pi].lines[li].exangles
 
                 # create list of intensity arrays (one array for each spot)
-                intensities = [spot.portraits[pi].lines[li].intensities for spot in self.spots]
+                intensities = [spot.portraits[pi].lines[li].intensities for spot in self.validspots]
 
                 # turn into numpy array and transpose
                 intensities = np.array( intensities ).T
@@ -477,21 +477,21 @@ class Movie:
                 # raise hell
 
                 # write cosine parameters into line object
-                for si in range(len(self.spots)):
-                    self.spots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
+                for si in range(len(self.validspots)):
+                    self.validspots[si].portraits[pi].lines[li].set_fit_params( phase[si], I0[si], M[si], resi[si] )
 
 
             # part II, 'vertical fitting' --- we do each spot by itself, but 
             # fit all verticals in parallel
 
             # collect list of unique emission angles (same for all spots!)                    
-            emangles = [l.emangle for l in self.spots[0].portraits[pi].lines]
+            emangles = [l.emangle for l in self.validspots[0].portraits[pi].lines]
             # turn into array, transpose and squeeze
             emangles = np.squeeze(np.array( emangles ).T)
 
             # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
             fitintensities = [ np.array( [l.cosValue( self.excitation_angles_grid ) \
-                                             for l in s.portraits[pi].lines]) for s in self.spots ]
+                                             for l in s.portraits[pi].lines]) for s in self.validspots ]
             fitintensities = np.hstack( fitintensities )
 
             # print "vertical, portrait %d" % (pi)
@@ -501,11 +501,11 @@ class Movie:
 #            print phase.shape
                 
             # store vertical fit params
-            phase = np.hsplit(phase, len(self.spots))
-            I0    = np.hsplit(I0, len(self.spots))
-            M     = np.hsplit(M, len(self.spots))
-            resi  = np.hsplit(resi, len(self.spots))
-            for si,s in enumerate(self.spots):
+            phase = np.hsplit(phase, len(self.validspots))
+            I0    = np.hsplit(I0, len(self.validspots))
+            M     = np.hsplit(M, len(self.validspots))
+            resi  = np.hsplit(resi, len(self.validspots))
+            for si,s in enumerate(self.validspots):
                 s.portraits[pi].vertical_fit_params = [phase[si], I0[si], M[si], resi[si]]
 
                 if evaluate_portrait_matrices:
@@ -517,7 +517,7 @@ class Movie:
                     s.averagematrix += pic
 #                    s.portraits[pi].matrix = pic
 
-        for s in self.spots:
+        for s in self.validspots:
             s.averagematrix /= Nportraits
 
         # if evaluate_portrait_matrices:
@@ -591,9 +591,9 @@ class Movie:
 
         # projection onto the excitation axis (ie over all emission angles),
         # for all spots, one per column
-        proj_ex = np.array( [np.mean( s.averagematrix, axis=0 ) for s in self.spots] ).T
+        proj_ex = np.array( [np.mean( s.averagematrix, axis=0 ) for s in self.validspots] ).T
         # same for projection onto emission axis
-        proj_em = np.array( [np.mean( s.averagematrix, axis=1 ) for s in self.spots] ).T
+        proj_em = np.array( [np.mean( s.averagematrix, axis=1 ) for s in self.validspots] ).T
 
         # fitting
         ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
@@ -618,7 +618,7 @@ class Movie:
         LS = ph_ex - ph_em
         LS[LS >  np.pi/2] -= np.pi
         LS[LS < -np.pi/2] += np.pi
-        for si,s in enumerate(self.spots):
+        for si,s in enumerate(self.validspots):
             s.phase_ex = ph_ex[si]
             s.M_ex     = M_ex[si]
             s.phase_em = ph_em[si]
@@ -679,7 +679,7 @@ class Movie:
 
         # the angular grids likely include redundancy at the edges, and
         # we need to exclude those to not oversample
-        for s in self.spots:
+        for s in self.validspots:
             sam = s.averagematrix
             if self.excitation_angles_grid[-1]==np.pi:
                 sam = sam[:,:-1]
@@ -687,7 +687,7 @@ class Movie:
                 sam = sam[:-1,:]
             s.pruned_averagematrix = sam
 
-        self.newdata = np.array( [ s.pruned_averagematrix[ind_em, ind_ex] for s in self.spots ] )
+        self.newdata = np.array( [ s.pruned_averagematrix[ind_em, ind_ex] for s in self.validspots ] )
 #        self.newexangles = self.excitation_angles_grid[ ind_ex ]
 #        self.newemangles = self.emission_angles_grid[ ind_em ]
 
@@ -728,7 +728,7 @@ class Movie:
 
         # now go over all spots
         cet=0
-        for si,s in enumerate(self.spots):
+        for si,s in enumerate(self.validspots):
 
 #            import sys
 #            sys.stdout.flush()
@@ -737,13 +737,13 @@ class Movie:
             # we shouldn't use this ruler
             if np.abs(np.sum( self.peaks[:,si] )-1) > .08:
                 print 'fuck. Data peaks are weird... %f' % (np.sum(self.peaks[:,si]))
-                self.spots[si].ET_ruler = np.nan
+                self.validspots[si].ET_ruler = np.nan
             
             # now let's rule
             crossdiff = self.peaks[1,si]-self.peaks[3,si]
             
             # 3-dipole model (all of same length, no ET) starts here
-            kappa     = .5 * np.arccos( .5*(3*self.spots[si].M_ex-1) ) 
+            kappa     = .5 * np.arccos( .5*(3*self.validspots[si].M_ex-1) ) 
             alpha     = np.array([ -kappa, 0, kappa ])
             
             phix =   np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
@@ -767,7 +767,7 @@ class Movie:
             # test again if peaks make sense
             if np.abs(np.sum( MYpeaks )-1) > .08:
                 print 'fuck. MYpeaks is off... %f' % (np.sum( MYpeaks ))
-                self.spots[si].ET_ruler = np.nan
+                self.validspots[si].ET_ruler = np.nan
 
             MYcrossdiff = MYpeaks[1]-MYpeaks[3]
             # model done
@@ -789,7 +789,7 @@ class Movie:
             if ruler > 1:
                 ruler = 1
 
-            self.spots[si].ET_ruler = ruler
+            self.validspots[si].ET_ruler = ruler
         #print i1,i2,i3,i4,df
 
 
@@ -797,7 +797,7 @@ class Movie:
 
         from fitting import fit_portrait_single_funnel_symmetric
 
-        for si,s in enumerate(self.spots):
+        for si,s in enumerate(self.validspots):
             print 'ETmodel fitting spot %d' % si
 
             # we 'correct' the modulation in excitation to be within 
@@ -848,7 +848,7 @@ class Movie:
         import diffevol
         
 
-        for si,s in enumerate(self.spots):
+        for si,s in enumerate(self.validspots):
             print 'ETmodel fitting spot %d' % si
             mex = np.clip( s.M_ex, .000001, .999999 )
             a0 = [mex, .5, 0, 1]
@@ -890,13 +890,13 @@ class Movie:
         self.startstop()
         print "assigning portrait data..."
         self.assign_portrait_data()        
+        self.are_spots_valid()
 
-        # for s in self.spots:       
+        # for s in self.validspots:       
         #     print s.intensity
         #     s.intensity = None
 #        self.data = None             # this doesn't seem to do anything memory-wise
                                      # (are these all just pointers??)
-
 #        self.camera_data = None      # this helps (as expected)
 
         print "fitting all portraits"
@@ -920,12 +920,12 @@ class Movie:
             print "-------------"
             print "Number of frames: %d"  % (self.timeaxis.size)
             print "Number of valid frames: %d" % (self.Nvalidframes)
-            print "Number of spots: %d" % (len(self.spots))
-            print "Number of portraits: %d" % (len(self.spots[0].portraits))
-            for i,p in enumerate( self.spots[0].portraits ):
+            print "Number of spots: %d" % (len(self.validspots))
+            print "Number of portraits: %d" % (len(self.validspots[0].portraits))
+            for i,p in enumerate( self.validspots[0].portraits ):
                 print "Portrait #%d (%d frames)" % (i,p.exangles.size)
         if loud:
-            for si,spot in enumerate( self.spots ):
+            for si,spot in enumerate( self.validspots ):
                 print "Spot #%d:" % (si)
                 print "\tModulation depth in excitation: %f" % (spot.M_ex)
                 print "\tPhase in excitation: %f" % (spot.phase_ex)
@@ -944,13 +944,36 @@ class Movie:
         self.collect_data()
         self.startstop()
         self.assign_portrait_data()        
+        self.are_spots_valid( SNR=30 )
+
         self.fit_all_portraits_spot_parallel()
         self.find_modulation_depths_and_phases()
 
-        for s in self.spots:
+        self.ETrulerFFT()
+
+        for s in self.validspots:
 #            print s
             print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
+
+
+    def are_spots_valid(self, SNR=3):
+        # do we actually have the background std
+        bgstd = 0
+        if hasattr( self, 'bg_spot' ):
+            bgstd = self.bg_spot.std
+        else:
+            print "Dude --- no background spot defined, therefore no standard deviation. Will treat all spots as valid (i.e. as having sufficient intensity)."
+
+        # then we create a new list containing valid spots only
+        validspots = []   
+        for s in self.spots:
+            if s.intensity_time_average > (std_multiplier * bgstd):
+                validspots.append(s)
+
+        # and store in movie object
+        self.validspots = validspots
+                
 
 
 class CameraData:

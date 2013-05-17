@@ -61,16 +61,16 @@ def trim_noisy_data( movie, what='M_ex', threshold=None ):
         quantity  = 'M_em'
 
     elif what=='LS':   # LS is a bit special here
-        if not hasattr(movie.spots[0],'phase_ex_trimmed'):
+        if not hasattr(movie.validspots[0],'phase_ex_trimmed'):
             trim_noisy_data( movie, what='phase_ex', threshold=None )
-        if not hasattr(movie.spots[0],'phase_em_trimmed'):
+        if not hasattr(movie.validspots[0],'phase_em_trimmed'):
             trim_noisy_data( movie, what='phase_em', threshold=None ) 
-        for si,s in enumerate(movie.spots):
+        for si,s in enumerate(movie.validspots):
             setattr(s,'LS_trimmed', getattr(s,'phase_ex')-getattr(s,'phase_em') )
         return  # early return from this one
 
     # all others go through this one
-    for si,s in enumerate(movie.spots):
+    for si,s in enumerate(movie.validspots):
         if getattr(s,quantity) <= threshold:
             setattr(s,what+'_trimmed', np.nan )
         else:
@@ -94,9 +94,9 @@ def save_spot_data( movie, what='M_ex', whole_image=True ):
         xinit = 0
         yinit = 0
     else:
-        fs = np.zeros((ydim,xdim))    
+        fs = np.ones((ydim,xdim)) * np.nan
     
-    for si,s in enumerate(movie.spots):
+    for si,s in enumerate(movie.validspots):
         xi = s.coords[0]-xinit
         xf = s.coords[2]-xinit+1  # edges...
         yi = s.coords[1]-yinit
@@ -140,7 +140,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     ET_rulers = []
     
     # collect the data from all spots
-    for ss in movie.spots:
+    for ss in movie.validspots:
         mean_intensities.append( ss.intensity_time_average )
         Ms_ex.append( ss.M_ex )
         Ms_em.append( ss.M_em )
@@ -173,7 +173,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     xinit = movie.spots[0].coords[0]
     yinit = movie.spots[0].coords[1]
      
-    for si,s in enumerate(movie.spots):
+    for si,s in enumerate(movie.validspots):
         xi = s.coords[0]-xinit
         xf = s.coords[2]-xinit+1  # edges...
         yi = s.coords[1]-yinit
@@ -218,6 +218,11 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     np.savetxt(what+'data.txt', fs)
 
     ax.figure.canvas.draw()
+
+    plt.figure()
+    plt.hist( intensity )
+    plt.draw()
+
 
 
 def run_self_test():
@@ -496,7 +501,7 @@ def compareTestParamsWithOutput( movie, paramfilename ):
     ax = plt.gca()
 
 #    mexs = []
-    for s in movie.spots:
+    for s in movie.validspots:
 #        mexs.append( s.M_ex )
         md_ex = params[s.coords[0],s.coords[1],0]
         s.M_ex_diff = s.M_ex - md_ex
