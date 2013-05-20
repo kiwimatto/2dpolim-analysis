@@ -12,6 +12,7 @@ sig_c_1       = np.int( sys.argv[8] )
 sig_c_2       = np.int( sys.argv[9] )
 sig_c_3       = np.int( sys.argv[10] )
 sig_c_4       = np.int( sys.argv[11] )
+SNR           = np.int( sys.argv[12] )
 
 bg_coords  = [bg_c_1, bg_c_2, bg_c_3, bg_c_4]
 sig_coords = [sig_c_1, sig_c_2, sig_c_3, sig_c_4]
@@ -21,4 +22,5 @@ m = Movie( spefilename, motorfilename, phase_offset_excitation=global_phase*np.p
 
 m.define_background_spot( bg_coords )
 m.define_spot( sig_coords )
-m.chew_a_bit()
+m.chew_AM(SNR=SNR)
+m.validspots[0].export_averagematrix('spotmatrix.npy')

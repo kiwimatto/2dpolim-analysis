@@ -153,7 +153,8 @@ class Movie:
 
 
     def startstop( self ):
-        """This function determines the indices at which portraits start and end.
+        """
+        This function determines the indices at which portraits start and end.
         There's a fair bit of hackery in here, and to understand what is 
         happening one really needs to look at the raw data, frame indices, valid
         frames (no shutter), etc...  This will be need to be documented much more
@@ -963,6 +964,22 @@ class Movie:
             print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
+    def chew_AM( self, quiet=False, loud=False, SNR=10 ):
+        self.collect_data()
+        self.startstop()
+        self.assign_portrait_data()        
+        self.are_spots_valid( SNR=SNR )
+        if len(self.validspots)<1:
+            raise ValueError("No valid spots found! Reduce SNR demands or re-measure...")
+
+        self.fit_all_portraits_spot_parallel()
+        self.find_modulation_depths_and_phases()
+
+        for s in self.validspots:
+#            print s
+            print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
+                ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
+
 
     def are_spots_valid(self, SNR=10):
         # do we actually have the background std
@@ -1068,6 +1085,9 @@ class Spot:
         return "Spot object: int_type=%s\tlowerleft=[%d,%d]\twidth=%d\theight=%d\tlabel=%s" % \
             (self.intensity_type, self.coords[0], self.coords[1], \
                  self.coords[2]-self.coords[0]+1, self.coords[3]-self.coords[1]+1, self.label)
+
+    def export_averagematrix(self,filename):
+        np.save(filename,self.averagematrix)
 
 class Portrait:
     def __init__( self, exangles, emangles, intensities ):

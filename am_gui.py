@@ -56,30 +56,41 @@ class MyStaticMplCanvas(FigureCanvas):
         self.anno = spot_picker.Annotate(self.axes)
         self.draw()
 
-    def update_figure(self, data):
-        self.data = data
+    def clear(self):
+        self.fig.clear()
+#        self.axes = self.fig.add_subplot(111)
+
+    def show_portrait(self,portrait):
         self.fig.clear()
         self.axes = self.fig.add_subplot(111)
-        i = self.axes.imshow(data)
-        self.cb = self.fig.colorbar(i)
-        self.cb.set_label('W/cm^2')
-        self.axes.axhspan(511-BACKGROUNDLINES, 511, facecolor=(1.0,0,0), alpha=0.4)
-        self.axes.text( 255, 511-BACKGROUNDLINES/2.0, 'BACKGROUND TAKEN FROM HERE', \
-                            horizontalalignment='center', \
-                            verticalalignment='center', \
-                            color='red')        
-        self.axes.set_xlim(0,511)
-        self.axes.set_ylim(0,511)        
-        self.axes.axhline( self.crosshairs_y )
-        self.axes.axvline( self.crosshairs_x )
+        self.axes.imshow( portrait, origin='bottom' )
         self.draw()
+        
 
-    def onclick(self, event):
-        print 'button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % \
-            (event.button, event.x, event.y, event.xdata, event.ydata)
-        self.crosshairs_x = event.xdata 
-        self.crosshairs_y = event.ydata
-        self.update_figure(self.data)
+    # def update_figure(self, data):
+    #     self.data = data
+    #     self.fig.clear()
+    #     self.axes = self.fig.add_subplot(111)
+    #     i = self.axes.imshow(data)
+    #     self.cb = self.fig.colorbar(i)
+    #     self.cb.set_label('W/cm^2')
+    #     self.axes.axhspan(511-BACKGROUNDLINES, 511, facecolor=(1.0,0,0), alpha=0.4)
+    #     self.axes.text( 255, 511-BACKGROUNDLINES/2.0, 'BACKGROUND TAKEN FROM HERE', \
+    #                         horizontalalignment='center', \
+    #                         verticalalignment='center', \
+    #                         color='red')        
+    #     self.axes.set_xlim(0,511)
+    #     self.axes.set_ylim(0,511)        
+    #     self.axes.axhline( self.crosshairs_y )
+    #     self.axes.axvline( self.crosshairs_x )
+    #     self.draw()
+
+    # def onclick(self, event):
+    #     print 'button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % \
+    #         (event.button, event.x, event.y, event.xdata, event.ydata)
+    #     self.crosshairs_x = event.xdata 
+    #     self.crosshairs_y = event.ydata
+    #     self.update_figure(self.data)
 
 
 class ApplicationWindow(QtGui.QMainWindow):
@@ -88,8 +99,8 @@ class ApplicationWindow(QtGui.QMainWindow):
 
         self.spefiles = []
         self.m = None
-
         self.pwd = os.path.dirname(os.path.abspath(__file__))
+        self.optical_element = 'polarizer'
 
         QtGui.QMainWindow.__init__(self)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -113,11 +124,15 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.globalPhaseOffsetEdit.editingFinished.connect( self.update_global_phase )
         self.update_global_phase()
 
+        self.SNREdit = QtGui.QLineEdit(self.main_widget)
+        self.SNREdit.setText( '10' )
+
         self.fileChanger = QtGui.QComboBox(self.main_widget)
         self.fileChanger.activated.connect( self.update_file_change )
 
         self.lambdaOver2Checkbox = QtGui.QCheckBox('lambda/2 plate?',self.main_widget)
-#        self.lambdaOver2Checkbox.
+        self.lambdaOver2Checkbox.stateChanged.connect(self.optical_element_change)
+        self.lambdaOver2Checkbox.setCheckState(False)
 
         self.setBGRegionButton     = QtGui.QPushButton('Set BG region', self.main_widget)
         self.setBGRegionButton.clicked.connect(self.set_bg_region)
@@ -129,18 +144,34 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.runAllButton = QtGui.QPushButton('run all', self.main_widget)
         self.runAllButton.clicked.connect(self.runAllAnalysis)
 
+        self.pp1 = MyStaticMplCanvas(self.main_widget, width=1, height=1, dpi=100)
+        self.pp1.clear()
+        self.pp2 = MyStaticMplCanvas(self.main_widget, width=1, height=1, dpi=100)
+        self.pp2.clear()
+        self.pp3 = MyStaticMplCanvas(self.main_widget, width=1, height=1, dpi=100)
+        self.pp3.clear()
+        self.pp4 = MyStaticMplCanvas(self.main_widget, width=1, height=1, dpi=100)
+        self.pp4.clear()
+
+
 #        self.pick_reporter  = QtGui.QLabel('0 W/cm^{-2} \t x=0 \t y=0' )
 
-        l.addWidget( self.globalPhaseOffsetEdit, 1,0 )
-        l.addWidget( QtGui.QLabel('global phase offset in deg'), 1, 1 )
+        l.addWidget( QtGui.QLabel('global phase offset in deg:'), 1, 0 )
+        l.addWidget( self.globalPhaseOffsetEdit, 1,1 )
         l.addWidget( self.lambdaOver2Checkbox, 1,2)
-        l.addWidget( self.getDirButton,2,0)
-        l.addWidget( self.fileChanger,3,0)
-        l.addWidget( self.setBGRegionButton,2,1 )
-        l.addWidget( self.setSignalRegionButton,3,1 )
-        l.addWidget( self.sc,4,0,3,3 )
-        l.addWidget( self.runButton, 6,0 )
-        l.addWidget( self.runAllButton, 6,1 )
+        l.addWidget( QtGui.QLabel('SNR:'), 1, 3 )
+        l.addWidget( self.SNREdit, 1,4 )
+        l.addWidget( self.getDirButton,2,0,1,2)
+        l.addWidget( self.fileChanger,3,0,1,2)
+        l.addWidget( self.setBGRegionButton,2,2 )
+        l.addWidget( self.setSignalRegionButton,3,2 )
+        l.addWidget( self.sc, 4,0,4,4 )
+        l.addWidget( self.pp1, 4,4,1,1 )
+        l.addWidget( self.pp2, 5,4,1,1 )
+        l.addWidget( self.pp3, 6,4,1,1 )
+        l.addWidget( self.pp4, 7,4,1,1 )
+        l.addWidget( self.runButton, 8,0 )
+        l.addWidget( self.runAllButton, 8,1 )
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -150,29 +181,38 @@ class ApplicationWindow(QtGui.QMainWindow):
     #     yi = np.round(event.ydata)
     #     self.pick_reporter.setText( "%5.3e W/cm^{-2} \t x=%d \t y=%d" % (self.data[yi,xi], xi, yi) )
 
-    def runAnalysis(self,index=None):
-        if index==None:
-            index = self.fileChanger.currentIndex()
+    def optical_element_change(self):
+        if self.lambdaOver2Checkbox.isChecked():
+            self.optical_element = 'l/2'
+        else:
+            self.optical_element = 'polarizer'
+
+    def runAnalysis(self,fileindex=None):
+        if fileindex==None or fileindex==False:
+            fileindex = self.fileChanger.currentIndex()
 
         callstring  = 'python '+"\""+os.path.normpath(self.pwd+'/am_analyse.py')+"\""+' '
-        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.spefiles[index])+"\""+' '
-        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.motorfiles[index])+"\""+' '
+        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.spefiles[fileindex])+"\""+' '
+        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.motorfiles[fileindex])+"\""+' '
         callstring += str(self.global_phase)+' '
         for b in self.bg_region_coords:
             callstring += str(b)+' '
         for s in self.signal_region_coords:
             callstring += str(s)+' '
-
+        callstring += str(self.SNREdit.text())
         os.system(callstring)
         
+        portrait = np.load('spotmatrix.npy')
+        getattr(self, 'pp'+str(fileindex+1)).show_portrait(portrait)
+
         # self.m.define_background_spot( self.bg_region_coords )
         # self.m.define_spot( self.signal_region_coords )
         # self.m.chew_a_bit()
 
     def runAllAnalysis(self):
         for i in range(len(self.spefiles)):
-#            self.load_and_display_spe_file(index=i)
-            self.runAnalysis(index=i)
+#            self.load_and_display_spe_file(fileindex=i)
+            self.runAnalysis(fileindex=i)
 
     def set_bg_region(self):
         coords = np.round( np.array( [self.sc.anno.x0, self.sc.anno.y0, \
@@ -217,7 +257,8 @@ class ApplicationWindow(QtGui.QMainWindow):
 #            self.sc.update_figure(self.data)
 
     def update_file_change(self):
-        self.load_and_display_spe_file(index=self.fileChanger.currentIndex())
+        print self.fileChanger.currentIndex()
+        self.load_and_display_spe_file(fileindex=self.fileChanger.currentIndex())
 
     def getDir(self):
         fname = QtGui.QFileDialog.getExistingDirectory(self, 'Show me where the data is', \
@@ -240,6 +281,8 @@ class ApplicationWindow(QtGui.QMainWindow):
                     print "File %s added to the list." % file
                 else:
                     print "File %s is already in the list." % file
+
+        self.spefiles.sort()
 
         self.motorfiles = ['']*len(self.spefiles)
 
@@ -264,20 +307,23 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.fileChanger.clear()
         for s in self.spefiles:
             self.fileChanger.addItem(s)
+        self.fileChanger.setCurrentIndex(0)
 
         if not len(self.spefiles)==0:
             self.load_and_display_spe_file(0)
 
-    def load_and_display_spe_file(self,index=0):
+    def load_and_display_spe_file(self,fileindex=0):
         del(self.m)
         # from guppy import hpy; h=hpy()
         # w=h.heap()
         # print w
         print "loading file %s ... " % (self.spefiles[0]),
         sys.stdout.flush()
-        self.m = Movie( self.data_directory+"/"+self.spefiles[index], \
-                            self.data_directory+"/"+self.motorfiles[index], \
-                            phase_offset_excitation=self.global_phase, use_new_fitter=True )
+        self.m = Movie( self.data_directory+"/"+self.spefiles[fileindex], \
+                            self.data_directory+"/"+self.motorfiles[fileindex], \
+                            phase_offset_excitation=self.global_phase*np.pi/180.0, \
+                            use_new_fitter=True, \
+                            excitation_optical_element=self.optical_element)
         self.sc.axes.imshow( self.m.camera_data.rawdata[0,:,:], zorder=1, cmap=cmap.gray )
         self.sc.draw()
         print "done"
