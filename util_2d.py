@@ -45,6 +45,13 @@ class Movie:
                                                      which_motor='emission', \
                                                      phase_offset=0*np.pi/180.0 )
 
+        elif which_setup=='cool new setup':
+            self.motors = BothMotors( motor_filename, \
+                                          phase_offset_excitation, \
+                                          optical_element=excitation_optical_element )
+        else:
+            raise hell
+
         # where do we get our time axis from?  
         self.timeaxis = self.camera_data.timestamps
 
@@ -95,10 +102,14 @@ class Movie:
         [FrameNumber, excitation angle, emission angle, Intensities (Nspot columns)]    
         """
 
-        exangles = np.array( [self.excitation_motor.angle(t,exposuretime=self.camera_data.exposuretime) \
-                                  for t in self.timeaxis] )
-        emangles = np.array( [self.emission_motor.angle(t,exposuretime=self.camera_data.exposuretime) \
-                                  for t in self.timeaxis] )
+        if self.which_setup=='cool new setup':
+            exangles = self.motors.excitation_angles
+            emangles = self.motors.emission_angles
+        else:
+            exangles = np.array( [self.excitation_motor.angle(t,exposuretime=self.camera_data.exposuretime) \
+                                      for t in self.timeaxis] )
+            emangles = np.array( [self.emission_motor.angle(t,exposuretime=self.camera_data.exposuretime) \
+                                      for t in self.timeaxis] )
         validframes = emangles != -1
         self.Nvalidframes = np.sum(validframes)
 
@@ -161,8 +172,11 @@ class Movie:
         thoroughly in the future, but for now: Handle with care.
         """
 
-        emangles = np.array( [self.emission_motor.angle(t, exposuretime=self.camera_data.exposuretime) \
-                                  for t in self.timeaxis] )
+        if self.which_setup=='cool new setup':
+            emangles = self.motors.emission_angles
+        else:
+            emangles = np.array( [self.emission_motor.angle(t, exposuretime=self.camera_data.exposuretime) \
+                                      for t in self.timeaxis] )
 #        print emangles[:10]
 
         # frames are valid where emangles is not equal to -1

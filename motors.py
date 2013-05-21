@@ -1,6 +1,45 @@
 import numpy as np
 from util_misc import deal_with_date_time_string
 
+class BothMotors:
+    def __init__( self, filename, \
+                      phase_offset=0 )
+        """Initialize the class: read in the file"""
+        self.experiment_start_datetime = None
+        self.filename = filename
+        self.phase_offset = phase_offset
+        self.optical_element = optical_element
+
+        # deal with motor file
+        f = open(filename,'r')
+        firstline = f.readline().strip()   # read first line and strip newline character(s)
+        f.close()
+        optelemstring = firstline.lstrip('excitation optical element is ')   # strip preamble from left
+        if optelemstring=='l/2 plate':
+            self.optical_element = 'l/2 plate'
+        elif optelemstring=='polarizer':
+            self.optical_element = 'polarizer'
+        else:
+            raise ValueError("BothMotors doesn't understand optelemstring %s (should be 'l/2 plate' or 'polarizer'" % optelemstring)
+
+        # grab motor data --- delimiter is _a tab_ !!!
+        # uses converter functions to parse date+time and shutter values
+        md = np.loadtxt( filename, \
+                             delimiter='\t', \
+                             skiprows=2 )
+
+        self.framenumbers = md[:,0]
+        self.excitation_angles_raw = md[:,1] * np.pi/180.0
+        self.emission_angles_raw   = md[:,2] * np.pi/180.0
+
+        if self.optical_element=='l/2 plate':
+            self.excitation_angles_raw *= 2
+
+        self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi )
+        self.emission_angles       = np.mod( self.emission_angles_raw, 2*np.pi )
+
+
+
 
 class NewSetupMotor:
     """This class represents either of the two motors in the new

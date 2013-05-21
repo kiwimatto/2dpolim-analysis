@@ -203,7 +203,8 @@ class ApplicationWindow(QtGui.QMainWindow):
         os.system(callstring)
         
         portrait = np.load('spotmatrix.npy')
-        getattr(self, 'pp'+str(fileindex+1)).show_portrait(portrait)
+        if fileindex<4:
+            getattr(self, 'pp'+str(fileindex+1)).show_portrait(portrait)
 
         # self.m.define_background_spot( self.bg_region_coords )
         # self.m.define_spot( self.signal_region_coords )
