@@ -16,10 +16,10 @@ class Movie:
                       datamode='validdata', \
                       which_setup='new setup', \
                       use_new_fitter=True, \
-                      excitation_optical_element='l/2'):
+                      excitation_optical_element='L/2 plate'):
 
         # get those objects going
-        self.camera_data      = CameraData( spe_filename, compute_frame_average=True )
+        self.camera_data    = CameraData( spe_filename, compute_frame_average=True )
 
         if use_new_fitter:
             self.cos_fitter = CosineFitter_new
@@ -44,7 +44,6 @@ class Movie:
             self.emission_motor = NewSetupMotor( emission_motor_filename, \
                                                      which_motor='emission', \
                                                      phase_offset=0*np.pi/180.0 )
-
         elif which_setup=='cool new setup':
             self.motors = BothMotors( motor_filename, \
                                           phase_offset_excitation, \

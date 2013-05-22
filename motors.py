@@ -12,15 +12,14 @@ class BothMotors:
 
         # deal with motor file
         f = open(filename,'r')
-        firstline = f.readline().strip()   # read first line and strip newline character(s)
+        optelemstring = f.readline().strip()   # read first line and strip newline character(s)
         f.close()
-        optelemstring = firstline.lstrip('excitation optical element is ')   # strip preamble from left
-        if optelemstring=='l/2 plate':
-            self.optical_element = 'l/2 plate'
-        elif optelemstring=='polarizer':
-            self.optical_element = 'polarizer'
+        if optelemstring=='L/2 Plate':
+            self.optical_element = 'L/2 Plate'
+        elif optelemstring=='Polarizer':
+            self.optical_element = 'Polarizer'
         else:
-            raise ValueError("BothMotors doesn't understand optelemstring %s (should be 'l/2 plate' or 'polarizer'" % optelemstring)
+            raise ValueError("BothMotors doesn't understand optelemstring %s (should be 'L/2 Plate' or 'Polarizer'" % optelemstring)
 
         # grab motor data --- delimiter is _a tab_ !!!
         # uses converter functions to parse date+time and shutter values
@@ -32,7 +31,7 @@ class BothMotors:
         self.excitation_angles_raw = md[:,1] * np.pi/180.0
         self.emission_angles_raw   = md[:,2] * np.pi/180.0
 
-        if self.optical_element=='l/2 plate':
+        if self.optical_element=='L/2 Plate':
             self.excitation_angles_raw *= 2
 
         self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi )
@@ -71,7 +70,7 @@ class NewSetupMotor:
     def __init__( self, filename, \
                       which_motor, \
                       phase_offset=0, \
-                      optical_element='polarizer'):
+                      optical_element='Polarizer'):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
@@ -115,7 +114,7 @@ class NewSetupMotor:
             raise ValueError("Input argument which_motor to class NewSetupMotor must take values 'excitation' or 'emission'. Got: %s" % (which_motor))
         self.shutter    = shutter
 
-        if self.optical_element=='l/2 plate':
+        if self.optical_element=='L/2 Plate':
             self.angles *= 2
 
 
@@ -179,7 +178,7 @@ class ExcitationMotor:
     def __init__(self, filename, \
                      phase_offset_excitation=0, \
                      rotation_direction=-1, \
-                     optical_element='lambda_over_2_plate'):
+                     optical_element='L/2 Plate'):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
@@ -242,11 +241,11 @@ class ExcitationMotor:
         """
         a = self.signals[self.signals==1]
         t = self.timestamps[self.signals==1]
-        if self.optical_element=='lambda_over_2_plate':
+        if self.optical_element=='L/2 Plate':
             # 720 because the polarization has rotated twice once the 
             # polarizer (the lambda/2) has rotated once
             a *= 4*np.pi*self.rotation_direction
-        elif self.optical_element=='polarizer':
+        elif self.optical_element=='Polarizer':
             a *= 2*np.pi*self.rotation_direction
         else:
             raise ValueError("Motor class doesn't know optical_element '%s'" % self.optical_element)
