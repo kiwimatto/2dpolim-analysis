@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.interactive(1)
 from files import MyPrincetonSPEFile
-from motors import NewSetupMotor, ExcitationMotor, EmissionMotor
+from motors import NewSetupMotor, ExcitationMotor, EmissionMotor, BothMotors
 from fitting import CosineFitter, CosineFitter_new, CosineFitter_mpi_master
 import scipy.optimize as so
 
@@ -26,6 +26,8 @@ class Movie:
         else:
             self.cos_fitter = CosineFitter
 
+        self.which_setup = which_setup
+            
         # set up motors --- phase offset in radians!!!
         if which_setup=='old setup':
             self.excitation_motor = ExcitationMotor( excitation_motor_filename, \
@@ -45,7 +47,7 @@ class Movie:
                                                      which_motor='emission', \
                                                      phase_offset=0*np.pi/180.0 )
         elif which_setup=='cool new setup':
-            self.motors = BothMotors( motor_filename, \
+            self.motors = BothMotors( excitation_motor_filename, \
                                           phase_offset_excitation, \
                                           optical_element=excitation_optical_element )
         else:

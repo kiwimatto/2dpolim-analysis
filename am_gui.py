@@ -324,6 +324,7 @@ class ApplicationWindow(QtGui.QMainWindow):
                             self.data_directory+"/"+self.motorfiles[fileindex], \
                             phase_offset_excitation=self.global_phase*np.pi/180.0, \
                             use_new_fitter=True, \
+                            which_setup='cool new setup', \
                             excitation_optical_element=self.optical_element)
         self.sc.axes.imshow( self.m.camera_data.rawdata[0,:,:], zorder=1, cmap=cmap.gray )
         self.sc.draw()
