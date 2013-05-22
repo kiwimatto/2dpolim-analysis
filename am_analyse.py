@@ -14,11 +14,16 @@ sig_c_3       = np.int( sys.argv[10] )
 sig_c_4       = np.int( sys.argv[11] )
 SNR           = np.int( sys.argv[12] )
 
+#print sys.argv
+
 bg_coords  = [bg_c_1, bg_c_2, bg_c_3, bg_c_4]
 sig_coords = [sig_c_1, sig_c_2, sig_c_3, sig_c_4]
 
 #raise SystemExit
-m = Movie( spefilename, motorfilename, phase_offset_excitation=global_phase*np.pi/180.0, use_new_fitter=True )
+m = Movie( spefilename, motorfilename, \
+        phase_offset_excitation=global_phase*np.pi/180.0, \
+        use_new_fitter=True, \
+        which_setup='cool new setup' )
 
 m.define_background_spot( bg_coords )
 m.define_spot( sig_coords )

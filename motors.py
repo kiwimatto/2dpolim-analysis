@@ -2,8 +2,7 @@ import numpy as np
 from util_misc import deal_with_date_time_string
 
 class BothMotors:
-    def __init__( self, filename, \
-                      phase_offset=0 )
+    def __init__( self, filename, phase_offset=0, optical_element='L/2 plate' ):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
@@ -34,7 +33,7 @@ class BothMotors:
         if self.optical_element=='L/2 Plate':
             self.excitation_angles_raw *= 2
 
-        self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi )
+        self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi ) + self.phase_offset
         self.emission_angles       = np.mod( self.emission_angles_raw, 2*np.pi )
 
 

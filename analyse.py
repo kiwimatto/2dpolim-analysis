@@ -27,7 +27,8 @@ global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 tstart = stopwatch.time()
 
 m = Movie( prefix+"aMEH-488-OD102-05.SPE", prefix+"MS-aMEH-488-OD102-05.txt", \
-               phase_offset_excitation=global_phase, excitation_optical_element='l/2')
+               phase_offset_excitation=global_phase, which_setup='cool new setup', \
+               excitation_optical_element='l/2')
 
 m.define_background_spot( [0,0,50,511] )
 
