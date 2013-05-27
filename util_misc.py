@@ -77,7 +77,7 @@ def trim_noisy_data( movie, what='M_ex', threshold=None ):
             setattr(s,what+'_trimmed', getattr(s,what) )
 
 
-def save_spot_data( movie, what='M_ex', whole_image=True ):
+def save_spot_data( movie, what='M_ex', whole_image=True, fileprefix='' ):
     # We assume in the following that the first spot (movie.spots[0]) is
     # the upper left spot in the image, with the origin (0,0) of the
     # image also being in the upper left corner of the plot.
@@ -103,7 +103,7 @@ def save_spot_data( movie, what='M_ex', whole_image=True ):
         yf = s.coords[3]-yinit+1
         fs[yi:yf,xi:xf] = getattr(s,what)
 
-    np.savetxt(what+'_output_data.txt', fs)
+    np.savetxt(fileprefix + what + '_output_data.txt', fs)
 
         
 
@@ -226,9 +226,9 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
 
     ax.figure.canvas.draw()
 
-    plt.figure()
-    plt.hist( intensity )
-    plt.draw()
+    #plt.figure()
+    #plt.hist( intensity )
+    #plt.draw()
 
 
 

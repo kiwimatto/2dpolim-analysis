@@ -220,7 +220,7 @@ class Movie:
         if self.which_setup=='cool new setup':
             indices[0,0] = 0
 
-        print indices
+        #print indices
 
         if self.datamode=="truedata":
             # look up indices into all (not just valid) frames
@@ -976,10 +976,10 @@ class Movie:
 
         self.ETrulerFFT()
 
-        for s in self.validspots:
+#        for s in self.validspots:
 #            print s
-            print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
-                ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
+#            print "M_ex=%3.2f\tM_em=%3.2f\tphase_ex=%3.2fdeg\tphase_em=%3.2fdeg\tLS=%3.2fdeg" % \
+#                ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
     def chew_AM( self, quiet=False, loud=False, SNR=10 ):
         self.collect_data()
