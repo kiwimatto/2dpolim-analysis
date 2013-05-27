@@ -106,6 +106,16 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.cosineFitPushButton.clicked.connect( self.cosineFit )
         self.findModDepthsPushButton.clicked.connect( self.findModDepths )
         self.showStuffComboBox.activated.connect( self.showStuff )
+        self.ETrulerPushButton.clicked.connect( self.ETruler )
+        self.showWhatComboBox.activated.connect( self.dataview_updater )
+
+    def ETruler(self):
+        self.imageview.ET_ruler_rects = []
+        self.m.ETrulerFFT()
+        for s in self.m.validspots:
+            r = Rectangle( (s.coords[0],s.coords[1]), s.coords[2]-s.coords[0], \
+                s.coords[3]-s.coords[1], facecolor=cm.jet(s.phase_em/np.pi+.5), alpha=1, zorder=7 )
+            self.imageview.ET_ruler_rects.append( r )
 
     def showStuff(self):
         what = self.showStuffComboBox.currentIndex()
@@ -120,9 +130,15 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             self.imageview.show_stuff( what='phase_ex' )
         elif what==4:  # phase_ex
             self.imageview.show_stuff( what='phase_em' )
+        elif what==5:  # ET_ruler
+            self.imageview.show_stuff( what='ET_ruler' )
 
 
     def findModDepths(self):
+        self.imageview.M_ex_rects = []
+        self.imageview.M_em_rects = []
+        self.imageview.phase_ex_rects = []
+        self.imageview.phase_em_rects = []
         self.m.find_modulation_depths_and_phases()
         for s in self.m.validspots:
             r = Rectangle( (s.coords[0],s.coords[1]), s.coords[2]-s.coords[0], \
@@ -141,7 +157,11 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
 #        self.imageview.show_stuff( what='M_ex' )
 
     def cosineFit(self):
+        self.m.excitation_angles_grid = np.linspace( 0, np.pi, NanglesSpinBox.value() )
+        self.m.emission_angles_grid = np.linspace( 0, np.pi, NanglesSpinBox.value() )
+        self.cosineFitPushButton.setDown(True)
         self.m.fit_all_portraits_spot_parallel()
+        self.cosineFitPushButton.setDown(False)
         print 'cosine fit done'
 
     def checkSpotValidity(self):
@@ -247,12 +267,14 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                 if hasattr(self.m.spots[self.current_spot], 'intensity'):
                     print 'showing intensity trace'
                     self.dataview.clear()
+                    self.dataview.figure.canvas.draw()
                     self.dataview.axes.plot( self.m.spots[self.current_spot].intensity, 'bx-' )
                     self.dataview.figure.canvas.draw()
             elif showWhat==1:    # portrait data
                 if hasattr(self.m.spots[self.current_spot], 'portraits'):
                     print 'showing portrait data'
                     self.dataview.clear()
+                    self.dataview.figure.canvas.draw()
                     # collect all intensities
 
                     Nemangles = np.unique(self.m.spots[self.current_spot].portraits[0].emangles).size
@@ -273,6 +295,13 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                             print np.min(l.intensities),' --- ',np.max(l.intensities)
                     self.dataview.figure.canvas.draw()
 
+            elif showWhat==2:    # portrait fit
+                print 'yup'
+                self.dataview.clear()
+                self.dataview.figure.canvas.draw()
+                self.dataview.axes.imshow( self.m.spots[self.current_spot].recover_average_portrait_matrix(),
+                                           origin='lower', interpolation='nearest' )
+                self.dataview.figure.canvas.draw()
 
 
             print dir(self.m.spots[self.current_spot])

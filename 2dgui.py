@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '2dgui.ui'
 #
-# Created: Mon May 27 15:52:34 2013
+# Created: Tue May 28 00:28:38 2013
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -171,10 +171,10 @@ class Ui_MainWindow(object):
         self.SNRSpinBox.setProperty("value", 10)
         self.SNRSpinBox.setObjectName(_fromUtf8("SNRSpinBox"))
         self.gridLayout_3.addWidget(self.SNRSpinBox, 4, 2, 1, 1)
-        self.clearAllSpotsPushButton_3 = QtGui.QPushButton(self.groupBox_3)
-        self.clearAllSpotsPushButton_3.setMinimumSize(QtCore.QSize(101, 27))
-        self.clearAllSpotsPushButton_3.setObjectName(_fromUtf8("clearAllSpotsPushButton_3"))
-        self.gridLayout_3.addWidget(self.clearAllSpotsPushButton_3, 11, 2, 1, 1)
+        self.ETrulerPushButton = QtGui.QPushButton(self.groupBox_3)
+        self.ETrulerPushButton.setMinimumSize(QtCore.QSize(101, 27))
+        self.ETrulerPushButton.setObjectName(_fromUtf8("ETrulerPushButton"))
+        self.gridLayout_3.addWidget(self.ETrulerPushButton, 11, 2, 1, 1)
         self.NanglesSpinBox = QtGui.QSpinBox(self.groupBox_3)
         self.NanglesSpinBox.setMinimum(2)
         self.NanglesSpinBox.setMaximum(1000)
@@ -196,6 +196,7 @@ class Ui_MainWindow(object):
         self.showStuffComboBox = QtGui.QComboBox(self.centralwidget)
         self.showStuffComboBox.setGeometry(QtCore.QRect(470, 220, 151, 27))
         self.showStuffComboBox.setObjectName(_fromUtf8("showStuffComboBox"))
+        self.showStuffComboBox.addItem(_fromUtf8(""))
         self.showStuffComboBox.addItem(_fromUtf8(""))
         self.showStuffComboBox.addItem(_fromUtf8(""))
         self.showStuffComboBox.addItem(_fromUtf8(""))
@@ -237,7 +238,7 @@ class Ui_MainWindow(object):
         self.clearAllSpotsPushButton_4.setText(QtGui.QApplication.translate("MainWindow", "ET model", None, QtGui.QApplication.UnicodeUTF8))
         self.checkSpotValidityPushButton.setText(QtGui.QApplication.translate("MainWindow", "check", None, QtGui.QApplication.UnicodeUTF8))
         self.cosineFitPushButton.setText(QtGui.QApplication.translate("MainWindow", "cosine fit", None, QtGui.QApplication.UnicodeUTF8))
-        self.clearAllSpotsPushButton_3.setText(QtGui.QApplication.translate("MainWindow", "ET ruler", None, QtGui.QApplication.UnicodeUTF8))
+        self.ETrulerPushButton.setText(QtGui.QApplication.translate("MainWindow", "ET ruler", None, QtGui.QApplication.UnicodeUTF8))
         self.initAnalysisPushButton.setText(QtGui.QApplication.translate("MainWindow", "collect+startstop+assign", None, QtGui.QApplication.UnicodeUTF8))
         self.showWhatComboBox.setItemText(0, QtGui.QApplication.translate("MainWindow", "intensity trace", None, QtGui.QApplication.UnicodeUTF8))
         self.showWhatComboBox.setItemText(1, QtGui.QApplication.translate("MainWindow", "portrait data", None, QtGui.QApplication.UnicodeUTF8))
@@ -248,4 +249,5 @@ class Ui_MainWindow(object):
         self.showStuffComboBox.setItemText(2, QtGui.QApplication.translate("MainWindow", "M_em", None, QtGui.QApplication.UnicodeUTF8))
         self.showStuffComboBox.setItemText(3, QtGui.QApplication.translate("MainWindow", "phase_ex", None, QtGui.QApplication.UnicodeUTF8))
         self.showStuffComboBox.setItemText(4, QtGui.QApplication.translate("MainWindow", "phase_em", None, QtGui.QApplication.UnicodeUTF8))
+        self.showStuffComboBox.setItemText(5, QtGui.QApplication.translate("MainWindow", "ET_ruler", None, QtGui.QApplication.UnicodeUTF8))
 

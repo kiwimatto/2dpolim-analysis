@@ -65,14 +65,14 @@ class Movie:
         self.datamode = datamode
 
         # fix the excitation and emission angle grids for now
-        self.excitation_angles_grid = np.linspace(0,np.pi,181)
-        self.emission_angles_grid = np.linspace(0,np.pi,181)
+        self.excitation_angles_grid = np.linspace(0,np.pi,91)
+        self.emission_angles_grid = np.linspace(0,np.pi,91)
 
 
     def define_background_spot( self, coords, intensity_type='mean' ):
         # create new spot object
         s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, \
-                      label='background area', is_bg_spot=True )
+                      label='background area', is_bg_spot=True, parent=self )
         self.bg_spot = s        
         
 
@@ -87,7 +87,7 @@ class Movie:
         else:
             bg = 0
         # create new spot object
-        s = Spot( self.camera_data.rawdata, coords, bg=bg, int_type='mean', label=label )
+        s = Spot( self.camera_data.rawdata, coords, bg=bg, int_type='mean', label=label, parent=self )
         # append spot object to spots list
         self.spots.append( s )
 
@@ -266,7 +266,7 @@ class Movie:
                     em = d[:, 2]
                     I  = d[:, 3+si]
                 # store portrait object in list
-                portraitlist.append( Portrait( ex, em, I ) )
+                portraitlist.append( Portrait( ex, em, I, spot ) )
 
             # store list in spot object
             spot.portraits = portraitlist
@@ -342,7 +342,7 @@ class Movie:
                                      for l in self.spots[si].portraits[pi].lines ]
                 fitintensities = np.array( fitintensities )
 
-                phase, I0, M, resi = self.cos_fitter( emangles, fitintensities ) 
+                phase, I0, M, resi = self.cos_fitter( emangles, fitintensities )
                 
                 # store vertical fit params
                 self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
@@ -446,7 +446,7 @@ class Movie:
 
 
 
-    def fit_all_portraits_spot_parallel( self, evaluate_portrait_matrices=True ):
+    def fit_all_portraits_spot_parallel( self ):   #, evaluate_portrait_matrices=True ):
 
         # init average portrait matrices, so that we can write to them without
         # having to store a matrix for each portrait
@@ -522,7 +522,6 @@ class Movie:
             # print fitintensities.shape
 
             phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
-#            print phase.shape
                 
             # store vertical fit params
             phase = np.hsplit(phase, len(self.validspots))
@@ -530,20 +529,22 @@ class Movie:
             M     = np.hsplit(M, len(self.validspots))
             resi  = np.hsplit(resi, len(self.validspots))
             for si,s in enumerate(self.validspots):
-                s.portraits[pi].vertical_fit_params = [phase[si], I0[si], M[si], resi[si]]
+                s.portraits[pi].vertical_fit_params = [ phase[si], I0[si], M[si], resi[si] ]
 
-                if evaluate_portrait_matrices:
-                    # evaluate portrait matrix
-                    mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
-                    pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
-                    for exi in range( self.excitation_angles_grid.size ):
-                        pic[:,exi] = mycos( self.emission_angles_grid, phase[si][exi], I0[si][exi], M[si][exi] )
-                    s.averagematrix += pic
-#                    s.portraits[pi].matrix = pic
+#                 if evaluate_portrait_matrices:
+#                     # evaluate portrait matrix
+#                     mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+#                     pic = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+#                     for exi in range( self.excitation_angles_grid.size ):
+#                         pic[:,exi] = mycos( self.emission_angles_grid, phase[si][exi], I0[si][exi], M[si][exi] )
+#                     s.averagematrix += pic
+# #                    s.portraits[pi].matrix = pic
 
-        for s in self.validspots:
-            s.averagematrix /= Nportraits
-            s.residual /= Nportraits
+#         for s in self.validspots:
+#             s.averagematrix /= Nportraits
+#             s.residual /= Nportraits
+
+
 
         # if evaluate_portrait_matrices:
         #     for s in self.spots:
@@ -1050,7 +1051,7 @@ class CameraData:
 
 
 class Spot:
-    def __init__(self, rawdata, coords, bg, int_type, label, is_bg_spot=False):
+    def __init__(self, rawdata, coords, bg, int_type, label, parent, is_bg_spot=False):
         """
         There's something noteworthy (speak: important) about the coordinates
         which define the box that is the 'spot'. First of all, the convention
@@ -1068,6 +1069,7 @@ class Spot:
         self.label  = label
         self.width  = coords[2] -coords[0] +1
         self.height = coords[3] -coords[1] +1
+        self.parent = parent
 
         # work out frame-dependent intensities for that spot
         # - mean:
@@ -1109,12 +1111,22 @@ class Spot:
     def export_averagematrix(self,filename):
         np.save(filename,self.averagematrix)
 
+    def recover_average_portrait_matrix(self):
+        pic = self.portraits[0].recover_portrait_matrix()
+        n = 1
+        while n < len(self.portraits):
+            pic += self.portraits[n].recover_portrait_matrix()
+            n += 1
+        pic /= n
+        return pic
+
 
 class Portrait:
-    def __init__( self, exangles, emangles, intensities ):
+    def __init__( self, exangles, emangles, intensities, parent ):
         self.exangles = exangles
         self.emangles = emangles
         self.intensities = intensities
+        self.parent = parent
         self.lines = []
 
 
@@ -1174,6 +1186,35 @@ class Portrait:
         plt.plot( [0,180], [0,180], 'k-' )
         plt.xlim( 0, 180 )
         plt.ylim( 0, 180 )
+
+
+    def recover_portrait_matrix(self):
+        print dir(self)
+        mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+
+        # print self.vertical_fit_params
+        # print self.vertical_fit_params[0].shape
+
+        phase = self.vertical_fit_params[0]
+        I0    = self.vertical_fit_params[1]
+        M     = self.vertical_fit_params[2]
+
+        pic = np.zeros( (self.parent.parent.emission_angles_grid.size, self.parent.parent.excitation_angles_grid.size) )
+        for exi in range( self.parent.parent.excitation_angles_grid.size ):
+            pic[:,exi] = mycos( self.parent.parent.emission_angles_grid, phase[exi], I0[exi], M[exi] )
+
+        return pic
+
+#                     s.averagematrix += pic
+# #                    s.portraits[pi].matrix = pic
+
+#         for s in self.validspots:
+#             s.averagematrix /= Nportraits
+#             s.residual /= Nportraits
+        #self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
+
+
+
 
 
 class Line:

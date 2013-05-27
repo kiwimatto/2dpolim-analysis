@@ -147,5 +147,8 @@ class MyMplCanvas(FigureCanvas):
         elif what=='phase_em':
             for r in self.phase_em_rects:
                 self.axes.add_patch( r )
+        elif what=='ET_ruler':
+            for r in self.ET_ruler_rects:
+                self.axes.add_patch( r )
             
         self.figure.canvas.draw()
