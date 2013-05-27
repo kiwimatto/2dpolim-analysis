@@ -212,13 +212,15 @@ class Movie:
             indices[i,0] = edges[i*number_of_lines]+1
             indices[i,1] = edges[(i+1)*number_of_lines]
 
-#        print indices
-
         # These indices will discard the first frame, despite it being in principle
         # a valid frame. You can 'repair' that by doing:
         #    indices[0,0] = 0
         # However, we think that the first frame could be affected by the shutter, and
         # the overall behaviour of the code is a bit more consistent this way.
+        if self.which_setup=='cool new setup':
+            indices[0,0] = 0
+
+        print indices
 
         if self.datamode=="truedata":
             # look up indices into all (not just valid) frames
@@ -249,7 +251,7 @@ class Movie:
             # go through all portraits
             for n in range(Nportraits):
                 # grab nth portrait
-                d = self.data[pind[n,0]:pind[n,1], :]
+                d = self.data[pind[n,0]:pind[n,1]+1, :]
                 if self.datamode=='truedata':
                     # use only valid rows
                     d = d[d[:,1]==1]
@@ -354,7 +356,6 @@ class Movie:
 
                     self.spots[si].portraits[pi].matrix = pic
 
-
         if evaluate_portrait_matrices:
             for s in self.spots:
                 averagematrix = np.zeros_like( s.portraits[0].matrix )
@@ -364,6 +365,7 @@ class Movie:
                 averagematrix /= len(s.portraits)
 
                 s.averagematrix = averagematrix
+
 
     def fit_all_lines_spot_parallel( self ):
         # init average portrait matrices, so that we can write to them without
@@ -1006,12 +1008,15 @@ class Movie:
 
         # then we create a new list containing valid spots only
         validspots = []   
-        for s in self.spots:
+        validspotindices = []
+        for si,s in enumerate(self.spots):
             if s.intensity_time_average > (SNR * bgstd):
                 validspots.append(s)
+                validspotindices.append(si)
 
         # and store in movie object
         self.validspots = validspots
+        self.validspotindices = validspotindices
                 
 
 
@@ -1104,11 +1109,14 @@ class Spot:
     def export_averagematrix(self,filename):
         np.save(filename,self.averagematrix)
 
+
 class Portrait:
     def __init__( self, exangles, emangles, intensities ):
         self.exangles = exangles
         self.emangles = emangles
         self.intensities = intensities
+        self.lines = []
+
 
         # print '=== portrait ==='
         # print exangles

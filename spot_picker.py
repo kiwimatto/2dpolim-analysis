@@ -55,6 +55,9 @@ class Annotate(object):
             self.rect.set_linestyle('solid')
             self.ax.figure.canvas.draw()
         print self.x0,self.y0,self.x1,self.y1
+        
+        if self.x0==self.x1 and self.y0==self.y1:
+            print type(self.__bases__)
 
 
 def pick_a_spot( frame ):

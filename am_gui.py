@@ -100,7 +100,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.spefiles = []
         self.m = None
         self.pwd = os.path.dirname(os.path.abspath(__file__))
-        self.optical_element = 'polarizer'
+        self.optical_element = 'Polarizer'
 
         QtGui.QMainWindow.__init__(self)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
