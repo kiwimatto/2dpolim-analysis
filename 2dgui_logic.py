@@ -178,7 +178,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         # now populate that list
         for s in self.m.spots[nspotsbefore:]:
             r = Rectangle( (s.coords[0],s.coords[1]), s.coords[2]-s.coords[0], \
-                s.coords[3]-s.coords[1], facecolor='red', edgecolor='green', alpha=.3, zorder=7 )
+                s.coords[3]-s.coords[1], facecolor='red', edgecolor='none', alpha=.3, zorder=7 )
             self.imageview.spot_rects.append( r )
             self.imageview.axes.add_patch( self.imageview.spot_rects[-1] )
 
