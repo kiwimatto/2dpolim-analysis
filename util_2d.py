@@ -472,7 +472,7 @@ class Movie:
         # init average portrait matrices, so that we can write to them without
         # having to store a matrix for each portrait
         for s in self.validspots:
-            s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
+#            s.averagematrix = np.zeros( (self.emission_angles_grid.size, self.excitation_angles_grid.size) )
             s.residual = 0
 
         # we assume that the number of portraits and lines is the same 
@@ -731,15 +731,18 @@ class Movie:
 
         # the angular grids likely include redundancy at the edges, and
         # we need to exclude those to not oversample
+        newdata = []
         for s in self.validspots:
-            sam = s.averagematrix
+            sam = s.recover_average_portrait_matrix()
             if self.excitation_angles_grid[-1]==np.pi:
                 sam = sam[:,:-1]
             if self.emission_angles_grid[-1]==np.pi:
                 sam = sam[:-1,:]
-            s.pruned_averagematrix = sam
+            newdata.append( sam[ ind_em,ind_ex ] )
+#            s.pruned_averagematrix = sam
+#       newdata = np.array( [ s.pruned_averagematrix[ind_em, ind_ex] for s in self.validspots ] )
+        newdata = np.array( newdata )
 
-        self.newdata = np.array( [ s.pruned_averagematrix[ind_em, ind_ex] for s in self.validspots ] )
 #        self.newexangles = self.excitation_angles_grid[ ind_ex ]
 #        self.newemangles = self.emission_angles_grid[ ind_em ]
 
@@ -747,7 +750,7 @@ class Movie:
 
         # now we work out the position of the peaks in the FFTs of these new data columns
 
-        f = np.fft.fft( self.newdata, axis=1 )
+        f = np.fft.fft( newdata, axis=1 )
         powerspectra = np.real( f*f.conj() )/newdatalength
 #        print powerspectra.shape
         normpowerspectra = powerspectra[:,1:newdatalength/2] \
@@ -824,9 +827,6 @@ class Movie:
             MYcrossdiff = MYpeaks[1]-MYpeaks[3]
             # model done
             
-            s.MYpower = MYpower
-
-
             ruler = 1-(crossdiff/MYcrossdiff)
 
             if (ruler < -.1) or (ruler > 1.1):
@@ -1222,7 +1222,7 @@ class Portrait:
 
 
     def recover_portrait_matrix(self):
-        print dir(self)
+        #print dir(self)
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
         # print self.vertical_fit_params
