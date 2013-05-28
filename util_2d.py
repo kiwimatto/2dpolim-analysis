@@ -70,7 +70,9 @@ class Movie:
         # fix the excitation and emission angle grids for now
         self.excitation_angles_grid = np.linspace(0,np.pi,91)
         self.emission_angles_grid = np.linspace(0,np.pi,91)
-
+        self.Nphases_for_cos_fitter = 91
+        self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
+                                         for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
     def initContrastImages(self):
         self.spot_coverage_image  = np.ones( (self.camera_data.datasize[1],self.camera_data.datasize[2]) )*np.nan
@@ -422,7 +424,8 @@ class Movie:
                 intensities = np.array( intensities ).T
 
                 exa = exangles.copy()
-                phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
+                phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( exa, intensities, \
+                                                                               self.Nphases_for_cos_fitter ) 
 
                 # write cosine parameters into line object
                 for si in range(len(self.validspots)):
@@ -441,13 +444,15 @@ class Movie:
         # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
         fitintensities = np.array([l.cosValue( self.excitation_angles_grid ) for l in portrait.lines])
 
-        phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
+        phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( emangles, fitintensities, \
+                                                                       self.Nphases_for_cos_fitter ) 
         
         # phasor addition!
         proj_em = np.real( rawfitpars[0,:] * np.exp( 1j*rawfitpars[1,:] ) \
                                * np.exp( 1j*self.emission_angles_grid ) )
 
-        phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( self.emission_angles_grid, proj_em ) 
+        phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( self.emission_angles_grid, proj_em, \
+                                                                       self.Nphases_for_cos_fitter ) 
         portrait.phase_em = phase[0]
         portrait.M_em = M
         
@@ -509,7 +514,8 @@ class Movie:
                 # plt.plot(exa, intensities, 'o:')
 
 #                print "line"
-                phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( exa, intensities ) 
+                phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( exa, intensities, \
+                                                                               self.Nphases_for_cos_fitter ) 
 
                 # for jj in range(len(phase)):
                 #     plt.plot( exa, I0[jj]*(1+M[jj]*np.cos(2*np.pi/180.0*(exa-phase[jj]))) )
@@ -541,15 +547,17 @@ class Movie:
             # print "vertical, portrait %d" % (pi)
             # print fitintensities.shape
 
-            phase, I0, M, resi, fit, rawfitpars = self.cos_fitter( emangles, fitintensities ) 
+            phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( emangles, fitintensities, \
+                                                                           self.Nphases_for_cos_fitter ) 
                 
             # store vertical fit params
             phase = np.hsplit(phase, len(self.validspots))
             I0    = np.hsplit(I0, len(self.validspots))
             M     = np.hsplit(M, len(self.validspots))
             resi  = np.hsplit(resi, len(self.validspots))
+            mm    = np.hsplit(mm, len(self.validspots))
             for si,s in enumerate(self.validspots):
-                s.portraits[pi].vertical_fit_params = [ phase[si], I0[si], M[si], resi[si] ]
+                s.portraits[pi].vertical_fit_params = [ phase[si], I0[si], M[si], resi[si], mm[si] ]
 
 #                 if evaluate_portrait_matrices:
 #                     # evaluate portrait matrix
@@ -637,13 +645,22 @@ class Movie:
 
         # projection onto the excitation axis (ie over all emission angles),
         # for all spots, one per column
-        proj_ex = np.array( [np.mean( s.recover_average_portrait_matrix(), axis=0 ) for s in self.validspots] ).T
-        # same for projection onto emission axis
-        proj_em = np.array( [np.mean( s.recover_average_portrait_matrix(), axis=1 ) for s in self.validspots] ).T
+        proj_ex = []
+        proj_em = []
+        for s in self.validspots:
+            sam = s.recover_average_portrait_matrix()
+            proj_ex.append( np.mean( sam, axis=0 ) )
+            proj_em.append( np.mean( sam, axis=1 ) )
+        proj_ex = np.array(proj_ex).T
+        proj_em = np.array(proj_em).T
+
+        # proj_ex = np.array( [np.mean( s.recover_average_portrait_matrix(), axis=0 ) for s in self.validspots] ).T
+        # # same for projection onto emission axis
+        # proj_em = np.array( [np.mean( s.recover_average_portrait_matrix(), axis=1 ) for s in self.validspots] ).T
 
         # fitting
-        ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
-        ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em = self.cos_fitter( self.emission_angles_grid, proj_em )
+        ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex, mm = self.cos_fitter( self.excitation_angles_grid, proj_ex, self.Nphases_for_cos_fitter )
+        ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em, mm= self.cos_fitter( self.emission_angles_grid, proj_em, self.Nphases_for_cos_fitter )
 
         # print ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex
         # print ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em
@@ -1220,7 +1237,7 @@ class Portrait:
 
 
     def recover_portrait_matrix(self):
-        #print dir(self)
+        # print dir(self)
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
         # print self.vertical_fit_params
@@ -1229,6 +1246,13 @@ class Portrait:
         phase = self.vertical_fit_params[0]
         I0    = self.vertical_fit_params[1]
         M     = self.vertical_fit_params[2]
+
+        # mm    = self.vertical_fit_params[4]
+
+        # pic2 = []
+        # for exi in range( self.parent.parent.excitation_angles_grid.size ):
+        #     pic2.append( I0[exi]*(1+M[exi]*self.parent.parent.precomputed_cosines[mm[exi]]) )
+        # return np.array(pic).T
 
         pic = np.zeros( (self.parent.parent.emission_angles_grid.size, self.parent.parent.excitation_angles_grid.size) )
         for exi in range( self.parent.parent.excitation_angles_grid.size ):
@@ -1243,8 +1267,6 @@ class Portrait:
 #             s.averagematrix /= Nportraits
 #             s.residual /= Nportraits
         #self.spots[si].portraits[pi].vertical_fit_params = [phase, I0, M, resi]
-
-
 
 
 

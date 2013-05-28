@@ -183,7 +183,7 @@ def CosineFitter_mpi_master( angles, data ):
 
 
 
-def CosineFitter_new( angles, data ):
+def CosineFitter_new( angles, data, Nphases=91 ):
 
     assert angles.ndim == 1
     assert data.shape[0] == angles.size
@@ -199,7 +199,7 @@ def CosineFitter_new( angles, data ):
     # how many data columns do we have?
     Nspots = data.shape[1]
 
-    Nphases = 91
+#    Nphases = 91
     phases  = np.linspace( 0, np.pi/2, Nphases )
 
     rm = np.zeros( (phases.size, Nspots) )    # residual matrix
@@ -273,7 +273,7 @@ def CosineFitter_new( angles, data ):
         # also collect residuals of these minima
         resi[i] = rm[mm[i],i]
 
-    return rp, I_0, M_0, resi, fit, rawfitpars
+    return rp, I_0, M_0, resi, fit, rawfitpars, mm
 
 
 def CosineFitter( angles, data ):

@@ -20,7 +20,7 @@ show_mem()
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
 #prefix = '/home/kiwimatto/Desktop/130514/a-MEH/'
 #prefix = '/home/rafael/Desktop/Win/LC/130527-LC/Ink/'
-prefix = '/home/rafael/Desktop/Win/130501 - 488nm MEHPPV/SA1/'
+prefix = '/home/kiwimatto/Desktop/'
           
 global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
