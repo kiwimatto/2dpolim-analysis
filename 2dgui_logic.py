@@ -112,10 +112,14 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
     def ETruler(self):
         self.imageview.ET_ruler_rects = []
         self.m.ETrulerFFT()
+        # ruler = []
+        # for s in self.m.validspots:
+        #     ruler.append(s.ET_ruler)
         for s in self.m.validspots:
             r = Rectangle( (s.coords[0],s.coords[1]), s.coords[2]-s.coords[0], \
-                s.coords[3]-s.coords[1], facecolor=cm.jet(s.phase_em/np.pi+.5), alpha=1, zorder=7 )
+                s.coords[3]-s.coords[1], facecolor=cm.jet(s.ET_ruler), alpha=1, zorder=7 )
             self.imageview.ET_ruler_rects.append( r )
+
 
     def showStuff(self):
         what = self.showStuffComboBox.currentIndex()
