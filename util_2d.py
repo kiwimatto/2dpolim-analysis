@@ -966,12 +966,11 @@ class Movie:
     #     plt.ylim( 0, 180 )      
 
 
-    def chew_a_bit( self, quiet=False, loud=False ):
+    def chew_a_bit( self, SNR=30, quiet=False, loud=False ):
         self.collect_data()
         self.startstop()
         self.assign_portrait_data()        
-        self.are_spots_valid( SNR=30 )
-
+        self.are_spots_valid( SNR )
         self.fit_all_portraits_spot_parallel()
         self.find_modulation_depths_and_phases()
 
