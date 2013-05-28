@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '2dgui.ui'
 #
-# Created: Tue May 28 00:28:38 2013
+# Created: Tue May 28 10:48:52 2013
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -185,6 +185,10 @@ class Ui_MainWindow(object):
         self.initAnalysisPushButton.setMinimumSize(QtCore.QSize(101, 27))
         self.initAnalysisPushButton.setObjectName(_fromUtf8("initAnalysisPushButton"))
         self.gridLayout_3.addWidget(self.initAnalysisPushButton, 2, 1, 1, 3)
+        self.saveContrastImagesPushButton = QtGui.QPushButton(self.groupBox_3)
+        self.saveContrastImagesPushButton.setMinimumSize(QtCore.QSize(101, 27))
+        self.saveContrastImagesPushButton.setObjectName(_fromUtf8("saveContrastImagesPushButton"))
+        self.gridLayout_3.addWidget(self.saveContrastImagesPushButton, 11, 1, 1, 1)
         self.verticalLayout_3.addLayout(self.gridLayout_3)
         self.showWhatComboBox = QtGui.QComboBox(self.centralwidget)
         self.showWhatComboBox.setGeometry(QtCore.QRect(1077, 220, 151, 27))
@@ -240,6 +244,7 @@ class Ui_MainWindow(object):
         self.cosineFitPushButton.setText(QtGui.QApplication.translate("MainWindow", "cosine fit", None, QtGui.QApplication.UnicodeUTF8))
         self.ETrulerPushButton.setText(QtGui.QApplication.translate("MainWindow", "ET ruler", None, QtGui.QApplication.UnicodeUTF8))
         self.initAnalysisPushButton.setText(QtGui.QApplication.translate("MainWindow", "collect+startstop+assign", None, QtGui.QApplication.UnicodeUTF8))
+        self.saveContrastImagesPushButton.setText(QtGui.QApplication.translate("MainWindow", "save images", None, QtGui.QApplication.UnicodeUTF8))
         self.showWhatComboBox.setItemText(0, QtGui.QApplication.translate("MainWindow", "intensity trace", None, QtGui.QApplication.UnicodeUTF8))
         self.showWhatComboBox.setItemText(1, QtGui.QApplication.translate("MainWindow", "portrait data", None, QtGui.QApplication.UnicodeUTF8))
         self.showWhatComboBox.setItemText(2, QtGui.QApplication.translate("MainWindow", "portrait fit", None, QtGui.QApplication.UnicodeUTF8))

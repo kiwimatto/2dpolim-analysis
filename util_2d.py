@@ -59,6 +59,9 @@ class Movie:
         # init list of spots
         self.spots = []
 
+        # init contrast images
+        self.initContrastImages()
+
         # store phase offset
 #        self.phase_offset_excitation = phase_offset_excitation
         # set data mode, used by collect_data() and startstop()
@@ -69,11 +72,27 @@ class Movie:
         self.emission_angles_grid = np.linspace(0,np.pi,91)
 
 
+    def initContrastImages(self):
+        self.spot_coverage_image  = np.ones( (self.camera_data.datasize[1],self.camera_data.datasize[2]) )*np.nan
+        self.mean_intensity_image = self.spot_coverage_image.copy()
+        self.M_ex_image           = self.spot_coverage_image.copy()
+        self.M_em_image           = self.spot_coverage_image.copy()
+        self.phase_ex_image       = self.spot_coverage_image.copy()
+        self.phase_em_image       = self.spot_coverage_image.copy()
+        self.LS_image             = self.spot_coverage_image.copy()
+        self.ET_ruler_image       = self.spot_coverage_image.copy()
+        self.ET_model_md_fu_image = self.spot_coverage_image.copy()
+        self.ET_model_th_fu_image = self.spot_coverage_image.copy()
+        self.ET_model_gr_image    = self.spot_coverage_image.copy()
+        self.ET_model_et_image    = self.spot_coverage_image.copy()
+
     def define_background_spot( self, coords, intensity_type='mean' ):
         # create new spot object
         s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, \
                       label='background area', is_bg_spot=True, parent=self )
         self.bg_spot = s        
+
+        self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = -1
         
 
     def define_spot( self, coords, intensity_type='mean', label=None ):
@@ -90,6 +109,8 @@ class Movie:
         s = Spot( self.camera_data.rawdata, coords, bg=bg, int_type='mean', label=label, parent=self )
         # append spot object to spots list
         self.spots.append( s )
+
+        self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = 1
 
 
     def collect_data( self ):
@@ -617,9 +638,9 @@ class Movie:
 
         # projection onto the excitation axis (ie over all emission angles),
         # for all spots, one per column
-        proj_ex = np.array( [np.mean( s.averagematrix, axis=0 ) for s in self.validspots] ).T
+        proj_ex = np.array( [np.mean( s.recover_average_portrait_matrix(), axis=0 ) for s in self.validspots] ).T
         # same for projection onto emission axis
-        proj_em = np.array( [np.mean( s.averagematrix, axis=1 ) for s in self.validspots] ).T
+        proj_em = np.array( [np.mean( s.recover_average_portrait_matrix(), axis=1 ) for s in self.validspots] ).T
 
         # fitting
         ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex = self.cos_fitter( self.excitation_angles_grid, proj_ex )
@@ -650,7 +671,12 @@ class Movie:
             s.phase_em = ph_em[si]
             s.M_em     = M_em[si]
             s.LS       = LS[si]
-            
+            # store in coverage maps
+            self.M_ex_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.M_ex
+            self.M_em_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.M_em
+            self.phase_ex_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.phase_ex
+            self.phase_em_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.phase_em
+            self.LS_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.LS        
 
 
         # for spot in self.spots:
@@ -816,6 +842,8 @@ class Movie:
                 ruler = 1
 
             self.validspots[si].ET_ruler = ruler
+            self.ET_ruler_image[ self.validspots[si].coords[1]:self.validspots[si].coords[3]+1, \
+                               self.validspots[si].coords[0]:self.validspots[si].coords[2]+1 ] = ruler
         #print i1,i2,i3,i4,df
 
 
@@ -855,6 +883,11 @@ class Movie:
             s.ETmodel_th_fu = a[0][1]
             s.ETmodel_gr    = a[0][2]
             s.ETmodel_et    = et            
+
+            self.ET_model_md_fu_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][0]
+            self.ET_model_th_fu_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][1]
+            self.ET_model_gr_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][2]
+            self.ET_model_et_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = et
 
             print 'fit done\t',a[0],
             print ' et=',et,

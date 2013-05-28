@@ -108,14 +108,34 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.showStuffComboBox.activated.connect( self.showStuff )
         self.ETrulerPushButton.clicked.connect( self.ETruler )
         self.showWhatComboBox.activated.connect( self.dataview_updater )
+        self.saveContrastImagesPushButton.clicked.connect( self.saveContrastImages )
+
+    def saveContrastImages( self ):
+        basefilename = self.data_directory + '/' + self.spefiles[self.selectSPEComboBox.currentIndex()][:-4] 
+        np.savetxt( basefilename+'_spot_coverage_image.txt', self.m.spot_coverage_image )
+        np.savetxt( basefilename+'_M_ex_image.txt', self.m.M_ex_image )
+        np.savetxt( basefilename+'_M_em_image.txt', self.m.M_em_image )
+        np.savetxt( basefilename+'_phase_ex_image.txt', self.m.phase_ex_image )
+        np.savetxt( basefilename+'_phase_em_image.txt', self.m.phase_em_image )
+        np.savetxt( basefilename+'_LS_image.txt', self.m.LS_image )
+        np.savetxt( basefilename+'_ET_ruler_image.txt', self.m.ET_ruler_image )
+        np.savetxt( basefilename+'_ET_model_md_fu_image.txt', self.m.ET_model_md_fu_image )
+        np.savetxt( basefilename+'_ET_model_th_fu_image.txt', self.m.ET_model_th_fu_image )
+        np.savetxt( basefilename+'_ET_model_gr_image.txt', self.m.ET_model_gr_image )
+        np.savetxt( basefilename+'_ET_model_et_image.txt', self.m.ET_model_et_image )
+
 
     def ETruler(self):
         self.imageview.ET_ruler_rects = []
         self.m.ETrulerFFT()
+        # ruler = []
+        # for s in self.m.validspots:
+        #     ruler.append(s.ET_ruler)
         for s in self.m.validspots:
             r = Rectangle( (s.coords[0],s.coords[1]), s.coords[2]-s.coords[0], \
-                s.coords[3]-s.coords[1], facecolor=cm.jet(s.phase_em/np.pi+.5), alpha=1, zorder=7 )
+                s.coords[3]-s.coords[1], facecolor=cm.jet(s.ET_ruler), alpha=1, zorder=7 )
             self.imageview.ET_ruler_rects.append( r )
+
 
     def showStuff(self):
         what = self.showStuffComboBox.currentIndex()
@@ -157,8 +177,8 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
 #        self.imageview.show_stuff( what='M_ex' )
 
     def cosineFit(self):
-        self.m.excitation_angles_grid = np.linspace( 0, np.pi, NanglesSpinBox.value() )
-        self.m.emission_angles_grid = np.linspace( 0, np.pi, NanglesSpinBox.value() )
+        self.m.excitation_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
+        self.m.emission_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
         self.cosineFitPushButton.setDown(True)
         self.m.fit_all_portraits_spot_parallel()
         self.cosineFitPushButton.setDown(False)
@@ -191,6 +211,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
 
         # how many spots do we have already?
         nspotsbefore = len(self.m.spots)
+        print nspotsbefore
 
         # now add spots
         grid_image_section_into_squares_and_define_spots( self.m, res, coords )
@@ -256,7 +277,9 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
     def clearAllSpots(self):
         for r in self.imageview.spot_rects:
             r.remove()
+        self.imageview.spot_rects = []
         self.m.spots = []
+        self.m.initContrastImages()
         self.imageview.figure.canvas.draw()
 
 
