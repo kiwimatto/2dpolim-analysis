@@ -291,27 +291,27 @@ class Movie:
 
             # store list in spot object
             spot.portraits = portraitlist
+        self.data = []
 
 
+    # def write_data( filename, header=False ):
+    #     """Helper-function which takes the output of collect_data() and
+    #     writes it (possibly with header) into a file.
+    #     """
+    #     fhandle = open( filename, 'wt' )
+    #     if self.datamode=='truedata':
+    #         if header:
+    #             fhandle.write("FrameNumber\t Validity\t excitation\t emission\t Intensities....\n")
+    #         np.savetxt( fhandle, self.data, '%f\t' )
+    #     elif self.datamode=='validdata':
+    #         if header:
+    #             fhandle.write("FrameNumber\t excitation\t emission\t Intensities....\n")
+    #         np.savetxt( fhandle, self.data, '%f\t' )
+    #     else:
+    #         fhandle.close()
+    #         raise hell
 
-    def write_data( filename, header=False ):
-        """Helper-function which takes the output of collect_data() and
-        writes it (possibly with header) into a file.
-        """
-        fhandle = open( filename, 'wt' )
-        if self.datamode=='truedata':
-            if header:
-                fhandle.write("FrameNumber\t Validity\t excitation\t emission\t Intensities....\n")
-            np.savetxt( fhandle, self.data, '%f\t' )
-        elif self.datamode=='validdata':
-            if header:
-                fhandle.write("FrameNumber\t excitation\t emission\t Intensities....\n")
-            np.savetxt( fhandle, self.data, '%f\t' )
-        else:
-            fhandle.close()
-            raise hell
-
-        fhandle.close()
+    #     fhandle.close()
 
 
     def fit_all_portraits( self, evaluate_portrait_matrices=True ):
