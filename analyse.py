@@ -19,7 +19,8 @@ show_mem()
 #prefix = '/media/sf_shared_with_VM/S3/S3-TQ1Filter/'
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
 #prefix = '/home/kiwimatto/Desktop/130514/a-MEH/'
-prefix = '/home/rafael/Desktop/Win/LC/130527-LC/Ink/'
+#prefix = '/home/rafael/Desktop/Win/LC/130527-LC/Ink/'
+prefix = '/home/rafael/Desktop/Win/130501 - 488nm MEHPPV/SA1/'
           
 global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
@@ -27,18 +28,18 @@ global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
 tstart = stopwatch.time()
 
-m = Movie( prefix+"Ink-488-OD3-01.SPE", prefix+"MS-Ink-01.txt", \
-               phase_offset_excitation=global_phase, which_setup='cool new setup', \
-               excitation_optical_element='L/2 Plate')
+m = Movie( prefix+"MEHPPV-SA1-OD2-488nm-03.SPE", prefix+"MS-MEHPPV-SA1-OD2-488nm-03.txt", \
+               phase_offset_excitation=global_phase, which_setup='new setup', \
+               excitation_optical_element='Polarizer')
 
-m.define_background_spot( [0,0,50,511] )
+m.define_background_spot( [0,450,330,450] )
 
-grid_image_section_into_squares_and_define_spots( m, res=20, bounds=[80,135,425,480] )    
+grid_image_section_into_squares_and_define_spots( m, res=2, bounds=[50,120,330,430] )    
 #grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
 
 
-m.chew_a_bit()
-#    print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
+m.chew_a_bit(SNR=4)
+#print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
 save_spot_data(m, 'intensity_time_average', fileprefix=prefix )
 save_spot_data(m, 'M_ex', fileprefix=prefix )
