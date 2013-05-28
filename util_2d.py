@@ -732,7 +732,7 @@ class Movie:
         # the angular grids likely include redundancy at the edges, and
         # we need to exclude those to not oversample
         for s in self.validspots:
-            sam = s.averagematrix
+            sam = s.recover_average_portrait_matrix()
             if self.excitation_angles_grid[-1]==np.pi:
                 sam = sam[:,:-1]
             if self.emission_angles_grid[-1]==np.pi:
@@ -1221,7 +1221,7 @@ class Portrait:
 
 
     def recover_portrait_matrix(self):
-        print dir(self)
+        #print dir(self)
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
         # print self.vertical_fit_params
