@@ -291,8 +291,7 @@ class Movie:
 
             # store list in spot object
             spot.portraits = portraitlist
-
-
+        
 
     def write_data( filename, header=False ):
         """Helper-function which takes the output of collect_data() and
