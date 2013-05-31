@@ -5,6 +5,7 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 import matplotlib.cm as cm
+import matplotlib
 
 import numpy as np
 
@@ -14,9 +15,17 @@ class MyMplCanvas(FigureCanvas):
     """Simple canvas with a sine plot."""
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
+        matplotlib.rcParams.update( {'font size': 9} )
         self.axes = self.fig.add_subplot(111)
         i = self.axes.imshow(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) ), zorder=1 )
         self.cbar = self.fig.colorbar(i)
+        # push cbar to right edge of canvas
+        cbaraxis = self.fig.axes[1]
+        cbaraxis.set_position( [.9,.1,.05,.8] )
+        # now size up the main plot a bit
+        self.axes.set_position( [.05, .1, .8, .8] )
+#        self.figure.canvas.draw()
+
         # We want the axes cleared every time plot() is called
 #        self.axes.hold(False)
 
@@ -31,8 +40,8 @@ class MyMplCanvas(FigureCanvas):
 
         self.crosshairs_x = 0
         self.crosshairs_y = 0
-        self.hline = self.axes.axhline(0, color='w', ls=':')
-        self.vline = self.axes.axvline(0, color='w', ls=':')
+        self.hline = self.axes.axhline(0, color='w', ls=':', zorder=9)
+        self.vline = self.axes.axvline(0, color='w', ls=':', zorder=9)
 
         self.bg_rect = Rectangle((0,0), 0, 0, facecolor='blue', edgecolor='blue', alpha=.3, zorder=8 )
         self.axes.add_patch(self.bg_rect)
@@ -83,7 +92,10 @@ class MyMplCanvas(FigureCanvas):
             self.rect.set_height(self.y1 - self.y0)
             self.rect.set_xy((self.x0, self.y0))
             self.rect.set_linestyle('dashed')
-        self.axes.figure.canvas.draw()
+        self.figure.canvas.restore_region(self.blitbackground)
+        self.axes.draw_artist(self.rect)
+        self.figure.canvas.blit(self.axes.bbox)
+#        self.axes.figure.canvas.draw()
     def on_motion(self,event):
         if self.is_pressed is True:
             self.x1 = event.xdata
@@ -93,7 +105,10 @@ class MyMplCanvas(FigureCanvas):
                 self.rect.set_height(self.y1 - self.y0)
                 self.rect.set_xy((self.x0, self.y0))
                 self.rect.set_linestyle('dashed')
-                self.axes.figure.canvas.draw()
+                self.figure.canvas.restore_region(self.blitbackground)
+                self.axes.draw_artist(self.rect)
+                self.figure.canvas.blit(self.axes.bbox)
+#                self.axes.figure.canvas.draw()
     def on_release(self, event):
         self.is_pressed = False
         print 'release'
@@ -104,7 +119,10 @@ class MyMplCanvas(FigureCanvas):
             self.rect.set_height(self.y1 - self.y0)
             self.rect.set_xy((self.x0, self.y0))
             self.rect.set_linestyle('solid')
-            self.axes.figure.canvas.draw()
+            self.figure.canvas.restore_region(self.blitbackground)
+            self.axes.draw_artist(self.rect)
+            self.figure.canvas.blit(self.axes.bbox)
+            # self.axes.figure.canvas.draw()
         print self.x0,self.y0,self.x1,self.y1
         
         self.crosshairs_active = False
@@ -114,7 +132,11 @@ class MyMplCanvas(FigureCanvas):
             self.crosshairs_y = np.round(self.y0)
             self.hline.set_ydata( np.array([self.crosshairs_y,self.crosshairs_y]) )
             self.vline.set_xdata( np.array([self.crosshairs_x,self.crosshairs_x]) )
-            self.axes.figure.canvas.draw()
+            # self.figure.canvas.restore_region(self.imageview.blitbackground)
+            # self.axes.draw_artist(self.hline)
+            # self.axes.draw_artist(self.vline)
+            # self.figure.canvas.blit(self.axes.bbox)
+#            self.axes.figure.canvas.draw()
             self.parent().parent().crosshair_pick()
 
 
@@ -127,10 +149,15 @@ class MyMplCanvas(FigureCanvas):
         # self.axes = self.fig.add_subplot(111)
         self.axes.imshow( image, origin=origin, zorder=zorder, cmap=cmap )
         self.figure.canvas.draw()
+        self.show_stuff(what='')
 
-    def show_stuff(self, what='spots' ):
+    def show_stuff(self, what='spots' ):        
+
         while len(self.axes.patches)>0:
             self.axes.patches[0].remove()
+
+        self.axes.add_patch( self.rect )
+        self.axes.add_patch( self.bg_rect )
 
         if what=='spots':
             for r in self.spot_rects:
@@ -150,5 +177,16 @@ class MyMplCanvas(FigureCanvas):
         elif what=='ET_ruler':
             for r in self.ET_ruler_rects:
                 self.axes.add_patch( r )
+
+        self.hline.set_visible(False)
+        self.vline.set_visible(False)
             
         self.figure.canvas.draw()
+
+        self.blitbackground = self.figure.canvas.copy_from_bbox(self.axes.bbox)
+
+        self.hline.set_visible(True)
+        self.vline.set_visible(True)
+
+        self.axes.draw_artist(self.hline)
+        self.axes.draw_artist(self.vline)

@@ -649,8 +649,10 @@ class Movie:
         proj_em = []
         for s in self.validspots:
             sam = s.recover_average_portrait_matrix()
-            proj_ex.append( np.mean( sam, axis=0 ) )
-            proj_em.append( np.mean( sam, axis=1 ) )
+            s.proj_ex = np.mean( sam, axis=0 )
+            s.proj_em = np.mean( sam, axis=1 )
+            proj_ex.append( s.proj_ex )
+            proj_em.append( s.proj_em )
         proj_ex = np.array(proj_ex).T
         proj_em = np.array(proj_em).T
 
@@ -1059,7 +1061,8 @@ class Movie:
         validspots = []   
         validspotindices = []
         for si,s in enumerate(self.spots):
-            if s.intensity_time_average > (SNR * bgstd):
+            s.SNR = s.intensity_time_average/bgstd
+            if s.SNR > SNR:
                 validspots.append(s)
                 validspotindices.append(si)
 

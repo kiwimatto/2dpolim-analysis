@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -75,6 +76,22 @@ def trim_noisy_data( movie, what='M_ex', threshold=None ):
             setattr(s,what+'_trimmed', np.nan )
         else:
             setattr(s,what+'_trimmed', getattr(s,what) )
+
+
+def update_image_files( movie, what, fileprefix ):
+    filename = fileprefix + what + '_output_data.txt'
+    # if the file exists, try loading and updating it
+    if os.path.isfile(filename):
+        try: 
+            sc = np.loadtxt(filename)
+        except IOError:
+            sc = getattr(movie, what+'_image')
+        # where the current image is not nan, update the old image
+        new_value_indices = ~np.isnan( getattr(movie, what+'_image') ) 
+        sc[new_value_indices] = getattr(movie, what+'_image')[new_value_indices]
+        np.savetxt( filename, sc )
+    else:
+        np.savetxt( filename, getattr(movie, what+'_image') )
 
 
 def save_spot_data( movie, what='M_ex', whole_image=True, fileprefix='' ):

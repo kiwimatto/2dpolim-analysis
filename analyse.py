@@ -1,13 +1,17 @@
 from util_2d import *
-from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data, save_spot_data
+from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data, save_spot_data, update_image_files
 import time as stopwatch
+
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+myrank = comm.Get_rank()
+nprocs = comm.Get_size()
 
 def show_mem():
     print "memory usage:"
     import memory
     print memory.memory()/(1024*1024)
     print memory.resident()/(1024*1024)
-
 show_mem()
 
 ##movie = Movie( '01/AM01.SPE', '01/AMtest1_ex.txt', '01/AMtest1_em.txt' )
@@ -20,7 +24,7 @@ show_mem()
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
 #prefix = '/home/kiwimatto/Desktop/130514/a-MEH/'
 #prefix = '/home/rafael/Desktop/Win/LC/130527-LC/Ink/'
-prefix = '/home/kiwimatto/Desktop/'
+prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130530/'
           
 global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
@@ -34,83 +38,50 @@ m = Movie( prefix+"MEHPPV-SA1-OD2-488nm-03.SPE", prefix+"MS-MEHPPV-SA1-OD2-488nm
 
 m.define_background_spot( [0,450,330,450] )
 
-grid_image_section_into_squares_and_define_spots( m, res=2, bounds=[50,120,330,430] )    
-#grid_image_section_into_squares_and_define_spots( m, res=1, bounds=[0,0,1,1] )
+fullbounds = [ 50,120,330,430 ]
+
+if myrank==0: print 'fullbounds=',fullbounds
+mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
+                 fullbounds[1], \
+                 fullbounds[0] +(myrank+1)*(fullbounds[2]-fullbounds[0])/nprocs, \
+                 fullbounds[3] ]
+print 'p=',myrank,': mybounds=',mybounds
+
+grid_image_section_into_squares_and_define_spots( m, res=8, bounds=mybounds )    
+print 'p=',myrank,': nspots=',len(m.spots)
 
 
 m.chew_a_bit(SNR=4)
 #print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
 
+print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
+
+comm.barrier()
+
+import time
+time.sleep(myrank)
+#update_image_files(m, 'intensity_time_average', fileprefix=prefix )
+update_image_files(m, 'M_ex', fileprefix=prefix )
+update_image_files(m, 'M_em', fileprefix=prefix )
+update_image_files(m, 'phase_ex', fileprefix=prefix )
+update_image_files(m, 'phase_em', fileprefix=prefix )
+update_image_files(m, 'ET_ruler', fileprefix=prefix )
+update_image_files(m, 'LS', fileprefix=prefix )
+
 save_spot_data(m, 'intensity_time_average', fileprefix=prefix )
-save_spot_data(m, 'M_ex', fileprefix=prefix )
-save_spot_data(m, 'M_em', fileprefix=prefix )
-save_spot_data(m, 'phase_ex', fileprefix=prefix )
-save_spot_data(m, 'phase_em', fileprefix=prefix )
-save_spot_data(m, 'ET_ruler', fileprefix=prefix )
-save_spot_data(m, 'LS', fileprefix=prefix )
+# # save_spot_data(m, 'M_ex', fileprefix=prefix )
+# # save_spot_data(m, 'M_em', fileprefix=prefix )
+# # save_spot_data(m, 'phase_ex', fileprefix=prefix )
+# # save_spot_data(m, 'phase_em', fileprefix=prefix )
+# # save_spot_data(m, 'ET_ruler', fileprefix=prefix )
+# # save_spot_data(m, 'LS', fileprefix=prefix )
 
 
-show_mem()
+# show_mem()
 
-print "time taken: %fs" % (stopwatch.time()-tstart)
-
-
-raise SystemExit
+# print "time taken: %fs" % (stopwatch.time()-tstart)
 
 
 
 
 
-
-
-
-# import matplotlib.pyplot as plt
-
-# for i in range(4):
-#     movies[i].show_average_picture()
-
-
-prefix = '/home/kiwimatto/Desktop/Matthias Sample/'
-global_phase = -59.0
-
-movie = Movie( prefix+'Mov-02.SPE', prefix+'ex.txt', prefix+'em.txt', \
-                   phase_offset_excitation=global_phase )
-movie.define_background_spot( [0,95,248,103] )
-
-
-class Storage:
-    def __init__( self, movie ):
-        self.pic=movie.averageportrait.copy() 
-        self.M_ex=movie.M_ex 
-        self.M_em=movie.M_em 
-        self.phase_ex=movie.phase_ex 
-        self.phase_em=movie.phase_em 
-        self.LS=movie.LS 
-        self.int = movie.spots[0].mean_I
-
-import time as stopwatch
-start = stopwatch.time()
-Bigstore = []
-for xi in leftedges:
-    smallstore = []
-    for yi in topedges:
-        movie.define_spot( [yi,xi,yi-1+res,xi-1+res] )
-        movie.chew(quiet=True)
-        smallstore.append( Storage( movie ) )
-        movie.spots = []
-    Bigstore.append( smallstore )
-
-print "time taken: %fs" % (stopwatch.time()-start)
-
-# Bigstore can be indexed via x and y edges indices (in that order!)
-mod_ex_matrix = np.zeros( (len(Bigstore[0]),len(Bigstore)) )
-mod_em_matrix = np.zeros( (len(Bigstore[0]),len(Bigstore)) )
-mod_LS_matrix = np.zeros( (len(Bigstore[0]),len(Bigstore)) )
-
-for i in range( len(Bigstore) ):
-    for j in range( len(Bigstore[0]) ):
-        mod_ex_matrix[j,i] = Bigstore[i][j].M_ex
-        mod_em_matrix[j,i] = Bigstore[i][j].M_em
-        mod_LS_matrix[j,i] = Bigstore[i][j].LS
-
-plt.matshow( np.mean( movie.camera_data.rawdata, axis=0 )[rb[0]:rb[2],rb[1]:rb[3]] )
