@@ -1,3 +1,4 @@
+import sys
 from util_2d import *
 from util_misc import grid_image_section_into_squares_and_define_spots, show_spot_data, save_spot_data, update_image_files
 import time as stopwatch
@@ -24,7 +25,9 @@ show_mem()
 #prefix = '/home/kiwimatto/Desktop/130422/S3/'
 #prefix = '/home/kiwimatto/Desktop/130514/a-MEH/'
 #prefix = '/home/rafael/Desktop/Win/LC/130527-LC/Ink/'
-prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130530/'
+#prefix = '/home/kiwimatto/Desktop/test/'
+prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130530_olle_sample/'
+
           
 global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
@@ -32,13 +35,12 @@ global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
 tstart = stopwatch.time()
 
-m = Movie( prefix+"MEHPPV-SA1-OD2-488nm-03.SPE", prefix+"MS-MEHPPV-SA1-OD2-488nm-03.txt", \
-               phase_offset_excitation=global_phase, which_setup='new setup', \
-               excitation_optical_element='Polarizer')
+m = Movie( prefix+"olles_sample2_488_OD2.SPE", prefix+"MS-olles_sample2_488_OD2.txt", \
+               phase_offset_excitation=global_phase, which_setup='cool new setup' )
 
-m.define_background_spot( [0,450,330,450] )
+m.define_background_spot( [125,477,371,502] )
 
-fullbounds = [ 50,120,330,430 ]
+fullbounds = [ 0,255,512,258 ]
 
 if myrank==0: print 'fullbounds=',fullbounds
 mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
@@ -47,14 +49,33 @@ mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
                  fullbounds[3] ]
 print 'p=',myrank,': mybounds=',mybounds
 
-grid_image_section_into_squares_and_define_spots( m, res=8, bounds=mybounds )    
+grid_image_section_into_squares_and_define_spots( m, res=1, bounds=mybounds )    
 print 'p=',myrank,': nspots=',len(m.spots)
 
+use_alternate_path=True
+if use_alternate_path:
+    m.collect_data()
+    m.startstop()
+    m.assign_portrait_data()
+    for s in m.spots:
+        s.check_if_valid(SNR=4)
+        if s.isvalid:
+#            s.collect_and_assign()
+            s.cos_fit()
+            s.findModDepths()
+            print '.',
+            sys.stdout.flush()
+else:
+    m.chew_a_bit(SNR=4)
 
-m.chew_a_bit(SNR=4)
-#print "LS=%f\tM_ex=%f\tM_em=%f" % (m.spots[0].LS, m.spots[0].M_ex, m.spots[0].M_em)
+# for si,s in enumerate(m.validspots):
+#     print "si=%d\tLS=%f\tM_ex=%f\tM_em=%f" % (si, s.LS, s.M_ex, s.M_em)
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
+
+raise SystemExit
+
+
 
 comm.barrier()
 

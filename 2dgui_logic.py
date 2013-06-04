@@ -1,5 +1,5 @@
 from PyQt4 import QtCore,QtGui
-import sys, os
+import sys, os, time
 import the2dgui
 import numpy as np
 from util_2d import *
@@ -125,14 +125,18 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
     def tool3(self):
         self.tool2()
         self.findModDepths()
+        time.sleep(.1)
 
     def tool2(self):
         self.tool1()
         self.cosineFit()
+        time.sleep(.1)
 
     def tool1(self):
         self.initAnalysis()
+        time.sleep(.1)
         self.checkSpotValidity()
+        time.sleep(.1)
 
     def tryToUpdateFile( self, basefilename, what ):
         filename = basefilename+'_'+what+'_image.txt'
@@ -172,6 +176,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         # np.savetxt( basefilename+'_ET_model_gr_image.txt', self.m.ET_model_gr_image )
         # np.savetxt( basefilename+'_ET_model_et_image.txt', self.m.ET_model_et_image )
         self.saveContrastImagesPushButton.setChecked(False)
+
 
     def ETruler(self):
         oldtext = self.setButtonWait( self.ETrulerPushButton )
