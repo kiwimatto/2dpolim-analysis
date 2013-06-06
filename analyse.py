@@ -52,7 +52,7 @@ print 'p=',myrank,': mybounds=',mybounds
 grid_image_section_into_squares_and_define_spots( m, res=1, bounds=mybounds )    
 print 'p=',myrank,': nspots=',len(m.spots)
 
-use_alternate_path=True
+use_alternate_path=False
 if use_alternate_path:
     m.collect_data()
     m.startstop()
@@ -81,15 +81,16 @@ comm.barrier()
 
 import time
 time.sleep(myrank)
-#update_image_files(m, 'intensity_time_average', fileprefix=prefix )
+update_image_files(m, 'intensity_time_average', fileprefix=prefix )
 update_image_files(m, 'M_ex', fileprefix=prefix )
 update_image_files(m, 'M_em', fileprefix=prefix )
 update_image_files(m, 'phase_ex', fileprefix=prefix )
 update_image_files(m, 'phase_em', fileprefix=prefix )
 update_image_files(m, 'ET_ruler', fileprefix=prefix )
 update_image_files(m, 'LS', fileprefix=prefix )
+update_image_files(m, 'LS', fileprefix=prefix )
 
-save_spot_data(m, 'intensity_time_average', fileprefix=prefix )
+# # save_spot_data(m, 'intensity_time_average', fileprefix=prefix )
 # # save_spot_data(m, 'M_ex', fileprefix=prefix )
 # # save_spot_data(m, 'M_em', fileprefix=prefix )
 # # save_spot_data(m, 'phase_ex', fileprefix=prefix )

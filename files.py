@@ -211,6 +211,7 @@ class MyPrincetonSPEFile():
         self.ThresholdMin = self._readFloat(60)
         self.ThresholdMaxLive = self._readInt(64)
         self.ThresholdMax = self._readFloat(66)
+        self.PImaxGain = self._readInt(148)
         self.ADCOffset = self._readInt(188)
         self.ADCRate = self._readInt(190)
         self.ADCType = self._readInt(192)
@@ -218,6 +219,11 @@ class MyPrincetonSPEFile():
         self.ADCBitAdj = self._readInt(196)
         self.Gain = self._readInt(198)
         self.GeometricOps = self._readInt(600)
+        self.file_header_version = self._readFloat(1992)  # SPE file version
+        self.AnalogGain = self._readInt(4092)
+        self.AvGainUsed = self._readInt(4094)
+        self.AvGain     = self._readInt(4096)
+
 
     def _readAllROI(self):
         self.allROI = self._readAtNumpy(1512, 60, numpy.int16).reshape(-1,6)

@@ -6,6 +6,7 @@ plt.interactive(True)
 from datetime import datetime, timedelta
 from mpl_toolkits.axes_grid1 import AxesGrid
 
+
 def deal_with_date_time_string( motorobj, datetimestring ):        
     """This function converts the date+time string into the difference time 
     (in seconds) since the start of the experiment. The first value passed 

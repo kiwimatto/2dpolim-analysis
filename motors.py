@@ -1,6 +1,56 @@
 import numpy as np
 from util_misc import deal_with_date_time_string
 
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
+class BothMotorsWithHeader:
+    def __init__( self, filename ):
+        """Initialize the class: read in the file"""
+        self.experiment_start_datetime = None
+        self.filename = filename
+
+        # read header if possible
+        f = open( self.motorfile, 'r' )
+        self.header = {}
+        Nheaderlines = 0
+        while True:
+            line = f.readline().strip().split(':')
+            Nheaderlines += 1
+            if line[0]=='END-OF-HEADER' or line[0]=='':
+                break
+            else:
+                if is_number(line[1]):
+                    header[line[0]] = float(line[1])
+                else:
+                    header[line[0]] = line[1].lower()
+        f.close()
+
+        # grab motor data --- delimiter is _a tab_ !!!
+        # uses converter functions to parse date+time and shutter values
+        md = np.loadtxt( filename, \
+                             delimiter='\t', \
+                             skiprows=Nheaderlines+1 )
+
+        self.framenumbers = md[:,0]
+        self.excitation_angles_raw = md[:,1] * np.pi/180.0
+        self.emission_angles_raw   = md[:,2] * np.pi/180.0
+
+        if self.header['optical element in excitation']=='l/2 plate':
+            self.excitation_angles_raw *= 2
+
+        self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi ) \
+            + self.header['phase offset in deg']*np.pi/180.0
+        self.emission_angles       = np.mod( self.emission_angles_raw, 2*np.pi )
+
+
+
 class BothMotors:
     def __init__( self, filename, phase_offset=0, optical_element='L/2 plate' ):
         """Initialize the class: read in the file"""

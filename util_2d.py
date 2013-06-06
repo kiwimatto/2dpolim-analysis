@@ -12,13 +12,16 @@ class Movie:
                       spe_filename, \
                       excitation_motor_filename, \
                       emission_motor_filename=None, \
+                      blank_sample_filename=None, \
                       phase_offset_excitation=0, \
                       datamode='validdata', \
                       which_setup='new setup', \
                       use_new_fitter=True, \
-                      excitation_optical_element='L/2 plate'):
+                      excitation_optical_element='L/2 plate'):        
 
-        # get those objects going
+        # if not blank_sample_filename==None:
+        #     self.blank_sample = CameraData( blank_sample_filename )
+
         self.camera_data    = CameraData( spe_filename, compute_frame_average=True )
 
         if use_new_fitter:
@@ -74,6 +77,71 @@ class Movie:
         self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
                                          for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
+
+    def read_in_EVERYTHING(self):
+        # change to the data directory
+        os.chdir( self.data_directory )
+
+        ###### look for motor files ######
+        print 'Looking for motor file(s)...'
+        got_motor_file = 0
+        # new setup file
+        for file in os.listdir("."):
+            if file=="MS-"+self.data_filename[:-4]+'.txt':
+                print '\t found motor file %s' % file
+                self.which_setup = 'new'
+                self.motorfile = file
+                got_motor_file = True
+                # import it
+                self.motors = BothMotorsWithHeader( file )
+                break
+
+
+        # old setup files   ########## TODO: All motor files should be the same --> fix in LabView
+        got_motor_file_ex = 0
+        got_motor_file_em = 0
+        if not got_motor_file:
+            for file in os.listdir("."):
+                if file=="MSex-"+self.data_filename[:-4]+'.txt':
+                    print '\t found old-style motor file (for excitation) %s' % file
+                    self.which_setup = 'old'
+                    self.motorfile_ex = file
+                    got_motor_file_ex = 1
+                    if got_motor_file_ex and got_motor_file_em:
+                        break
+                if file=="MSem-"+self.data_filename[:-4]+'.txt':
+                    print '\t found old-style motor file (for emission) %s' % file
+                    self.which_setup = 'old'
+                    self.motorfile_em = file
+                    got_motor_file_em = 1
+                    if got_motor_file_ex and got_motor_file_em:
+                        break
+
+
+        ###### look if we can find the data file, and import it ######
+        if os.path.exists( self.data_filename ):
+            self.camera_data    = CameraData( self.data_filename, compute_frame_average=True )
+            print 'Imported data file %s' % self.data_filename
+        else:
+            print "Couldn't find data SPE file! Bombing out..."
+            raise SystemExit
+        
+        ###### look for blank sample(s) ######
+        print 'Looking for blanks...',
+        self.blanks = []
+        for file in os.listdir("."):
+            if file.startswith("blank-") and (file.endswith(".spe") or file.endswith(".SPE")):
+                print '\t found file %s' % file
+                b = CameraData( file, compute_frame_average=True )
+                self.blanks.append( b.average_image.copy() )
+                del(b)
+        if not len(self.blanks)==0:
+            self.blank_image = np.zeros_like(self.blanks[0])
+            for b in self.blanks:
+                self.blank_image += b
+            self.blank_image /= len(self.blanks)
+            
+
     def initContrastImages(self):
         self.spot_coverage_image  = np.ones( (self.camera_data.datasize[1],self.camera_data.datasize[2]) )*np.nan
         self.mean_intensity_image = self.spot_coverage_image.copy()
@@ -88,12 +156,29 @@ class Movie:
         self.ET_model_gr_image    = self.spot_coverage_image.copy()
         self.ET_model_et_image    = self.spot_coverage_image.copy()
 
+
     def define_background_spot( self, coords, intensity_type='mean' ):
         # create new spot object
         s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, \
                       label='background area', is_bg_spot=True, parent=self )
         self.bg_spot = s        
 
+        # if blank data is present, automatically work out its bg, correct for it,
+        # and compute average blank image
+        if hasattr(self, 'blanks'):
+            # init a blank image
+            self.blank_image = np.zeros_like(self.blanks[0])
+            # go through all blanks
+            for b in self.blanks:
+                # get that background spot
+                s = Spot( b.resize((1,b.shape[0],b.shape[1])), coords, bg=0, int_type=intensity_type, \
+                              label='background area', is_bg_spot=True, parent=self )
+                # add bg-corrected blank to blank_image
+                self.blank_image += b-s.I
+            # divide blank image by number of blanks
+            self.blank_image /= len(self.blanks)
+
+        # record background spot in spot coverage image
         self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = -1
         
 
@@ -104,16 +189,23 @@ class Movie:
         """
 
         if hasattr( self, 'bg_spot' ):
-            bg = self.bg_spot.intensity
+            bgself = self.bg_spot.intensity
         else:
-            bg = 0
+            bgself = 0
+                
+        if hasattr( self, 'blank_image' ):
+            bgblank=True
+        else:
+            bgblank=False
+
         # create new spot object
-        s = Spot( self.camera_data.rawdata, coords, bg=bg, int_type='mean', label=label, parent=self )
+        s = Spot( self.camera_data.rawdata, coords, bg=bgself, int_type='mean', \
+                      label=label, parent=self, blankdata=bgblank )
         # append spot object to spots list
         self.spots.append( s )
 
         self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = 1
-
+        self.mean_intensity_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.intensity_time_average
 
     def collect_data( self ):
         """This is a helper-function which collects all the necessary 
@@ -1074,9 +1166,8 @@ class Movie:
         self.validspotindices = validspotindices
                 
 
-
 class CameraData:
-    def __init__( self, spe_filename, compute_frame_average=False ):
+    def __init__( self, spe_filename, compute_frame_average=False, in_counts_per_sec=True ):
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
 
         self.filename           = spe_filename
@@ -1092,6 +1183,9 @@ class CameraData:
             self.rawdata            = self.rawdata_fileobject.return_Array()#.astype(np.float64)
             self.datasize           = self.rawdata_fileobject.getSize()
             self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
+            # scale signal to counts/second:
+            if in_counts_per_sec:
+                self.rawdata           /= self.rawdata_fileobject.Exposure
             self.rawdata_fileobject.close_file()
             del(self.rawdata_fileobject)
         if compute_frame_average:
@@ -1105,7 +1199,8 @@ class CameraData:
 
 
 class Spot:
-    def __init__(self, rawdata, coords, bg, int_type, label, parent, is_bg_spot=False):
+    def __init__(self, rawdata, coords, bg, int_type, label, parent, is_bg_spot=False, \
+                     blankdata=False):
         """
         There's something noteworthy (speak: important) about the coordinates
         which define the box that is the 'spot'. First of all, the convention
@@ -1132,16 +1227,31 @@ class Spot:
                     rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 ).astype( np.float )
             I /= self.width*self.height
+            # work out blank signal if present
+            if blankdata:
+                Iblank  = np.sum( self.blank_image[ coords[1]:coords[3]+1, coords[0]:coords[2]+1 ] )
+                Iblank /= self.width*self.height
+
         elif int_type=='max':
             # - maximum:
             I = np.max( np.max( \
                     rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 ).astype( np.float )
+            # work out blank signal if present
+            if blankdata:
+                Iblank  = np.max( self.blank_image[ coords[1]:coords[3]+1, coords[0]:coords[2]+1 ] )
+                Iblank /= self.width*self.height
+
         elif int_type=='min':
             # - minimum:
             I = np.min( np.min( \
                     self.camera_data.rawdata[:, coords[1]:coords[3]+1, coords[0]:coords[2]+1 ], \
                         axis=2), axis=1 ).astype( np.float )
+            # work out blank signal if present
+            if blankdata:
+                Iblank  = np.min( self.blank_image[ coords[1]:coords[3]+1, coords[0]:coords[2]+1 ] )
+                Iblank /= self.width*self.height
+
         else:
             raise ValueError("Spot __init__ did not understand int_type='%s' (should be mean|max|min)" % (int_type))
 
@@ -1151,6 +1261,9 @@ class Spot:
 
         # remove background
         I -= bg
+        # remove blank
+        if blankdata:
+            I -= Iblank
 
         self.intensity_type = int_type
         self.intensity      = I
@@ -1351,84 +1464,84 @@ class Spot:
         self.parent.LS_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.LS
 
 
-    def cos_fit_and_find_mod_depths(self):
-        self.residual = 0
+    # def cos_fit_and_find_mod_depths(self):
+    #     self.residual = 0
 
-        # we assume that the number of portraits and lines is the same 
-        # for all spots (can't think of a reason why that shouldn't be the case).
-        Nportraits = len(self.portraits)
-        Nlines     = len(self.portraits[0].lines )
+    #     # we assume that the number of portraits and lines is the same 
+    #     # for all spots (can't think of a reason why that shouldn't be the case).
+    #     Nportraits = len(self.portraits)
+    #     Nlines     = len(self.portraits[0].lines )
 
-        # for each portrait ---- outermost loop, we do portraits in series
-        for pi in range(Nportraits):
-            # part I, 'horizontal fitting' of the lines of constant emission angles
+    #     # for each portrait ---- outermost loop, we do portraits in series
+    #     for pi in range(Nportraits):
+    #         # part I, 'horizontal fitting' of the lines of constant emission angles
 
-            # for each line ---- we do lines in series, __but all spots in parallel__:
-            for li in range(Nlines):
+    #         # for each line ---- we do lines in series, __but all spots in parallel__:
+    #         for li in range(Nlines):
 
-                # get excitation angle array (same for all spots!)
-                exangles    = self.portraits[pi].lines[li].exangles
+    #             # get excitation angle array (same for all spots!)
+    #             exangles    = self.portraits[pi].lines[li].exangles
 
-                # create list of intensity arrays (one array for each spot)
-                intensities = self.portraits[pi].lines[li].intensities
+    #             # create list of intensity arrays (one array for each spot)
+    #             intensities = self.portraits[pi].lines[li].intensities
 
-                # turn into numpy array and make sure it's a column
-                intensities = np.array( intensities ).reshape((exangles.size,1))
+    #             # turn into numpy array and make sure it's a column
+    #             intensities = np.array( intensities ).reshape((exangles.size,1))
 
-                exa = exangles.copy()
+    #             exa = exangles.copy()
 
-                phase, I0, M, resi, fit, rawfitpars, mm = self.parent.cos_fitter( exa, intensities, \
-                                                                               self.parent.Nphases_for_cos_fitter ) 
-                # write cosine parameters into line object
-                self.portraits[pi].lines[li].set_fit_params( phase, I0, M, resi )
-                # and add residual
-                self.residual += resi
-
-
-            # part II, 'vertical fitting' --- we do each spot by itself, but 
-            # fit all verticals in parallel
-
-            # collect list of unique emission angles            
-            emangles = [l.emangle for l in self.portraits[pi].lines]
-            # turn into array, transpose and squeeze
-            emangles = np.squeeze(np.array( emangles ).T)
-
-            # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
-            fitintensities = np.array( [l.cosValue( self.parent.excitation_angles_grid ) \
-                                            for l in self.portraits[pi].lines] )
-
-            phase, I0, M, resi, fit, rawfitpars, mm = self.parent.cos_fitter( emangles, fitintensities, \
-                                                                           self.parent.Nphases_for_cos_fitter )
-            # store vertical fit params
-            self.portraits[pi].vertical_fit_params = [ phase, I0, M, resi, mm ]
-
-            # sam += [ rawfitpars[0,i]+rawfitpars[1,i]*self.parent.precomputed_cosines[mm[i]] \
-            #              for i in range(len(mm)) ]
+    #             phase, I0, M, resi, fit, rawfitpars, mm = self.parent.cos_fitter( exa, intensities, \
+    #                                                                            self.parent.Nphases_for_cos_fitter ) 
+    #             # write cosine parameters into line object
+    #             self.portraits[pi].lines[li].set_fit_params( phase, I0, M, resi )
+    #             # and add residual
+    #             self.residual += resi
 
 
-        sam = self.recover_average_portrait_matrix()
-        self.proj_ex = np.mean( sam, axis=0 ).reshape((sam.shape[1],1))
-        self.proj_em = np.mean( sam, axis=1 ).reshape((sam.shape[0],1))
+    #         # part II, 'vertical fitting' --- we do each spot by itself, but 
+    #         # fit all verticals in parallel
 
-        # fitting
-        ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex, mm = self.parent.cos_fitter( self.parent.excitation_angles_grid, self.proj_ex, self.parent.Nphases_for_cos_fitter )
-        ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em, mm = self.parent.cos_fitter( self.parent.emission_angles_grid, self.proj_em, self.parent.Nphases_for_cos_fitter )
+    #         # collect list of unique emission angles            
+    #         emangles = [l.emangle for l in self.portraits[pi].lines]
+    #         # turn into array, transpose and squeeze
+    #         emangles = np.squeeze(np.array( emangles ).T)
 
-        # assignment
-        LS = ph_ex - ph_em
-        if LS > np.pi/2:  LS -= np.pi
-        if LS < -np.pi/2: LS += np.pi
-        self.phase_ex = ph_ex[0]
-        self.M_ex     = M_ex[0]
-        self.phase_em = ph_em[0]
-        self.M_em     = M_em[0]
-        self.LS       = LS[0]
-        # store in coverage maps
-        self.parent.M_ex_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.M_ex
-        self.parent.M_em_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.M_em
-        self.parent.phase_ex_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.phase_ex
-        self.parent.phase_em_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.phase_em
-        self.parent.LS_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.LS
+    #         # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
+    #         fitintensities = np.array( [l.cosValue( self.parent.excitation_angles_grid ) \
+    #                                         for l in self.portraits[pi].lines] )
+
+    #         phase, I0, M, resi, fit, rawfitpars, mm = self.parent.cos_fitter( emangles, fitintensities, \
+    #                                                                        self.parent.Nphases_for_cos_fitter )
+    #         # store vertical fit params
+    #         self.portraits[pi].vertical_fit_params = [ phase, I0, M, resi, mm ]
+
+    #         # sam += [ rawfitpars[0,i]+rawfitpars[1,i]*self.parent.precomputed_cosines[mm[i]] \
+    #         #              for i in range(len(mm)) ]
+
+
+    #     sam = self.recover_average_portrait_matrix()
+    #     self.proj_ex = np.mean( sam, axis=0 ).reshape((sam.shape[1],1))
+    #     self.proj_em = np.mean( sam, axis=1 ).reshape((sam.shape[0],1))
+
+    #     # fitting
+    #     ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex, mm = self.parent.cos_fitter( self.parent.excitation_angles_grid, self.proj_ex, self.parent.Nphases_for_cos_fitter )
+    #     ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em, mm = self.parent.cos_fitter( self.parent.emission_angles_grid, self.proj_em, self.parent.Nphases_for_cos_fitter )
+
+    #     # assignment
+    #     LS = ph_ex - ph_em
+    #     if LS > np.pi/2:  LS -= np.pi
+    #     if LS < -np.pi/2: LS += np.pi
+    #     self.phase_ex = ph_ex[0]
+    #     self.M_ex     = M_ex[0]
+    #     self.phase_em = ph_em[0]
+    #     self.M_em     = M_em[0]
+    #     self.LS       = LS[0]
+    #     # store in coverage maps
+    #     self.parent.M_ex_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.M_ex
+    #     self.parent.M_em_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.M_em
+    #     self.parent.phase_ex_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.phase_ex
+    #     self.parent.phase_em_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.phase_em
+    #     self.parent.LS_image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = self.LS
 
 
 class Portrait:
