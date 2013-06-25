@@ -8,6 +8,35 @@ import scipy.optimize as so
 
 
 class Movie:
+    def __init__2(self, \
+                      datadir, filename, \
+                      which_setup='new setup', \
+                      phase_offset_excitation=0, \
+                      excitation_optical_element='l/2 plate',\
+                  ):
+
+        self.cos_fitter = CosineFitter_new
+        self.which_setup = which_setup
+        self.phase_offset_excitation = phase_offset_excitation
+
+        self.data_directory = datadir
+        self.data_filename  = filename
+
+        self.read_in_EVERYTHING()
+
+        self.timeaxis = self.camera_data.timestamps
+        self.spots = []
+        self.initContrastImages()
+        self.datamode = 'validdata'
+
+        # fix the excitation and emission angle grids for now
+        self.excitation_angles_grid = np.linspace(0,np.pi,91)
+        self.emission_angles_grid = np.linspace(0,np.pi,91)
+        self.Nphases_for_cos_fitter = 91
+        self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
+                                         for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
+
+
     def __init__( self, \
                       spe_filename, \
                       excitation_motor_filename, \
@@ -84,37 +113,70 @@ class Movie:
 
         ###### look for motor files ######
         print 'Looking for motor file(s)...'
-        got_motor_file = 0
+        got_motors = 0
         # new setup file
         for file in os.listdir("."):
             if file=="MS-"+self.data_filename[:-4]+'.txt':
                 print '\t found motor file %s' % file
                 self.which_setup = 'new'
                 self.motorfile = file
-                got_motor_file = True
                 # import it
                 self.motors = BothMotorsWithHeader( file )
+                self.exangles = self.motors.excitation_angles
+                self.emangles = self.motors.emission_angles
+
+                got_motors = True
                 break
 
 
         # old setup files   ########## TODO: All motor files should be the same --> fix in LabView
         got_motor_file_ex = 0
         got_motor_file_em = 0
-        if not got_motor_file:
+        if not got_motors:
             for file in os.listdir("."):
                 if file=="MSex-"+self.data_filename[:-4]+'.txt':
                     print '\t found old-style motor file (for excitation) %s' % file
                     self.which_setup = 'old'
                     self.motorfile_ex = file
+                    # read in motor file
+                    if self.which_setup=='new setup':
+                        self.excitation_motor = NewSetupMotor( file, \
+                                                       which_motor='excitation', \
+                                                       phase_offset=self.phase_offset_excitation, \
+                                                       optical_element=self.excitation_optical_element )
+                    elif which_setup=='old setup':
+                        self.excitation_motor = ExcitationMotor( file, \
+                                                                     self.phase_offset_excitation, \
+                                                                     rotation_direction=-1, \
+                                                                     optical_element=self.excitation_optical_element)
+                    else:
+                        raise hell
+
+                    self.exangles = np.array( [self.excitation_motor.angle(t,exposuretime=self.camera_data.exposuretime) for t in self.timeaxis] )
+
                     got_motor_file_ex = 1
                     if got_motor_file_ex and got_motor_file_em:
+                        got_motors = True
                         break
                 if file=="MSem-"+self.data_filename[:-4]+'.txt':
                     print '\t found old-style motor file (for emission) %s' % file
                     self.which_setup = 'old'
                     self.motorfile_em = file
+                    # read in motor file
+                    if self.which_setup=='new setup':
+                        self.emission_motor = NewSetupMotor( file, \
+                                                                 which_motor='emission', \
+                                                                 phase_offset=0*np.pi/180.0 )
+                    elif self.which_setup=='old setup':
+                        self.emission_motor   = EmissionMotor( emission_motor_filename )
+                    else:
+                        raise hell
+
+                    emangles = np.array( [self.emission_motor.angle(t,exposuretime=self.camera_data.exposuretime) for t in self.timeaxis] )
+
                     got_motor_file_em = 1
                     if got_motor_file_ex and got_motor_file_em:
+                        got_motors = True
                         break
 
 
@@ -126,25 +188,21 @@ class Movie:
             print "Couldn't find data SPE file! Bombing out..."
             raise SystemExit
         
-        ###### look for blank sample(s) ######
-        print 'Looking for blanks...',
-        self.blanks = []
+        ###### look for blank sample ######
+        print 'Looking for blank...',
         for file in os.listdir("."):
             if file.startswith("blank-") and (file.endswith(".spe") or file.endswith(".SPE")):
                 print '\t found file %s' % file
                 b = CameraData( file, compute_frame_average=True )
-                self.blanks.append( b.average_image.copy() )
+                self.blank = b.average_image.copy()
                 del(b)
-        if not len(self.blanks)==0:
-            self.blank_image = np.zeros_like(self.blanks[0])
-            for b in self.blanks:
-                self.blank_image += b
-            self.blank_image /= len(self.blanks)
-            
+                break
+
 
     def initContrastImages(self):
         self.spot_coverage_image  = np.ones( (self.camera_data.datasize[1],self.camera_data.datasize[2]) )*np.nan
         self.mean_intensity_image = self.spot_coverage_image.copy()
+        self.SNR_image            = self.spot_coverage_image.copy()
         self.M_ex_image           = self.spot_coverage_image.copy()
         self.M_em_image           = self.spot_coverage_image.copy()
         self.phase_ex_image       = self.spot_coverage_image.copy()
@@ -205,7 +263,7 @@ class Movie:
         self.spots.append( s )
 
         self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = 1
-        self.mean_intensity_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.intensity_time_average
+        self.mean_intensity_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.mean_intensity
 
     def collect_data( self ):
         """This is a helper-function which collects all the necessary 
@@ -1144,7 +1202,7 @@ class Movie:
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
 
-    def are_spots_valid(self, SNR=10):
+    def are_spots_valid(self, SNR=10, quiet=False):
         # do we actually have the background std
         bgstd = 0
         if hasattr( self, 'bg_spot' ):
@@ -1156,14 +1214,20 @@ class Movie:
         validspots = []   
         validspotindices = []
         for si,s in enumerate(self.spots):
-            s.SNR = s.intensity_time_average/bgstd
+            s.SNR = s.mean_intensity/bgstd
             if s.SNR > SNR:
                 validspots.append(s)
                 validspotindices.append(si)
+            # store SNR in SNR_image
+            s.store_property_in_image( self.SNR_image, 'SNR' )    # let's see if this works...
+
 
         # and store in movie object
         self.validspots = validspots
-        self.validspotindices = validspotindices
+        self.validspotindices = validspotindices        
+
+        if not quiet: print "Got %d valid spots" % len(self.validspots)
+
                 
 
 class CameraData:
@@ -1267,13 +1331,21 @@ class Spot:
 
         self.intensity_type = int_type
         self.intensity      = I
-        self.intensity_time_average = np.mean(I)
+        self.mean_intensity = np.mean(I)
         self.bg_correction  = bg
+        if not is_bg_spot:
+            self.parent.mean_intensity_image[ \
+                self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 \
+                    ] = self.mean_intensity
+
 
     def __str__(self):
         return "Spot object: int_type=%s\tlowerleft=[%d,%d]\twidth=%d\theight=%d\tlabel=%s" % \
             (self.intensity_type, self.coords[0], self.coords[1], \
                  self.coords[2]-self.coords[0]+1, self.coords[3]-self.coords[1]+1, self.label)
+
+    def store_property_in_image(self, image, prop):
+        image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = getattr(self,prop)
 
     def export_averagematrix(self,filename):
         np.save(filename,self.averagematrix)
@@ -1380,7 +1452,7 @@ class Spot:
         else:
             print "Dude --- no background spot defined, therefore no standard deviation. Will treat all spots as valid (i.e. as having sufficient intensity)."
 
-        self.SNR = self.intensity_time_average/bgstd
+        self.SNR = self.mean_intensity/bgstd
         if self.SNR > SNR:
             self.isvalid = True
         else:

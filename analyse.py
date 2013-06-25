@@ -26,7 +26,7 @@ show_mem()
 #prefix = '/home/kiwimatto/Desktop/130514/a-MEH/'
 #prefix = '/home/rafael/Desktop/Win/LC/130527-LC/Ink/'
 #prefix = '/home/kiwimatto/Desktop/test/'
-prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130530_olle_sample/'
+prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130605-olles-sample/blank_corrected/'
 
           
 global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
@@ -35,12 +35,18 @@ global_phase = 1.0 * np.pi/180.0   # must be in radians!!!
 
 tstart = stopwatch.time()
 
-m = Movie( prefix+"olles_sample2_488_OD2.SPE", prefix+"MS-olles_sample2_488_OD2.txt", \
+# m = Movie( prefix+"olle_sample_center_empty2_x40_488_OD2.SPE", prefix+"MS-olle_sample_center_empty2_x40_488_OD1.txt", \
+#                phase_offset_excitation=global_phase, which_setup='cool new setup' )
+# m = Movie( prefix+"olle_single_layer_x40_488_OD2.SPE", prefix+"MS-olle_single_layer_x40_488_OD2.txt", \
+#                phase_offset_excitation=global_phase, which_setup='cool new setup' )
+m = Movie( prefix+"olle_single_layer_x40_488_OD2.SPE", prefix+"MS-olle_single_layer_x40_488_OD2.txt", \
                phase_offset_excitation=global_phase, which_setup='cool new setup' )
 
-m.define_background_spot( [125,477,371,502] )
+#m.define_background_spot( [260,200,340,260] )
+#m.define_background_spot( [100,100,300,150] )
+m.define_background_spot( [0,100,50,300] )
 
-fullbounds = [ 0,255,512,258 ]
+fullbounds = [ 300,160,400,440 ]
 
 if myrank==0: print 'fullbounds=',fullbounds
 mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
@@ -66,14 +72,14 @@ if use_alternate_path:
             print '.',
             sys.stdout.flush()
 else:
-    m.chew_a_bit(SNR=4)
+    m.chew_a_bit(SNR=0)
 
 # for si,s in enumerate(m.validspots):
 #     print "si=%d\tLS=%f\tM_ex=%f\tM_em=%f" % (si, s.LS, s.M_ex, s.M_em)
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
-raise SystemExit
+#raise SystemExit
 
 
 
@@ -81,7 +87,7 @@ comm.barrier()
 
 import time
 time.sleep(myrank)
-update_image_files(m, 'intensity_time_average', fileprefix=prefix )
+update_image_files(m, 'mean_intensity', fileprefix=prefix )
 update_image_files(m, 'M_ex', fileprefix=prefix )
 update_image_files(m, 'M_em', fileprefix=prefix )
 update_image_files(m, 'phase_ex', fileprefix=prefix )

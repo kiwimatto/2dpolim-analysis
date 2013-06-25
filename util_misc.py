@@ -50,7 +50,7 @@ def trim_noisy_data( movie, what='M_ex', threshold=None ):
     if what=='M_ex' or what=='M_em':
         if threshold==None:
             threshold = 3*movie.bg_spot.std
-        quantity  = 'intensity_time_average'
+        quantity  = 'mean_intensity'
 
     elif what=='phase_ex':
         if threshold==None:
@@ -160,7 +160,7 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
 
     # collect the data from all spots
     for ss in movie.validspots:
-        mean_intensities.append( ss.intensity_time_average )
+        mean_intensities.append( ss.mean_intensity )
         Ms_ex.append( ss.M_ex )
         Ms_em.append( ss.M_em )
         phases_ex.append( ss.phase_ex )
