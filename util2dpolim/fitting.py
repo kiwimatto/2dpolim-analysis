@@ -1,25 +1,6 @@
 import numpy as np
 
 
-# def err_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot,\
-#                                               mod_depth_excitation, phase_excitation,\
-#                                               which_error='chi2' ):
-
-#     Fem = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
-#                                                     mod_depth_excitation, phase_excitation, \
-#                                                     data_style )
-#     Fem  /= np.sum(Fem)    # unless an axis is specified, np.sum() will sum all elements, ...
-#     Ftot /= np.sum(Ftot)   # ... regardless of array dimension
-
-#     # compute error
-#     if which_error=='chi2':
-#         err = np.sum( (Fem-Ftot)**2 )
-#     elif which_error=='R2':
-#         err = np.sum( (Fem-Ftot)**2 )/np.sum( (Ftot-np.mean(Ftot))**2 )
-#     else:
-#         raise ValueError("Unknown value for which_error: %s  (should be 'chi2' or 'R2')" % (which_error))
-
-
 def wrapper_for_de( params, extras ):
     ex_angles = extras[0]
     em_angles = extras[1]
@@ -128,61 +109,6 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
 
 
 
-def CosineFitter_mpi_master( angles, data ):
-
-    assert angles.ndim == 1
-    assert data.shape[0] == angles.size
-
-    # if data is a 1d-array, then turn it into a 2d with singleton dimension
-    if data.ndim==1:
-        data = data.reshape( (data.size,1) )
-    
-    import sys
-    from mpi4py import MPI
-    # comm = MPI.COMM_WORLD
-    # myrank = comm.Get_rank()
-    # nprocs = comm.Get_size()
-
-    Nprocs = 4
-
-#    sdata = np.hsplit(data, Nprocs)
-
-    comm = MPI.COMM_SELF
-    comm.Set_name('spawner')
-    slaveintercomm = comm.Spawn(sys.executable,
-                                args=['cosine_fitter_mpi_slave.py', \
-                                          str(data.shape[0]), \
-                                          str(data.shape[1]) ],
-                                maxprocs=Nprocs)
-
-#    print 'spawner'
-#    print comm
-    
-    for n in range(Nprocs):
-        localcolumns = range(n,data.shape[1],Nprocs)
-#        print 'spawner sending data, len(localcolumns)=',len(localcolumns)
-        # send out data
-        slaveintercomm.Send( angles, dest=n, tag=n*11 )
-        d = data[:,localcolumns].copy()
-#        print d
-        slaveintercomm.Send( d, dest=n, tag=n*123 )
-
-    results = np.zeros( (4, data.shape[1]) )
-    for n in range(Nprocs):        
-        localcolumns = range(n,data.shape[1],Nprocs)
-#        print "receiving...%d" % (n)
-        r = np.zeros( (4,len(localcolumns)) )
-#        print 'spawner expecting r.shape=',r.shape
-        slaveintercomm.Recv( r, source=n, tag=n*5 )
-        results[:,localcolumns] = r   
-
-    slaveintercomm.Disconnect()
-
-    return results[0,:], results[1,:], results[2,:], results[3,:]
-
-
-
-
 def CosineFitter_new( angles, data, Nphases=91 ):
 
     assert angles.ndim == 1
@@ -217,33 +143,14 @@ def CosineFitter_new( angles, data, Nphases=91 ):
     # and second, I can pass contiguous arrays to np.linalg.lstsq(), which should help speed-wise
     # (though i haven't tested this).
 
-    # bestpis   = np.zeros( (Nspots,), dtype=np.int )
-    # bestresis = np.ones( (Nspots,) )*np.inf
-    # bestfitpa = np.zeros( (2,Nspots) )
     for pi,phase in enumerate( phases ):
         # perform linear fit
         f = np.linalg.lstsq( er[:,2*pi:2*pi+2], data )
-        # if f[1].size==0:
-        #     print f
-        #     print np.dot(er[:,2*pi:2*pi+2],f[0])
-        #     print angles
-        #     print data
-        # print "f[1].shape=",f[1].shape
-        # print "residualmatrix[pi,:].shape=",residualmatrix[pi,:].shape
         rm[pi,:] = f[1]
         cm[pi,:,:] = f[0][:]
 
-        # # for which spots is the current fit better than anythings we've seen before?
-        # wherebetter = f[1]<bestresis
-        # # update the list of best known residuals
-        # bestresis[wherebetter] = f[1][wherebetter]
-        # # write the phase index into a similar list
-        # bestpis[wherebetter]   = pi
-        # # as well as the resulting fit parameters
-        # bestfitpa[:,wherebetter] = f[0][:,wherebetter]
-
-    mm = minindices = np.argmin( rm, axis=0 )
-    rp = resultingphases = phases[minindices]
+    mm = np.argmin( rm, axis=0 )         # indices of minima (for each spot) w.r.t. tested phase
+    rp = phases[mm]                      # resulting phases
 
     I_0 = np.zeros( (Nspots,) )
     M_0 = np.zeros( (Nspots,) )

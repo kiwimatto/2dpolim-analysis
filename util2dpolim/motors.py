@@ -1,5 +1,5 @@
 import numpy as np
-from util_misc import deal_with_date_time_string
+from misc import deal_with_date_time_string
 
 
 def is_number(s):
