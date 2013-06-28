@@ -17,19 +17,23 @@ class BothMotorsWithHeader:
         self.filename = filename
 
         # read header if possible
-        f = open( self.motorfile, 'r' )
+        f = open( self.filename, 'r' )
         self.header = {}
+        self.header['comments'] = []
         Nheaderlines = 0
         while True:
             line = f.readline().strip().split(':')
             Nheaderlines += 1
-            if line[0]=='END-OF-HEADER' or line[0]=='':
+            if line[0]=='END-OF-HEADER':
                 break
             else:
-                if is_number(line[1]):
-                    header[line[0]] = float(line[1])
+                if len(line)>1:
+                    if is_number(line[1]):
+                        self.header[line[0]] = float(line[1])
+                    else:
+                        self.header[line[0]] = line[1].lower()
                 else:
-                    header[line[0]] = line[1].lower()
+                    self.header['comments'].append( line[0] )
         f.close()
 
         # grab motor data --- delimiter is _a tab_ !!!

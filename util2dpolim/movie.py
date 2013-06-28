@@ -3,11 +3,11 @@ from fitting import CosineFitter_new
 from spot import Spot
 from portrait import Portrait
 from motors import *
-
+import os
 
 class Movie:
-    def __init__2( self, \
-                      datadir, filename, \
+    def __init__( self, \
+                      datadir, basename, \
                       which_setup='new setup', \
                       phase_offset_excitation=0, \
                       excitation_optical_element='l/2 plate',\
@@ -18,7 +18,7 @@ class Movie:
         self.phase_offset_excitation = phase_offset_excitation
 
         self.data_directory = datadir
-        self.data_filename  = filename
+        self.data_basename  = basename
 
         self.read_in_EVERYTHING()
 
@@ -34,7 +34,7 @@ class Movie:
         self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
                                          for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
-    def __init__( self, \
+    def __init__2( self, \
                       spe_filename, \
                       excitation_motor_filename, \
                       emission_motor_filename=None, \
@@ -111,14 +111,14 @@ class Movie:
         got_motors = 0
         # new setup file
         for file in os.listdir("."):
-            if file=="MS-"+self.data_filename[:-4]+'.txt':
+            if file=="MS-"+self.data_basename+'.txt':
                 print '\t found motor file %s' % file
                 self.which_setup = 'new'
                 self.motorfile = file
                 # import it
                 self.motors = BothMotorsWithHeader( file )
-                self.exangles = self.motors.excitation_angles
-                self.emangles = self.motors.emission_angles
+                # self.exangles = self.motors.excitation_angles
+                # self.emangles = self.motors.emission_angles
 
                 got_motors = True
                 break
@@ -129,7 +129,7 @@ class Movie:
         got_motor_file_em = 0
         if not got_motors:
             for file in os.listdir("."):
-                if file=="MSex-"+self.data_filename[:-4]+'.txt':
+                if file=="MSex-"+self.data_basename+'.txt':
                     print '\t found old-style motor file (for excitation) %s' % file
                     self.which_setup = 'old'
                     self.motorfile_ex = file
@@ -153,7 +153,7 @@ class Movie:
                     if got_motor_file_ex and got_motor_file_em:
                         got_motors = True
                         break
-                if file=="MSem-"+self.data_filename[:-4]+'.txt':
+                if file=="MSem-"+self.data_basename+'.txt':
                     print '\t found old-style motor file (for emission) %s' % file
                     self.which_setup = 'old'
                     self.motorfile_em = file
@@ -176,12 +176,16 @@ class Movie:
 
 
         ###### look if we can find the data file, and import it ######
-        if os.path.exists( self.data_filename ):
-            self.camera_data    = CameraData( self.data_filename, compute_frame_average=True )
-            print 'Imported data file %s' % self.data_filename
+        if os.path.exists( self.data_basename+'.SPE' ):
+            self.spefilename = self.data_basename+'.SPE'
+        elif os.path.exists( self.data_basename+'.spe' ):
+            self.spefilename = self.data_basename+'.spe'
         else:
             print "Couldn't find data SPE file! Bombing out..."
             raise SystemExit
+        
+        self.camera_data    = CameraData( self.spefilename, compute_frame_average=True )
+        print 'Imported data file %s' % self.spefilename
         
         ###### look for blank sample ######
         print 'Looking for blank...',
@@ -271,7 +275,8 @@ class Movie:
         [FrameNumber, excitation angle, emission angle, Intensities (Nspot columns)]    
         """
 
-        if self.which_setup=='cool new setup':
+#        if self.which_setup=='cool new setup':
+        if hasattr( self, 'motors'):
             exangles = self.motors.excitation_angles
             emangles = self.motors.emission_angles
         else:
@@ -330,7 +335,7 @@ class Movie:
         thoroughly in the future, but for now: Handle with care.
         """
 
-        if self.which_setup=='cool new setup':
+        if hasattr( self, 'motors' ):
             emangles = self.motors.emission_angles
         else:
             emangles = np.array( [self.emission_motor.angle(t, exposuretime=self.camera_data.exposuretime) \
@@ -543,8 +548,10 @@ class Movie:
         proj_ex = []
         proj_em = []
         for s in self.validspots:
-            sam = s.recover_average_portrait_matrix()
-            s.sam = sam
+            sam  = s.recover_average_portrait_matrix()
+            sam /= np.max(sam)*255
+            s.sam = sam.astype( np.uint8 )
+
             s.proj_ex = np.mean( sam, axis=0 )
             s.proj_em = np.mean( sam, axis=1 )
             proj_ex.append( s.proj_ex )
@@ -578,23 +585,24 @@ class Movie:
             #### anisotropy ####
         
             if (s.M_ex < .15):
-                Ipara = s.sam[ s.sam.shape[0]/2, s.sam.shape[1]/2 ]
-                Iperp = s.sam[ s.sam.shape[0]/2, 0 ]
+                iex = np.argmin( np.abs( self.excitation_angles_grid - 90 ) )
+                iem = np.argmin( np.abs( self.emission_angles_grid - 90 ) )
+                Ipara = s.sam[ iex, iem ]
+                Iperp = s.sam[ iex, 0 ] ## assumes that the first index is close to 0deg in emission angle grid
             else:
                 # find where the found phase matches the phase in the portrait matrix
                 # portrait matrices are constructed from the angle grid, so look up which 
                 # index corresponds to the found phase
-                iphex = np.argmin( np.abs(self.excitation_angles_grid - s.ph_ex) )
+                iphex = np.argmin( np.abs(self.excitation_angles_grid - s.phase_ex) )
                 # for parallel detection, the phase is the same
-                iphempara = iphex
+                iphempara = np.argmin( np.abs(self.emission_angles_grid - s.phase_ex) )
                 # for perpendicular detection, we need to find the phase+90deg
-                iphemperp = np.argmin( np.abs(self.excitation_angles_grid - np.mod(s.ph_ex+90, 180)) )
+                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(s.phase_ex+90, 180)) )
                 Ipara = s.sam[ iphex, iphempara ]
                 Iperp = s.sam[ iphex, iphemperp ]
             
             s.r = (Ipara-Iperp)/(Ipara+2*Iperp)
             del(s.sam)  # don't need that anymore
-
 
 
     def ETrulerFFT( self, slope=7, newdatalength=2048 ):

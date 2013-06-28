@@ -35,7 +35,7 @@ def deal_with_date_time_string( motorobj, datetimestring ):
 
 def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
     
-    rb = rectangular_blob = bounds #[80,56,155,89]  # pixel indices (starting from zero!)
+    rb = bounds #[80,56,155,89]  # pixel indices (starting from zero!)
 
     leftedges = range(rb[1],rb[3],res)
     if leftedges[-1]+res > rb[3]:
@@ -44,6 +44,11 @@ def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
     topedges = range(rb[0],rb[2],res)
     if topedges[-1]+res > rb[2]:
         topedges = topedges[:-1]
+
+    # Note: Spot definitions will include all edges, ie define_spot( [0,2,10,11] ) will
+    # create a spot covering 11 pixel in x (columns) and 10 in y (rows).
+    # At the same time, the leftedges/topedges generated here will not include the last
+    # edge (rb[3] in columns
 
     for xi in leftedges:
         for yi in topedges:
