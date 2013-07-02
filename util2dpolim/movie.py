@@ -8,21 +8,19 @@ import os
 class Movie:
     def __init__( self, \
                       datadir, basename, \
-                      which_setup='new setup', \
-                      phase_offset_excitation=0, \
-                      excitation_optical_element='l/2 plate',\
-                  ):
+                      which_setup='cool new setup', \
+                      phase_offset_in_deg=np.nan, \
+                      excitation_optical_element='l/2 plate' ):
 
         self.cos_fitter = CosineFitter_new
         self.which_setup = which_setup
-        self.phase_offset_excitation = phase_offset_excitation
+        self.phase_offset_in_deg = phase_offset_in_deg
 
         self.data_directory = datadir
         self.data_basename  = basename
 
         self.read_in_EVERYTHING()
 
-        self.timeaxis = self.camera_data.timestamps
         self.spots = []
         self.initContrastImages()
         self.datamode = 'validdata'
@@ -105,76 +103,7 @@ class Movie:
     def read_in_EVERYTHING(self):
         # change to the data directory
         os.chdir( self.data_directory )
-
-        ###### look for motor files ######
-        print 'Looking for motor file(s)...'
-        got_motors = 0
-        # new setup file
-        for file in os.listdir("."):
-            if file=="MS-"+self.data_basename+'.txt':
-                print '\t found motor file %s' % file
-                self.which_setup = 'new'
-                self.motorfile = file
-                # import it
-                self.motors = BothMotorsWithHeader( file )
-                # self.exangles = self.motors.excitation_angles
-                # self.emangles = self.motors.emission_angles
-
-                got_motors = True
-                break
-
-
-        # old setup files   ########## TODO: All motor files should be the same --> fix in LabView
-        got_motor_file_ex = 0
-        got_motor_file_em = 0
-        if not got_motors:
-            for file in os.listdir("."):
-                if file=="MSex-"+self.data_basename+'.txt':
-                    print '\t found old-style motor file (for excitation) %s' % file
-                    self.which_setup = 'old'
-                    self.motorfile_ex = file
-                    # read in motor file
-                    if self.which_setup=='new setup':
-                        self.excitation_motor = NewSetupMotor( file, \
-                                                       which_motor='excitation', \
-                                                       phase_offset=self.phase_offset_excitation, \
-                                                       optical_element=self.excitation_optical_element )
-                    elif which_setup=='old setup':
-                        self.excitation_motor = ExcitationMotor( file, \
-                                                                     self.phase_offset_excitation, \
-                                                                     rotation_direction=-1, \
-                                                                     optical_element=self.excitation_optical_element)
-                    else:
-                        raise hell
-
-                    self.exangles = np.array( [self.excitation_motor.angle(t,exposuretime=self.camera_data.exposuretime) for t in self.timeaxis] )
-
-                    got_motor_file_ex = 1
-                    if got_motor_file_ex and got_motor_file_em:
-                        got_motors = True
-                        break
-                if file=="MSem-"+self.data_basename+'.txt':
-                    print '\t found old-style motor file (for emission) %s' % file
-                    self.which_setup = 'old'
-                    self.motorfile_em = file
-                    # read in motor file
-                    if self.which_setup=='new setup':
-                        self.emission_motor = NewSetupMotor( file, \
-                                                                 which_motor='emission', \
-                                                                 phase_offset=0*np.pi/180.0 )
-                    elif self.which_setup=='old setup':
-                        self.emission_motor   = EmissionMotor( emission_motor_filename )
-                    else:
-                        raise hell
-
-                    emangles = np.array( [self.emission_motor.angle(t,exposuretime=self.camera_data.exposuretime) for t in self.timeaxis] )
-
-                    got_motor_file_em = 1
-                    if got_motor_file_ex and got_motor_file_em:
-                        got_motors = True
-                        break
-
-
+        
         ###### look if we can find the data file, and import it ######
         if os.path.exists( self.data_basename+'.SPE' ):
             self.spefilename = self.data_basename+'.SPE'
@@ -185,8 +114,88 @@ class Movie:
             raise SystemExit
         
         self.camera_data    = CameraData( self.spefilename, compute_frame_average=True )
+        self.timeaxis       = self.camera_data.timestamps
         print 'Imported data file %s' % self.spefilename
+
+
+        ###### look for motor files ######
+        print 'Looking for motor file(s)...'
         
+        ### old setup ###
+        # the old setup is the only with two separate files, 
+        # so if this is the case we'll do it now
+        if self.which_setup=='old setup':
+            got_motors = False
+            got_motor_file_ex = False
+            got_motor_file_em = False
+            for file in os.listdir("."):
+                if (not got_motor_file_ex) and (file=="MSex-"+self.data_basename+'.txt'):
+                    print '\t found old-style motor file (for excitation) %s' % file
+                    self.motorfile_ex = file
+                    got_motor_file_ex = True
+                elif (not got_motor_file_em) and (file=="MSem-"+self.data_basename+'.txt'):
+                    print '\t found old-style motor file (for emission) %s' % file
+                    self.motorfile_em = file
+                    got_motor_file_em = True
+                # break if both files were found
+                if got_motor_file_ex and got_motor_file_em:
+                    got_motors = True
+                    break
+                
+            if got_motors:
+                # read in motor files
+                self.excitation_motor = ExcitationMotor( self.motorfile_ex, \
+                                                             self.phase_offset_in_deg, \
+                                                             rotation_direction=-1, \
+                                                             optical_element=self.excitation_optical_element)
+                self.emission_motor   = EmissionMotor( self.motorfile_em )
+                # and get the angles
+                self.exangles = np.array( [self.excitation_motor.angle(t,exposuretime=self.camera_data.exposuretime) for t in self.timeaxis] )
+                self.emangles = np.array( [self.emission_motor.angle(t,exposuretime=self.camera_data.exposuretime) for t in self.timeaxis] )
+            else:
+                raise IOError("Couldn't find the motor files (old setup was specified).")
+
+
+        ### newer setups ###
+        # the newer versions of the setup all generate just one motor file, let's look for that
+        else:
+            got_motors = False
+            for file in os.listdir("."):
+                if file=="MS-"+self.data_basename+'.txt':
+                    print '\t found motor file %s' % file
+                    self.motorfile = file
+                    got_motors = True
+                    break
+            # now import it depending on which setup it is
+            if got_motors:
+
+                if self.which_setup=='new setup':
+                    self.motors = NewSetupMotors( self.motorfile, \
+                                                      phase_offset=self.phase_offset_in_deg, \
+                                                      optical_element=self.excitation_optical_element )
+                    self.motors.compute_angles( self.camera_data.timeaxis, self.camera_data.exposuretime )
+
+                elif self.which_setup=='cool new setup':
+                    self.motors = BothMotors( self.motorfile, \
+                                                  self.phase_offset_in_deg )
+
+                elif self.which_setup=='header':
+                    ### Supplying the phase offset here means it overrides the value 
+                    ### which is read from the header, unless it is NaN (the default). 
+                    ### This is only useful for AM measurements.
+                    self.motors = BothMotorsWithHeader( self.motorfile, \
+                                                            self.phase_offset_in_deg )
+
+                else:
+                    raise ValueError('Dunno what setup="%s" is.' % self.which_setup)
+                
+                self.exangles = self.motors.excitation_angles
+                self.emangles = self.motors.emission_angles                   
+ 
+
+        if not got_motors:
+            raise IOError("Couldn't find motor files.")
+       
         ###### look for blank sample ######
         print 'Looking for blank...',
         for file in os.listdir("."):
@@ -207,6 +216,7 @@ class Movie:
         self.phase_ex_image       = self.spot_coverage_image.copy()
         self.phase_em_image       = self.spot_coverage_image.copy()
         self.LS_image             = self.spot_coverage_image.copy()
+        self.r_image              = self.spot_coverage_image.copy()
         self.ET_ruler_image       = self.spot_coverage_image.copy()
         self.ET_model_md_fu_image = self.spot_coverage_image.copy()
         self.ET_model_th_fu_image = self.spot_coverage_image.copy()
@@ -549,9 +559,9 @@ class Movie:
         proj_em = []
         for s in self.validspots:
             sam  = s.recover_average_portrait_matrix()
-            sam /= np.max(sam)*255
-            s.sam = sam.astype( np.uint8 )
-
+            # sam /= np.max(sam)*255
+            # s.sam = sam.astype( np.uint8 )
+            s.sam = sam
             s.proj_ex = np.mean( sam, axis=0 )
             s.proj_em = np.mean( sam, axis=1 )
             proj_ex.append( s.proj_ex )
@@ -601,7 +611,12 @@ class Movie:
                 Ipara = s.sam[ iphex, iphempara ]
                 Iperp = s.sam[ iphex, iphemperp ]
             
-            s.r = (Ipara-Iperp)/(Ipara+2*Iperp)
+            if not float(Ipara+2*Iperp)==0:
+                s.r = float(Ipara-Iperp)/float(Ipara+2*Iperp)
+            else:
+                s.r = np.nan
+            # store in contrast image
+            self.r_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.r
             del(s.sam)  # don't need that anymore
 
 

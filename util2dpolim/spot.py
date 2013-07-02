@@ -86,7 +86,8 @@ class Spot:
         image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = getattr(self,prop)
 
     def export_averagematrix(self,filename):
-        np.save(filename,self.averagematrix)
+        # np.save(filename, self.averagematrix)
+        np.save(filename, self.recover_average_portrait_matrix() )
 
     def recover_average_portrait_matrix(self):
         pic = self.portraits[0].recover_portrait_matrix()

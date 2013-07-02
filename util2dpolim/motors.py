@@ -11,10 +11,11 @@ def is_number(s):
 
 
 class BothMotorsWithHeader:
-    def __init__( self, filename ):
+    def __init__( self, filename, phase_offset_in_deg ):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
-        self.filename = filename
+        self.filename = filename        
+        self.phase_offset_in_deg = phase_offset_in_deg
 
         # read header if possible
         f = open( self.filename, 'r' )
@@ -23,6 +24,7 @@ class BothMotorsWithHeader:
         Nheaderlines = 0
         while True:
             line = f.readline().strip().split(':')
+#            print line
             Nheaderlines += 1
             if line[0]=='END-OF-HEADER':
                 break
@@ -34,6 +36,10 @@ class BothMotorsWithHeader:
                         self.header[line[0]] = line[1].lower()
                 else:
                     self.header['comments'].append( line[0] )
+            if Nheaderlines >= 1000:
+                print 'Tried to read in 1000 header lines --- either this file has no header or the header contains a novel, you tell me...   (Bombing out)'
+                raise SystemExit
+
         f.close()
 
         # grab motor data --- delimiter is _a tab_ !!!
@@ -42,37 +48,41 @@ class BothMotorsWithHeader:
                              delimiter='\t', \
                              skiprows=Nheaderlines+1 )
 
+        # use externally supplied phase offset only if not NaN
+        if not np.isnan( self.phase_offset_in_deg ):
+            phase_offset_in_deg = self.phase_offset_in_deg
+        else:
+            phase_offset_in_deg = self.header['phase offset in deg']
+
         self.framenumbers = md[:,0]
-        self.excitation_angles_raw = md[:,1] * np.pi/180.0
-        self.emission_angles_raw   = md[:,2] * np.pi/180.0
-
         if self.header['optical element in excitation']=='l/2 plate':
-            self.excitation_angles_raw *= 2
+            self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+        else:
+            self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+        self.emission_angles   = md[:,2] * np.pi/180.0
 
-        self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi ) \
-            + self.header['phase offset in deg']*np.pi/180.0
-        self.emission_angles       = np.mod( self.emission_angles_raw, 2*np.pi )
+        self.excitation_angles     = np.mod( self.excitation_angles, np.pi ) 
+        self.emission_angles       = np.mod( self.emission_angles, np.pi )
 
 
 
 class BothMotors:
-    def __init__( self, filename, phase_offset=0, optical_element='L/2 plate' ):
+    def __init__( self, filename, phase_offset_in_deg=0 ):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
-        self.phase_offset = phase_offset
-        self.optical_element = optical_element
+        self.phase_offset_in_deg = phase_offset_in_deg
 
         # deal with motor file
         f = open(filename,'r')
         optelemstring = f.readline().strip()   # read first line and strip newline character(s)
         f.close()
-        if optelemstring=='L/2 Plate':
-            self.optical_element = 'L/2 Plate'
-        elif optelemstring=='Polarizer':
-            self.optical_element = 'Polarizer'
+        if optelemstring.lower()=='l/2 plate':
+            self.optical_element = 'l/2 plate'
+        elif optelemstring.lower()=='polarizer':
+            self.optical_element = 'polarizer'
         else:
-            raise ValueError("BothMotors doesn't understand optelemstring %s (should be 'L/2 Plate' or 'Polarizer'" % optelemstring)
+            raise ValueError("BothMotors doesn't understand optelemstring %s (should be 'l/2 plate' or 'polarizer'" % optelemstring)
 
         # grab motor data --- delimiter is _a tab_ !!!
         # uses converter functions to parse date+time and shutter values
@@ -81,53 +91,28 @@ class BothMotors:
                              skiprows=2 )
 
         self.framenumbers = md[:,0]
-        self.excitation_angles_raw = md[:,1] * np.pi/180.0
-        self.emission_angles_raw   = md[:,2] * np.pi/180.0
+        if self.optical_element.lower()=='l/2 plate':
+            self.excitation_angles = (2*md[:,1] + self.phase_offset_in_deg ) * np.pi/180.0 
+        else:
+            self.excitation_angles = (  md[:,1] + self.phase_offset_in_deg ) * np.pi/180.0
+        self.emission_angles   = md[:,2] * np.pi/180.0
 
-        if self.optical_element=='L/2 Plate':
-            self.excitation_angles_raw *= 2
-
-        self.excitation_angles     = np.mod( self.excitation_angles_raw, 2*np.pi ) + self.phase_offset
-        self.emission_angles       = np.mod( self.emission_angles_raw, 2*np.pi )
-
-
+        self.excitation_angles     = np.mod( self.excitation_angles, np.pi )
+        self.emission_angles       = np.mod( self.emission_angles, np.pi )
 
 
-class NewSetupMotor:
-    """This class represents either of the two motors in the new
-    setup. For both, emission and excitation motor, this class should
-    be used. There are only two reasons we have separate motor classes
-    for the old setup: i) because the data generated by labview is a
-    separate, differently formatted file for the excitation motor, and
-    ii) the polarization phase offset is implemented for the
-    excitation motor.
 
-    This new class is _very_ similar to the emission motor class
-    below. In fact, it is worth considering to consolidate the three
-    different classes into one, or at least to use this generic class
-    for the emission motor in the old setup, and have only one extra
-    class specialized on the old excitation motor.
 
-    (Alternatively, we could create separate branches for the old and
-    new setup, however i think this is unnecessary, since the
-    differences in the analysis software are limited to motor data
-    import --- so far.)
-
-    Class constructor arguments are the filename to be read in, a flag
-    denoting which_motor should be read in (either 'emission' or
-    'excitation'), as well as a phase offset, which, by convention,
-    will always be zero for the emission motor, but can take non-zero
-    values for the excitation motor.
-    """
-
+class NewSetupMotors:
     def __init__( self, filename, \
-                      which_motor, \
-                      phase_offset=0, \
-                      optical_element='Polarizer'):
+                      phase_offset_in_deg=0, \
+                      optical_element='polarizer'):
+
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
-        self.phase_offset = phase_offset
+        self.timeaxis = timeaxis
+        self.phase_offset_in_deg = phase_offset_in_deg
         self.optical_element = optical_element
 
         self.load_motor_file( filename, which_motor )
@@ -153,25 +138,16 @@ class NewSetupMotor:
                              converters={0: lambda s: deal_with_date_time_string(self, s), \
                                              3: lambda s: s=='open'} )
                             
-        timestamps = md[:,0]
-        emisangles = md[:,1]
-        exciangles = md[:,2]
-        shutter    = md[:,3]
-
-        self.timestamps = timestamps
-        if which_motor=='excitation':
-            self.angles     = exciangles * np.pi/180.0
-        elif which_motor=='emission':
-            self.angles     = emisangles * np.pi/180.0
+        self.timestamps = md[:,0]
+        self.emisangles = md[:,1] * np.pi/180.0
+        if self.optical_element.lower()=='l/2 plate':
+            self.exciangles = (2*md[:,2] + self.phase_offset_in_deg ) * np.pi/180.0
         else:
-            raise ValueError("Input argument which_motor to class NewSetupMotor must take values 'excitation' or 'emission'. Got: %s" % (which_motor))
-        self.shutter    = shutter
-
-        if self.optical_element=='L/2 Plate':
-            self.angles *= 2
+            self.exciangles = (  md[:,2] + self.phase_offset_in_deg ) * np.pi/180.0
+        self.shutter    = md[:,3]
 
 
-    def angle(self, time, exposuretime=.1, respectShutter=True, raw=False ):
+    def compute_angles( self, timeaxis, exposuretime=0.1, respectShutter=True, raw=False ):
         """This function will return the angle of the emission polarizer given
         a time (in seconds, counting from the start of the experiment).
         Since the emission polarizer is turning in a very discrete fashion (0deg, 45deg, etc),
@@ -180,44 +156,57 @@ class NewSetupMotor:
         if the any of the nearest-neighbor timestamps reports the shutter as closed, 
         then we return -1.
         """
-
-        if respectShutter:
-            ### find all timestamps within one exposure time ###
-            mintime = time - exposuretime
-            maxtime = time + exposuretime
-            # left boundary of the window: move time axis by mintime
-            tt = self.timestamps - mintime
-            # last element which is less than zero must be 
-            # the timestamp just before the window starts,
-            # so the length of the array tt[tt>0] is the index
-            # for that timestamp, and adding one to it we get
-            # the first timestamp in the window. Since indices
-            # start with zero, we subtract that one again and 
-            # we have simply:
-            first = tt[tt<0].size
+        self.excitation_angles = []
+        self.emission_angles = []
+        for time in timeaxis:
+            if respectShutter:
+                ### find all timestamps within one exposure time ###
+                mintime = time - exposuretime
+                maxtime = time + exposuretime
+                # left boundary of the window: move time axis by mintime
+                tt = self.timestamps - mintime
+                # last element which is less than zero must be 
+                # the timestamp just before the window starts,
+                # so the length of the array tt[tt>0] is the index
+                # for that timestamp, and adding one to it we get
+                # the first timestamp in the window. Since indices
+                # start with zero, we subtract that one again and 
+                # we have simply:
+                first = tt[tt<0].size
             
-            # right boundary,
-            tt = self.timestamps - maxtime
-            last = tt[tt<0].size -1
+                # right boundary,
+                tt = self.timestamps - maxtime
+                last = tt[tt<0].size -1
 
-            # now test if the shutter is off at any of the timestamps
-            # between first and last:
-            if np.any( self.shutter[first:last]==0 ):
-                return -1
-            else:
-                # interpolate angle from known angles
-                phi = np.interp( time, self.timestamps, self.angles ) + self.phase_offset
-                if raw:
-                    return phi
+                # now test if the shutter is off at any of the timestamps
+                # between first and last:
+                if np.any( self.shutter[first:last]==0 ):
+                    self.excitation_angles.append( -1 )
+                    self.emission_angles.append( -1 )
                 else:
-                    return phi % np.pi
-        else:
-            phi = np.interp( time, self.timestamps, self.angles ) + self.phase_offset
-            if raw:
-                return phi
+                    # interpolate angle from known angles
+                    self.excitation_angles.append( \
+                        np.mod( \
+                            np.interp( time, self.timestamps, self.exciangles ) \
+                                + self.phase_offset_in_deg*np.pi/180.0, np.pi ) )
+                    self.emission_angles.append( \
+                        np.mod( \
+                            np.interp( time, self.timestamps, self.emisangles ), np.pi ) )
             else:
-                return phi % np.pi
+                self.excitation_angles.append( \
+                    np.mod( \
+                        np.interp( time, self.timestamps, self.exciangles ) \
+                            + self.phase_offset_in_deg*np.pi/180.0, np.pi ) )
+                self.emission_angles.append( \
+                    np.mod( \
+                        np.interp( time, self.timestamps, self.emisangles ), np.pi ) )
 
+
+
+
+
+
+###### OLD MOTOR CLASSES #######
 
 
 class ExcitationMotor:
@@ -229,13 +218,13 @@ class ExcitationMotor:
     """
 
     def __init__(self, filename, \
-                     phase_offset_excitation=0, \
+                     phase_offset_in_deg=0, \
                      rotation_direction=-1, \
-                     optical_element='L/2 Plate'):
+                     optical_element='l/2 plate'):
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
-        self.phase_offset_excitation = phase_offset_excitation
+        self.phase_offset_in_deg = phase_offset_in_deg
         self.rotation_direction = rotation_direction
         self.optical_element = optical_element
         
@@ -279,7 +268,7 @@ class ExcitationMotor:
         Remember, the angle of the polarization is _twice_ the angle of the polarizer.
         """
         if self.starttime <= time <= self.endtime:
-            phi = self.anglefun_slope*time + self.anglefun_intercept + self.phase_offset_excitation
+            phi = self.anglefun_slope*time + self.anglefun_intercept + self.phase_offset_in_deg*np.pi/180.0
             if raw_angles:
                 return phi
             else:
@@ -294,11 +283,11 @@ class ExcitationMotor:
         """
         a = self.signals[self.signals==1]
         t = self.timestamps[self.signals==1]
-        if self.optical_element=='L/2 Plate':
+        if self.optical_element.lower()=='l/2 plate':
             # 720 because the polarization has rotated twice once the 
             # polarizer (the lambda/2) has rotated once
             a *= 4*np.pi*self.rotation_direction
-        elif self.optical_element=='Polarizer':
+        elif self.optical_element.lower()=='polarizer':
             a *= 2*np.pi*self.rotation_direction
         else:
             raise ValueError("Motor class doesn't know optical_element '%s'" % self.optical_element)

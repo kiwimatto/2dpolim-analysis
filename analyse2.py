@@ -53,13 +53,16 @@ comm.barrier()
 
 stopwatch.sleep(myrank)
 update_image_files(m, 'mean_intensity', fileprefix=prefix )
+update_image_files(m, 'SNR', fileprefix=prefix )
 update_image_files(m, 'M_ex', fileprefix=prefix )
 update_image_files(m, 'M_em', fileprefix=prefix )
 update_image_files(m, 'phase_ex', fileprefix=prefix )
 update_image_files(m, 'phase_em', fileprefix=prefix )
+update_image_files(m, 'LS', fileprefix=prefix )
+update_image_files(m, 'r', fileprefix=prefix )
 update_image_files(m, 'ET_ruler', fileprefix=prefix )
-update_image_files(m, 'LS', fileprefix=prefix )
-update_image_files(m, 'LS', fileprefix=prefix )
+
+
 
 print "time taken: %fs" % (stopwatch.time()-tstart)
 

@@ -20,8 +20,8 @@ import matplotlib.cm as cmap
 import numpy as np
 #from pyspec.ccd.files import PrincetonSPEFile
 
-from util_2d import *
-import spot_picker
+from util2dpolim.movie import Movie
+import util2dpolim.gui.spot_picker as spot_picker
 
 class MyStaticMplCanvas(FigureCanvas):
     """Simple canvas with a sine plot."""
@@ -153,6 +153,12 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.pp4 = MyStaticMplCanvas(self.main_widget, width=1, height=1, dpi=100)
         self.pp4.clear()
 
+        self.which_setupComboBox = QtGui.QComboBox(self.main_widget)
+        self.which_setupComboBox.addItem('old setup')
+        self.which_setupComboBox.addItem('new setup')
+        self.which_setupComboBox.addItem('cool new setup')
+        self.which_setupComboBox.addItem('header')
+        self.which_setupComboBox.setCurrentIndex(2)
 
 #        self.pick_reporter  = QtGui.QLabel('0 W/cm^{-2} \t x=0 \t y=0' )
 
@@ -165,6 +171,7 @@ class ApplicationWindow(QtGui.QMainWindow):
         l.addWidget( self.fileChanger,3,0,1,2)
         l.addWidget( self.setBGRegionButton,2,2 )
         l.addWidget( self.setSignalRegionButton,3,2 )
+        l.addWidget( self.which_setupComboBox, 2,4 )
         l.addWidget( self.sc, 4,0,4,4 )
         l.addWidget( self.pp1, 4,4,1,1 )
         l.addWidget( self.pp2, 5,4,1,1 )
@@ -192,14 +199,17 @@ class ApplicationWindow(QtGui.QMainWindow):
             fileindex = self.fileChanger.currentIndex()
 
         callstring  = 'python '+"\""+os.path.normpath(self.pwd+'/am_analyse.py')+"\""+' '
-        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.spefiles[fileindex])+"\""+' '
-        callstring += "\""+os.path.normpath(self.data_directory+'/'+self.motorfiles[fileindex])+"\""+' '
+        # callstring += "\""+os.path.normpath(self.data_directory+'/'+self.spefiles[fileindex])+"\""+' '
+        # callstring += "\""+os.path.normpath(self.data_directory+'/'+self.motorfiles[fileindex])+"\""+' '
+        callstring += "\""+os.path.normpath(self.data_directory)+"\""+' '
+        callstring += "\""+os.path.normpath(self.spefiles[fileindex][:-4])+"\""+' '
         callstring += str(self.global_phase)+' '
         for b in self.bg_region_coords:
             callstring += str(b)+' '
         for s in self.signal_region_coords:
             callstring += str(s)+' '
-        callstring += str(self.SNREdit.text())
+        callstring += str(self.SNREdit.text())+' '
+        callstring += str(self.which_setupComboBox.currentIndex())
         os.system(callstring)
         
         portrait = np.load('spotmatrix.npy')
@@ -315,16 +325,18 @@ class ApplicationWindow(QtGui.QMainWindow):
 
     def load_and_display_spe_file(self,fileindex=0):
         del(self.m)
-        # from guppy import hpy; h=hpy()
-        # w=h.heap()
-        # print w
         print "loading file %s ... " % (self.spefiles[0]),
         sys.stdout.flush()
-        self.m = Movie( self.data_directory+"/"+self.spefiles[fileindex], \
-                            self.data_directory+"/"+self.motorfiles[fileindex], \
-                            phase_offset_excitation=self.global_phase*np.pi/180.0, \
-                            use_new_fitter=True, \
-                            which_setup='cool new setup', \
+        # self.m = Movie( self.data_directory+"/"+self.spefiles[fileindex], \
+        #                     self.data_directory+"/"+self.motorfiles[fileindex], \
+        #                     phase_offset_excitation=self.global_phase*np.pi/180.0, \
+        #                     use_new_fitter=True, \
+        #                     which_setup='cool new setup', \
+        #                     excitation_optical_element=self.optical_element)
+        self.m = Movie( self.data_directory, \
+                            self.spefiles[fileindex][:-4], \
+                            phase_offset_in_deg=self.global_phase, \
+                            which_setup=self.which_setupComboBox.currentText(), \
                             excitation_optical_element=self.optical_element)
         self.sc.axes.imshow( self.m.camera_data.rawdata[0,:,:], zorder=1, cmap=cmap.gray )
         self.sc.draw()
