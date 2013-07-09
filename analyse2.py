@@ -13,7 +13,7 @@ show_mem()
 
 starttime = stopwatch.time()
 
-prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/test_data__cool_new_setup_header/'
+prefix = '/home/rafael/Desktop/Win/130627-CT/Ink/'
 
 tstart = stopwatch.time()
 
