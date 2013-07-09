@@ -9,44 +9,27 @@ comm = MPI.COMM_WORLD
 myrank = comm.Get_rank()
 nprocs = comm.Get_size()
 
-show_mem()
-
-starttime = stopwatch.time()
 
 prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/test_data__cool_new_setup_header/'
 
 tstart = stopwatch.time()
 
-# scan whole image, roughly 10 rows at a time
-Nrowsatatime = 10
-for r in np.arange(0,2,Nrowsatatime):
+m = Movie( prefix, 'moviename' )
+m.define_background_spot( [0,100,50,300] )
 
-    m = Movie( prefix, 'moviename' )
-    m.define_background_spot( [0,100,50,300] )
+fullbounds = [ 0, 0, 512, 100 ]
+if myrank==0: print 'fullbounds=',fullbounds
 
-    bounds = [ 0, r, 512, r+Nrowsatatime ]
-    if myrank==0: print 'current bounds: ',bounds
+mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
+                 fullbounds[1], \
+                 fullbounds[0] +(myrank+1)*(fullbounds[2]-fullbounds[0])/nprocs, \
+                 fullbounds[3] ]
+print 'p=',myrank,': mybounds=',mybounds
 
-    grid_image_section_into_squares_and_define_spots( m, res=1, bounds=bounds )
-    if myrank==0: print 'nspots: ',len(m.spots)
-
-    m.collect_data()
-    m.startstop()
-    m.assign_portrait_data()
-    #m.are_spots_valid(SNR=4)
-
-print 'time taken: %fs' % (stopwatch.time()-starttime)
-
-raise SystemExit
+grid_image_section_into_squares_and_define_spots( m, res=1, bounds=mybounds )
+print 'p=',myrank,': nspots=',len(m.spots)
 
 m.chew_a_bit(SNR=0)
-
-
-
-
-
-# for si,s in enumerate(m.validspots):
-#     print "si=%d\tLS=%f\tM_ex=%f\tM_em=%f" % (si, s.LS, s.M_ex, s.M_em)
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
