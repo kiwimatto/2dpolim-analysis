@@ -8,7 +8,7 @@ import os
 class Movie:
     def __init__( self, \
                       datadir, basename, \
-                      which_setup='cool new setup', \
+                      which_setup='header', \
                       phase_offset_in_deg=np.nan, \
                       excitation_optical_element='l/2 plate' ):
 
@@ -300,7 +300,7 @@ class Movie:
         Intensity = np.zeros( (self.timeaxis.size, len(self.spots)) )
         for i,s in enumerate(self.spots):
             Intensity[:,i] = self.spots[i].intensity
-            del( self.spots[i].intensity )
+#            del( self.spots[i].intensity )
 
         Nspots = Intensity.shape[1]
 
@@ -385,7 +385,7 @@ class Movie:
         #    indices[0,0] = 0
         # However, we think that the first frame could be affected by the shutter, and
         # the overall behaviour of the code is a bit more consistent this way.
-        if self.which_setup=='cool new setup':
+        if self.which_setup=='cool new setup' or self.which_setup=='header':
             indices[0,0] = 0
 
         #print indices
@@ -399,8 +399,22 @@ class Movie:
             raise ValueError("You screwed up defining the datamode: %s" % (self.datamode))
 
         self.portrait_indices = indices
+        # this completes the determination of portrait indices
 
-#        return emangles, emangles_rounded_valid, d
+        # now, for each portrait, the line indices are determined
+
+        print '=========='
+        print edges
+        print indices 
+
+
+        # # edge 'detection' to work out where emission angles change
+        # edges = (np.diff(self.emangles)!=0).nonzero()[0]
+        # # extend the array: a zero on the left because we know that the
+        # # first frame is an edge, and a p.shape[0] on the right because
+        # # we know that the last frame is an edge as well.
+        # edges = np.concatenate( (np.array( [0] ), edges+1, np.array([self.exangles.shape[0]]) ) )
+
 
 
     def assign_portrait_data( self ):  #startstop, data, mode ):

@@ -92,14 +92,14 @@
        <item row="2" column="0">
         <widget class="QLabel" name="isLambda2PlateLabel">
          <property name="text">
-          <string>exitation is lambda/2 plate?</string>
+          <string>lambda/2 plate?</string>
          </property>
         </widget>
        </item>
        <item row="0" column="0" colspan="2">
         <widget class="QComboBox" name="whichSetupComboBox">
          <property name="currentIndex">
-          <number>2</number>
+          <number>3</number>
          </property>
          <item>
           <property name="text">
@@ -113,7 +113,12 @@
          </item>
          <item>
           <property name="text">
-           <string>new setup (full stepwise mode)</string>
+           <string>cool new setup (full stepwise mode)</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>header</string>
           </property>
          </item>
         </widget>
@@ -606,6 +611,16 @@
     <item>
      <property name="text">
       <string>phase_em</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>r</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>SNR</string>
      </property>
     </item>
     <item>

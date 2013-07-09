@@ -33,7 +33,7 @@ class BothMotorsWithHeader:
                     if is_number(line[1]):
                         self.header[line[0]] = float(line[1])
                     else:
-                        self.header[line[0]] = line[1].lower()
+                        self.header[line[0]] = line[1].strip().lower()
                 else:
                     self.header['comments'].append( line[0] )
             if Nheaderlines >= 1000:
@@ -52,12 +52,18 @@ class BothMotorsWithHeader:
         if not np.isnan( self.phase_offset_in_deg ):
             phase_offset_in_deg = self.phase_offset_in_deg
         else:
-            phase_offset_in_deg = self.header['phase offset in deg']
+            if not np.isnan(self.header['phase offset in deg']):
+                phase_offset_in_deg = self.header['phase offset in deg']
+            else:
+                raise ValueError("Phase offset in header is NaN (which should only be the case if this is an AM measurement), but no phase offset was specified to the movie class.")
 
         self.framenumbers = md[:,0]
+        print self.header['optical element in excitation']
         if self.header['optical element in excitation']=='l/2 plate':
+            print 'Header says that l/2 plate was used.'
             self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
         else:
+            print 'Er... header says that l/2 plate was _not_ used. Correct??'
             self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
         self.emission_angles   = md[:,2] * np.pi/180.0
 

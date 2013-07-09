@@ -5,8 +5,10 @@ class Line:
         self.exangles = exangles
         self.intensities = intensities
         self.emangle = emangle
+        self.was_fitted = False
 
     def set_fit_params( self, phase, I0, M0, residuals ):
+        self.was_fitted = True
         self.phase = phase
         self.I0 = I0
         self.M0 = M0

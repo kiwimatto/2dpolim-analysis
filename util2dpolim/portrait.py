@@ -22,6 +22,10 @@ class Portrait:
         # we know that the last frame is an edge as well.
         edges = np.concatenate( (np.array( [0] ), edges+1, np.array([self.exangles.shape[0]]) ) )
 
+        print '-----------'
+        print edges
+        raise SystemExit
+        
         # grab the angles and intensities associated with a line, where by 'line'
         # we mean data points for which emission angles do not change (but excitation 
         # does!)

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '2dgui.ui'
 #
-# Created: Fri May 31 16:27:35 2013
+# Created: Wed Jul  3 17:36:11 2013
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -64,6 +64,7 @@ class Ui_MainWindow(object):
         self.gridLayout.addWidget(self.isLambda2PlateLabel, 2, 0, 1, 1)
         self.whichSetupComboBox = QtGui.QComboBox(self.groupBox)
         self.whichSetupComboBox.setObjectName(_fromUtf8("whichSetupComboBox"))
+        self.whichSetupComboBox.addItem(_fromUtf8(""))
         self.whichSetupComboBox.addItem(_fromUtf8(""))
         self.whichSetupComboBox.addItem(_fromUtf8(""))
         self.whichSetupComboBox.addItem(_fromUtf8(""))
@@ -250,6 +251,8 @@ class Ui_MainWindow(object):
         self.showStuffComboBox.addItem(_fromUtf8(""))
         self.showStuffComboBox.addItem(_fromUtf8(""))
         self.showStuffComboBox.addItem(_fromUtf8(""))
+        self.showStuffComboBox.addItem(_fromUtf8(""))
+        self.showStuffComboBox.addItem(_fromUtf8(""))
         self.toolButton1 = QtGui.QToolButton(self.centralwidget)
         self.toolButton1.setGeometry(QtCore.QRect(880, 35, 23, 65))
         self.toolButton1.setObjectName(_fromUtf8("toolButton1"))
@@ -269,7 +272,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
-        self.whichSetupComboBox.setCurrentIndex(2)
+        self.whichSetupComboBox.setCurrentIndex(3)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -277,10 +280,11 @@ class Ui_MainWindow(object):
         self.groupBox.setTitle(QtGui.QApplication.translate("MainWindow", "Data import and basic parameters", None, QtGui.QApplication.UnicodeUTF8))
         self.phaseOffsetLabel.setText(QtGui.QApplication.translate("MainWindow", "phase offset [deg]", None, QtGui.QApplication.UnicodeUTF8))
         self.phaseOffsetLineEdit.setText(QtGui.QApplication.translate("MainWindow", "2.0", None, QtGui.QApplication.UnicodeUTF8))
-        self.isLambda2PlateLabel.setText(QtGui.QApplication.translate("MainWindow", "exitation is lambda/2 plate?", None, QtGui.QApplication.UnicodeUTF8))
+        self.isLambda2PlateLabel.setText(QtGui.QApplication.translate("MainWindow", "lambda/2 plate?", None, QtGui.QApplication.UnicodeUTF8))
         self.whichSetupComboBox.setItemText(0, QtGui.QApplication.translate("MainWindow", "old setup", None, QtGui.QApplication.UnicodeUTF8))
         self.whichSetupComboBox.setItemText(1, QtGui.QApplication.translate("MainWindow", "new setup (continuous excitation rotation)", None, QtGui.QApplication.UnicodeUTF8))
-        self.whichSetupComboBox.setItemText(2, QtGui.QApplication.translate("MainWindow", "new setup (full stepwise mode)", None, QtGui.QApplication.UnicodeUTF8))
+        self.whichSetupComboBox.setItemText(2, QtGui.QApplication.translate("MainWindow", "cool new setup (full stepwise mode)", None, QtGui.QApplication.UnicodeUTF8))
+        self.whichSetupComboBox.setItemText(3, QtGui.QApplication.translate("MainWindow", "header", None, QtGui.QApplication.UnicodeUTF8))
         self.selectDataDirPushButton.setText(QtGui.QApplication.translate("MainWindow", "select data directory", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_2.setTitle(QtGui.QApplication.translate("MainWindow", "Spot helper", None, QtGui.QApplication.UnicodeUTF8))
         self.phaseOffsetLabel_2.setText(QtGui.QApplication.translate("MainWindow", "spot scale [pixel]", None, QtGui.QApplication.UnicodeUTF8))
@@ -308,7 +312,9 @@ class Ui_MainWindow(object):
         self.showStuffComboBox.setItemText(2, QtGui.QApplication.translate("MainWindow", "M_em", None, QtGui.QApplication.UnicodeUTF8))
         self.showStuffComboBox.setItemText(3, QtGui.QApplication.translate("MainWindow", "phase_ex", None, QtGui.QApplication.UnicodeUTF8))
         self.showStuffComboBox.setItemText(4, QtGui.QApplication.translate("MainWindow", "phase_em", None, QtGui.QApplication.UnicodeUTF8))
-        self.showStuffComboBox.setItemText(5, QtGui.QApplication.translate("MainWindow", "ET_ruler", None, QtGui.QApplication.UnicodeUTF8))
+        self.showStuffComboBox.setItemText(5, QtGui.QApplication.translate("MainWindow", "r", None, QtGui.QApplication.UnicodeUTF8))
+        self.showStuffComboBox.setItemText(6, QtGui.QApplication.translate("MainWindow", "SNR", None, QtGui.QApplication.UnicodeUTF8))
+        self.showStuffComboBox.setItemText(7, QtGui.QApplication.translate("MainWindow", "ET_ruler", None, QtGui.QApplication.UnicodeUTF8))
         self.toolButton1.setText(QtGui.QApplication.translate("MainWindow", "...", None, QtGui.QApplication.UnicodeUTF8))
         self.toolButton2.setText(QtGui.QApplication.translate("MainWindow", "...", None, QtGui.QApplication.UnicodeUTF8))
         self.toolButton3.setText(QtGui.QApplication.translate("MainWindow", "...", None, QtGui.QApplication.UnicodeUTF8))

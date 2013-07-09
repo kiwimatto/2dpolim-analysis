@@ -1,9 +1,9 @@
 from PyQt4 import QtCore,QtGui
 import sys, os, time
-import the2dgui
+import util2dpolim.gui.the2dgui as the2dgui
 import numpy as np
-from util_2d import *
-from util_misc import *
+from util2dpolim.movie import Movie
+from util2dpolim.misc import *
 import matplotlib.cm as cm
 from matplotlib.patches import Rectangle
 
@@ -22,7 +22,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.pwd = os.path.dirname(os.path.abspath(__file__))
         self.optical_element = 'Polarizer'
         self.which_setup = self.whichSetupComboBox.currentIndex()
-        self.setup_list = ['old setup','new setup','cool new setup']
+        self.setup_list = ['old setup','new setup','cool new setup','header']
         self.phase_offset = self.phaseOffsetLineEdit.text().toDouble()[0]        
         self.current_spot = None
         self.app = app
@@ -410,6 +410,12 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                                      180/np.pi*l.emangle*np.ones_like(l.intensities), \
                                      facecolor='b', alpha=.4 )
                             print np.min(l.intensities),' --- ',np.max(l.intensities)
+
+                            if l.was_fitted:
+                                self.dataview.axes.plot( l.exangles, 180/np.pi*l.emangle + scaler*l.cosValue(l.exangles), 'r-' )
+                                print 'phase=%f\tI0=%f\tM0=%f\tresi=%f' % (l.phase,l.I0,l.M0,l.resi)
+                                print 'l.exangles=', str(l.exangles)
+
                     self.dataview.figure.canvas.draw()
 
             elif showWhat==2:    # portrait fit
@@ -470,6 +476,9 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             infostring += 'ET model: geom. ratio  = %f<br>' % s.ET_model_gr
             infostring += 'ET model: ET param.  = %f<br>' % s.ET_model_et
 
+        if hasattr(s,'intensity'):
+            infostring += 'min(intensity) = %f<br>' % np.min(s.intensity)
+            infostring += 'max(intensity) = %f<br>' % np.max(s.intensity)
 
         self.spotInfoTextBrowser.setHtml(infostring)
 
@@ -546,10 +555,14 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         # print w
         print "loading file %s ... " % (self.spefiles[fileindex]),
         sys.stdout.flush()        
-        self.m = Movie( self.data_directory+"/"+self.spefiles[fileindex], \
-                            self.data_directory+"/"+self.motorfiles[fileindex], \
-                            phase_offset_excitation=self.phase_offset*np.pi/180.0, \
-                            use_new_fitter=True, \
+        # self.m = Movie( self.data_directory+"/"+self.spefiles[fileindex], \
+        #                     self.data_directory+"/"+self.motorfiles[fileindex], \
+        #                     phase_offset_excitation=self.phase_offset*np.pi/180.0, \
+        #                     which_setup=self.setup_list[self.which_setup], \
+        #                     excitation_optical_element=self.optical_element)
+        self.m = Movie( self.data_directory, \
+                            self.spefiles[fileindex][:-4], \
+                            phase_offset_in_deg=self.phase_offset, \
                             which_setup=self.setup_list[self.which_setup], \
                             excitation_optical_element=self.optical_element)
 
