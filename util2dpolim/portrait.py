@@ -2,11 +2,12 @@ import numpy as np
 from line import Line
 
 class Portrait:
-    def __init__( self, exangles, emangles, intensities, parent ):
+    def __init__( self, exangles, emangles, intensities, parent, edges ):
         self.exangles = exangles
         self.emangles = emangles
         self.intensities = intensities
         self.parent = parent
+        self.edges = edges
         self.lines = []
 
         self.split_into_emission_lines()
@@ -14,30 +15,27 @@ class Portrait:
 
     def split_into_emission_lines( self ):
         """Splits the portrait into the flat emission parts."""
-    
-        # edge 'detection' to work out where emission angles change
-        edges = (np.diff(self.emangles)!=0).nonzero()[0]
-        # extend the array: a zero on the left because we know that the
-        # first frame is an edge, and a p.shape[0] on the right because
-        # we know that the last frame is an edge as well.
-        edges = np.concatenate( (np.array( [0] ), edges+1, np.array([self.exangles.shape[0]]) ) )
 
-        print '-----------'
-        print edges
-        raise SystemExit
-        
+        if not (self.parent.parent.which_setup=='cool new setup' or self.parent.parent.which_setup=='header'):
+            # re-do (!) edge 'detection' to work out where emission angles change
+            edges = (np.diff(self.emangles)!=0).nonzero()[0]
+            # extend the array: a zero on the left because we know that the
+            # first frame is an edge, and a p.shape[0] on the right because
+            # we know that the last frame is an edge as well.
+            self.edges = np.concatenate( (np.array( [0] ), edges+1, np.array([self.exangles.shape[0]]) ) )
+            
         # grab the angles and intensities associated with a line, where by 'line'
         # we mean data points for which emission angles do not change (but excitation 
         # does!)
         lines = []
-        for i in range(edges.size-1):
-            exangles  = self.exangles[edges[i]:edges[i+1]]
-            intensity = self.intensities[edges[i]:edges[i+1]]
-            emangles  = self.emangles[edges[i]:edges[i+1]]
-        
+        for i in range(self.edges.size-1):
+            exangles  = self.exangles[self.edges[i]:self.edges[i+1]]
+            intensity = self.intensities[self.edges[i]:self.edges[i+1]]
+            emangles  = self.emangles[self.edges[i]:self.edges[i+1]]
+
             # test that this is really one emission line (no change in 
             # emission angles)
-            assert np.unique( emangles ).size == 1
+#            assert np.unique( emangles ).size == 1
 
             l = Line( exangles, intensity, np.unique(emangles) )
 
@@ -45,7 +43,7 @@ class Portrait:
             lines.append( l )
 
         # did we lose any data rows due to our funky indexing?
-        assert np.sum( [lines[i].exangles.shape[0] for i in range(len(lines))] ) == self.exangles.shape[0]
+#        assert np.sum( [lines[i].exangles.shape[0] for i in range(len(lines))] ) == self.exangles.shape[0]
     
         self.lines = lines
 

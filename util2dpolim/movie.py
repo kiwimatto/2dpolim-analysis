@@ -401,11 +401,8 @@ class Movie:
         self.portrait_indices = indices
         # this completes the determination of portrait indices
 
-        # now, for each portrait, the line indices are determined
-
-        print '=========='
-        print edges
-        print indices 
+        self.line_edges = edges[:number_of_lines+1]
+        self.line_edges[1:] += 1
 
 
         # # edge 'detection' to work out where emission angles change
@@ -448,7 +445,7 @@ class Movie:
                     em = d[:, 2]
                     I  = d[:, 3+si]
                 # store portrait object in list
-                portraitlist.append( Portrait( ex, em, I, spot ) )
+                portraitlist.append( Portrait( ex, em, I, spot, self.line_edges ) )
 
             # store list in spot object
             spot.portraits = portraitlist
