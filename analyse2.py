@@ -16,12 +16,12 @@ show_mem()
 tstart = stopwatch.time()
 
 
-prefix = '/home/rafael/Desktop/Win/130711-CT-Measurements/Ink/'
+prefix = '/home/rafael/Desktop/Win/130711-CT-Measurements/S1/'
 
-basename = 'test2'
+basename = 'S1-633ex-OD1-gain1-675LP-01'
 
-bgbounds   = [0,50,60,400]
-fullbounds = [90,60,340,300]
+bgbounds   = [0,415,440,450]
+fullbounds = [110,90,405,400]
 resolution = 2
 Nrowsatatime = 10*resolution
 

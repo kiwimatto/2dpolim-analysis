@@ -764,8 +764,8 @@ class Movie:
             #### anisotropy ####
         
             if (self.validspots[si].M_ex < .15):
-                iex = np.argmin( np.abs( self.excitation_angles_grid - 90 ) )
-                iem = np.argmin( np.abs( self.emission_angles_grid - 90 ) )
+                iex = np.argmin( np.abs( self.excitation_angles_grid - np.pi/2 ) )
+                iem = np.argmin( np.abs( self.emission_angles_grid - np.pi/2 ) )
                 Ipara = self.validspots[si].sam[ iex, iem ]
                 Iperp = self.validspots[si].sam[ iex, 0 ] ## assumes that the first index is close to 0deg in emission angle grid
             else:
@@ -776,7 +776,7 @@ class Movie:
                 # for parallel detection, the phase is the same
                 iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
                 # for perpendicular detection, we need to find the phase+90deg
-                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(self.validspots[si].phase_ex+90, 180)) )
+                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(self.validspots[si].phase_ex+np.pi/2, np.pi)))
                 Ipara = self.validspots[si].sam[ iphex, iphempara ]
                 Iperp = self.validspots[si].sam[ iphex, iphemperp ]
             

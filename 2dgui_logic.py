@@ -225,18 +225,23 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
                                facecolor=color, edgecolor=color, alpha=1, zorder=7 )
             self.imageview.M_ex_rects.append( r )
+
             color = cm.jet(s.M_em)
             r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
                                facecolor=color, edgecolor=color, alpha=1, zorder=7 )
             self.imageview.M_em_rects.append( r )
+
+            print s.phase_ex/np.pi+.5
             color = cm.jet(s.phase_ex/np.pi+.5)
             r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
                                facecolor=color, edgecolor=color, alpha=1, zorder=7 )
             self.imageview.phase_ex_rects.append( r )
+
             color = cm.jet(s.phase_em/np.pi+.5)
             r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
                                facecolor=color, edgecolor=color, alpha=1, zorder=7 )
             self.imageview.phase_em_rects.append( r )
+
 #            self.imageview.axes.add_patch( self.imageview.spot_rects[-1] )
 #        self.imageview.show_stuff( what='M_ex' )
         self.imageview.show_stuff(what='M_ex')
