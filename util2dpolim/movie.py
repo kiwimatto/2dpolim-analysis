@@ -1069,6 +1069,54 @@ class Movie:
             print ' A=',A
 
 
+    def ETmodel_selective( self, fac=1e4, pg=1e-9, epsi=1e-11 ):
+
+        from fitting import fit_portrait_single_funnel_symmetric
+
+        for si,s in enumerate(self.validspots):
+            print 'ETmodel fitting spot %d' % si
+
+            # we 'correct' the modulation in excitation to be within 
+            # limits of reason (and proper arccos functionality)
+            mex = np.clip( s.M_ex, .000001, .999999 )
+
+            a0 = [mex, 0, 1]
+            EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
+            funargs = (EX, EM, s.averagematrix, mex, s.phase_ex, 'fitting')
+
+            LB = [0.001,   -np.pi/2, 0]
+            UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
+            print "upper limit: ", 2*(1+s.M_ex)/(1-s.M_ex)
+            print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
+
+            a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
+                                      x0=a0, \
+                                      fprime=None, \
+                                      args=funargs, \
+                                      approx_grad=True, \
+                                      epsilon=epsi, \
+                                      bounds=zip(LB,UB), \
+                                      factr=fac, \
+                                      pgtol=pg )
+
+            et,A = fit_portrait_single_funnel_symmetric( a[0], EX, EM, s.averagematrix, mex, s.phase_ex, \
+                                                             mode='show_et_and_A', use_least_sq=True)
+            s.ETmodel_md_fu = a[0][0]
+            s.ETmodel_th_fu = a[0][1]
+            s.ETmodel_gr    = a[0][2]
+            s.ETmodel_et    = et            
+
+            self.ET_model_md_fu_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][0]
+            self.ET_model_th_fu_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][1]
+            self.ET_model_gr_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][2]
+            self.ET_model_et_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = et
+
+            print 'fit done\t',a[0],
+            print ' et=',et,
+            print ' A=',A
+
+
+
     def chew( self, quiet=False, loud=False ):
         print "collecting data..."
         self.collect_data()
