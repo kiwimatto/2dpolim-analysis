@@ -6,7 +6,7 @@ plt.interactive(True)
 from datetime import datetime, timedelta
 from mpl_toolkits.axes_grid1 import AxesGrid
 import memory
-
+import h5py
 
 def show_mem():
     print "memory usage:"
@@ -105,6 +105,111 @@ def update_image_files( movie, what, fileprefix ):
         np.savetxt( filename, sc )
     else:
         np.savetxt( filename, getattr(movie, what+'_image') )
+
+
+def save_hdf5( movie, fileprefix, proc, images=True, spots=True ):
+
+    # first we grab all the data we have now
+
+    if images:
+        # compile dict of images
+        imagedict = {}
+        for d in dir(movie):
+            if d.endswith('_image') and type(getattr(movie,d))==np.ndarray:
+                imagedict[d] = getattr(movie,d)
+
+    # now let's see if there's an existing file
+    filename = fileprefix + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
+    print 'Looking for output file with name %s ...' % filename
+    if os.path.isfile(filename):
+        try: 
+            # read the images into a dict
+            rfid = h5py.File(filename,'r')
+            rfidimages = rfid['images']
+            readimagedict = {}
+            for item in rfidimages.items():
+                readimagedict[item[0]] = np.array( item[1] )
+            rfid.close()
+            print 'Found existing output file, updating data'
+
+            # update read images with current images
+            for item in imagedict.items():
+                new_value_indices = ~np.isnan( imagedict[item[0]] )
+                readimagedict[item[0]][new_value_indices] = imagedict[item[0]][new_value_indices]
+                # now readimagedict has the latest values
+
+        except IOError:
+            raise IOError('Something blocking file access?')
+
+    else:
+        print 'No output file found; creating it now'
+        readimagedict = imagedict
+
+    fid = h5py.File(filename,'w')
+
+    fid.create_group('images')
+    for imagename in readimagedict:
+        fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
+    
+    # if spots:
+    #     # basically save spot data here: first, we need the coordinates, which
+    #     # are stored as a single [Nspots x 4] matrix
+    #     Nspots = len(movie.validspots)
+    #     coordmatrix = np.zeros( (Nspots,4) )
+    #     for si,s in enumerate(movie.validspots):
+    #         coordmatrix[si,:] = s.coords
+        
+    #     # now we need the fit data (I0, M0, phase) for each spot, for each 
+    #     # portrait, for each line...  [Nspots x Nportraits x Nlines x 3]
+    #     Nportraits = len( movie.validspots[0].portraits )
+    #     Nlines     = len( movie.validspots[0].portraits[0].lines )
+    #     fitmatrix = np.zeros( (Nspots,Nportraits,Nlines,3) )
+    #     for si,s in enumerate(movie.validspots):
+    #         for pi,p in enumerate(s.portraits):
+    #             for li,l in enumerate(p.lines):
+    #                 fitmatrix[si,pi,li,:] = [l.I0, l.M0, l.phase]
+
+    # fid.create_group('spots')
+    # fid.create_dataset('spots/coordinates', data=coordmatrix)
+    # fid.create_dataset('spots/fits',data=fitmatrix)
+
+    fid.close()
+
+
+def combine_outputs( basename, fileprefix ):
+    # collect list of files    
+    filelist = []
+    for file in os.listdir("."):
+        if file.endswith('.hdf5') and file.startswith(basename+'_output'):
+            filelist.append(file)
+
+    # now grab the images from the first file (whichever that one is; doesn't matter)
+    rfid = h5py.File(filelist[0],'r')
+    rfidimages = rfid['images']
+    readimagedict = {}
+    for item in rfidimages.items():
+        readimagedict[item[0]] = np.array( item[1] )
+    rfid.close()
+
+    # now do the same with the remaining files, updating the previous images
+    for f in filelist[1:]:
+        rfid = h5py.File(f,'r')
+        rfidimages = rfid['images']
+        imagedict = {}
+        for item in rfidimages.items():
+            imagedict[item[0]] = np.array( item[1] )
+        # update first images with current images
+        for item in imagedict.items():
+            new_value_indices = ~np.isnan( imagedict[item[0]] )
+            readimagedict[item[0]][new_value_indices] = imagedict[item[0]][new_value_indices]
+        rfid.close()
+
+    # now save those to a new file
+    fid = h5py.File(basename+'_output.hdf5','w')
+    fid.create_group('images')
+    for imagename in readimagedict:
+        fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
+    fid.close()
 
 
 def save_spot_data( movie, what='M_ex', whole_image=True, fileprefix='' ):

@@ -563,6 +563,87 @@ class Movie:
                 s.portraits[pi].vertical_fit_params = [ phase[si], I0[si], M[si], resi[si], mm[si] ]
 
 
+
+    def fit_all_portraits_spot_parallel_selective( self, myspots=None ):
+
+        if myspots==None:
+            myspots = range(len(self.validspots))
+
+        # init average portrait matrices, so that we can write to them without
+        # having to store a matrix for each portrait
+        for si in myspots:
+            self.validspots[si].residual = 0
+
+        # we assume that the number of portraits and lines is the same 
+        # for all spots (can't think of a reason why that shouldn't be the case).
+        Nportraits = self.portrait_indices.shape[0]
+        Nlines     = len( self.validspots[0].portraits[0].lines )
+
+        # for each portrait ---- outermost loop, we do portraits in series
+        for pi in range(Nportraits):
+
+            # part I, 'horizontal fitting' of the lines of constant emission angles
+
+            # for each line ---- we do lines in series, __but all spots in parallel__:
+            for li in range(Nlines):
+
+                # get excitation angle array (same for all spots!)
+                exangles    = self.validspots[0].portraits[pi].lines[li].exangles
+
+                # create list of intensity arrays (one array for each spot)
+                intensities = [ self.validspots[si].portraits[pi].lines[li].intensities \
+                                    for si in myspots ]
+
+                # turn into numpy array and transpose
+                intensities = np.array( intensities ).T
+
+                exa = exangles.copy()
+
+                phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( exa, intensities, \
+                                                                               self.Nphases_for_cos_fitter ) 
+
+                # write cosine parameters into line object
+                for sii,si in enumerate(myspots):
+                    self.validspots[si].portraits[pi].lines[li].set_fit_params( \
+                        phase[sii], I0[sii], M[sii], resi[sii] \
+                            )
+
+            # gather residuals for this protrait
+            for si in myspots:
+                self.validspots[si].residual = np.sum( \
+                    [ l.resi for l in self.validspots[si].portraits[pi].lines ] \
+                        )
+
+            # part II, 'vertical fitting' --- we do each spot by itself, but 
+            # fit all verticals in parallel
+
+            # collect list of unique emission angles (same for all spots!)                    
+            emangles = [l.emangle for l in self.validspots[0].portraits[pi].lines]
+            # turn into array, transpose and squeeze
+            emangles = np.squeeze(np.array( emangles ).T)
+
+            # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
+            fitintensities = [ np.array( \
+                    [ l.cosValue( self.excitation_angles_grid ) \
+                          for l in self.validspots[si].portraits[pi].lines ]) \
+                                   for si in myspots ]
+
+            fitintensities = np.hstack( fitintensities )
+
+            phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( emangles, fitintensities, \
+                                                                           self.Nphases_for_cos_fitter ) 
+                
+            # store vertical fit params
+            phase = np.hsplit(phase, len(myspots))
+            I0    = np.hsplit(I0, len(myspots))
+            M     = np.hsplit(M, len(myspots))
+            resi  = np.hsplit(resi, len(myspots))
+            mm    = np.hsplit(mm, len(myspots))
+            for sii,si in enumerate(myspots):
+                self.validspots[si].portraits[pi].vertical_fit_params = \
+                    [ phase[sii], I0[sii], M[sii], resi[sii], mm[sii] ]
+
+
     def find_modulation_depths_and_phases( self ):
         # projection onto the excitation axis (ie over all emission angles),
         # for all spots, one per column
@@ -619,6 +700,7 @@ class Movie:
                 iphempara = np.argmin( np.abs(self.emission_angles_grid - s.phase_ex) )
                 # for perpendicular detection, we need to find the phase+90deg
                 iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(s.phase_ex + np.pi/2, np.pi)) )
+
                 Ipara = s.sam[ iphex, iphempara ]
                 Iperp = s.sam[ iphex, iphemperp ]
             
@@ -629,6 +711,82 @@ class Movie:
             # store in contrast image
             self.r_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.r
             del(s.sam)  # don't need that anymore
+
+
+    def find_modulation_depths_and_phases_selective( self, myspots=None ):
+
+        if myspots==None:
+            myspots = range(len(self.validspots))
+
+        # projection onto the excitation axis (ie over all emission angles),
+        # for all spots, one per column
+        proj_ex = []
+        proj_em = []
+        for si in myspots:
+            sam  = self.validspots[si].recover_average_portrait_matrix()
+            # sam /= np.max(sam)*255
+            # s.sam = sam.astype( np.uint8 )
+            self.validspots[si].sam = sam
+            self.validspots[si].proj_ex = np.mean( sam, axis=0 )
+            self.validspots[si].proj_em = np.mean( sam, axis=1 )
+            proj_ex.append( self.validspots[si].proj_ex )
+            proj_em.append( self.validspots[si].proj_em )
+        proj_ex = np.array(proj_ex).T
+        proj_em = np.array(proj_em).T
+
+        # fitting
+        ph_ex, I_ex, M_ex, r_ex, fit_ex, rawfitpars_ex, mm = \
+            self.cos_fitter( self.excitation_angles_grid, proj_ex, self.Nphases_for_cos_fitter )
+        ph_em, I_em, M_em, r_em, fit_em, rawfitpars_em, mm = \
+            self.cos_fitter( self.emission_angles_grid, proj_em, self.Nphases_for_cos_fitter )
+
+        # assignment
+        LS = ph_ex - ph_em
+        LS[LS >  np.pi/2] -= np.pi
+        LS[LS < -np.pi/2] += np.pi
+        for sii,si in enumerate(myspots):
+            self.validspots[si].phase_ex = ph_ex[sii]
+            self.validspots[si].M_ex     = M_ex[sii]
+            self.validspots[si].phase_em = ph_em[sii]
+            self.validspots[si].M_em     = M_em[sii]
+            self.validspots[si].LS       = LS[sii]
+            # store in coverage maps
+            a = self.validspots[si].coords[1]
+            b = self.validspots[si].coords[3]+1
+            c = self.validspots[si].coords[0]
+            d = self.validspots[si].coords[2]+1
+            self.M_ex_image[ a:b, c:d ]     = self.validspots[si].M_ex
+            self.M_em_image[ a:b, c:d ]     = self.validspots[si].M_em
+            self.phase_ex_image[ a:b, c:d ] = self.validspots[si].phase_ex
+            self.phase_em_image[ a:b, c:d ] = self.validspots[si].phase_em
+            self.LS_image[ a:b, c:d ]       = self.validspots[si].LS        
+
+            #### anisotropy ####
+        
+            if (self.validspots[si].M_ex < .15):
+                iex = np.argmin( np.abs( self.excitation_angles_grid - 90 ) )
+                iem = np.argmin( np.abs( self.emission_angles_grid - 90 ) )
+                Ipara = self.validspots[si].sam[ iex, iem ]
+                Iperp = self.validspots[si].sam[ iex, 0 ] ## assumes that the first index is close to 0deg in emission angle grid
+            else:
+                # find where the found phase matches the phase in the portrait matrix
+                # portrait matrices are constructed from the angle grid, so look up which 
+                # index corresponds to the found phase
+                iphex = np.argmin( np.abs(self.excitation_angles_grid - self.validspots[si].phase_ex) )
+                # for parallel detection, the phase is the same
+                iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
+                # for perpendicular detection, we need to find the phase+90deg
+                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(self.validspots[si].phase_ex+90, 180)) )
+                Ipara = self.validspots[si].sam[ iphex, iphempara ]
+                Iperp = self.validspots[si].sam[ iphex, iphemperp ]
+            
+            if not float(Ipara+2*Iperp)==0:
+                self.validspots[si].r = float(Ipara-Iperp)/float(Ipara+2*Iperp)
+            else:
+                self.validspots[si].r = np.nan
+            # store in contrast image
+            self.r_image[ a:b, c:d ] = self.validspots[si].r
+            del(self.validspots[si].sam)  # don't need that anymore
 
 
     def ETrulerFFT( self, slope=7, newdatalength=2048 ):
