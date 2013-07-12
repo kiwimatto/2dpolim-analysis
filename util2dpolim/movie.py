@@ -1073,7 +1073,7 @@ class Movie:
 
         from fitting import fit_portrait_single_funnel_symmetric
 
-        for si,s in enumerate(self.validspots):
+        for si in myspots:
             print 'ETmodel fitting spot %d' % si
 
             # we 'correct' the modulation in excitation to be within 
@@ -1082,11 +1082,11 @@ class Movie:
 
             a0 = [mex, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
-            funargs = (EX, EM, s.averagematrix, mex, s.phase_ex, 'fitting')
+            funargs = (EX, EM, self.validspots[si].averagematrix, mex, self.validspots[si].phase_ex, 'fitting')
 
             LB = [0.001,   -np.pi/2, 0]
             UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
-            print "upper limit: ", 2*(1+s.M_ex)/(1-s.M_ex)
+            print "upper limit: ", 2*(1+self.validspots[si].M_ex)/(1-self.validspots[si].M_ex)
             print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
 
             a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
@@ -1099,17 +1099,20 @@ class Movie:
                                       factr=fac, \
                                       pgtol=pg )
 
-            et,A = fit_portrait_single_funnel_symmetric( a[0], EX, EM, s.averagematrix, mex, s.phase_ex, \
+            et,A = fit_portrait_single_funnel_symmetric( a[0], EX, EM, self.validspots[si].averagematrix, mex, self.validspots[si].phase_ex, \
                                                              mode='show_et_and_A', use_least_sq=True)
-            s.ETmodel_md_fu = a[0][0]
-            s.ETmodel_th_fu = a[0][1]
-            s.ETmodel_gr    = a[0][2]
-            s.ETmodel_et    = et            
-
-            self.ET_model_md_fu_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][0]
-            self.ET_model_th_fu_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][1]
-            self.ET_model_gr_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = a[0][2]
-            self.ET_model_et_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = et
+            self.validspots[si].ETmodel_md_fu = a[0][0]
+            self.validspots[si].ETmodel_th_fu = a[0][1]
+            self.validspots[si].ETmodel_gr    = a[0][2]
+            self.validspots[si].ETmodel_et    = et            
+            a = self.validspots[si].coords[1]
+            b = self.validspots[si].coords[3]+1
+            c = self.validspots[si].coords[0]
+            d = self.validspots[si].coords[2]+1
+            self.ET_model_md_fu_image[ a:b, c:d ] = a[0][0]
+            self.ET_model_th_fu_image[ a:b, c:d ] = a[0][1]
+            self.ET_model_gr_image[ a:b, c:d ]    = a[0][2]
+            self.ET_model_et_image[ a:b, c:d ]    = et
 
             print 'fit done\t',a[0],
             print ' et=',et,

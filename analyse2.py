@@ -50,6 +50,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
     m.find_modulation_depths_and_phases_selective( myspots[myrank] )
     m.ETrulerFFT_selective( myspots[myrank] )
+    m.ETmodel_selective( myspots[myrank] )
 
     # all processes save their contributions separately
     save_hdf5( m, prefix, myrank )
