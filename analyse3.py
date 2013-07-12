@@ -10,14 +10,14 @@ myrank = comm.Get_rank()
 nprocs = comm.Get_size()
 
 
-prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/test_data__cool_new_setup_header/'
+prefix = '/home/rafael/Desktop/Win/130627-CT/S1/'
 
 tstart = stopwatch.time()
 
-m = Movie( prefix, 'moviename' )
-m.define_background_spot( [0,100,50,300] )
+m = Movie( prefix, 'S1-633ex-OD1-gain1-675LP-01' )
+m.define_background_spot( [85,430,400,460] )
 
-fullbounds = [ 0, 0, 512, 100 ]
+fullbounds = [ 85, 47, 400, 420 ]
 if myrank==0: print 'fullbounds=',fullbounds
 
 mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
@@ -26,10 +26,10 @@ mybounds = [ fullbounds[0] +myrank*(fullbounds[2]-fullbounds[0])/nprocs, \
                  fullbounds[3] ]
 print 'p=',myrank,': mybounds=',mybounds
 
-grid_image_section_into_squares_and_define_spots( m, res=1, bounds=mybounds )
+grid_image_section_into_squares_and_define_spots( m, res=2, bounds=mybounds )
 print 'p=',myrank,': nspots=',len(m.spots)
 
-m.chew_a_bit(SNR=0)
+m.chew_a_bit(SNR=5)
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 

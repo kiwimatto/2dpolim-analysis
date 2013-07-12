@@ -605,9 +605,9 @@ class Movie:
 
             #### anisotropy ####
         
-            if (s.M_ex < .15):
-                iex = np.argmin( np.abs( self.excitation_angles_grid - 90 ) )
-                iem = np.argmin( np.abs( self.emission_angles_grid - 90 ) )
+            if (s.M_ex < .1):
+                iex = np.argmin( np.abs( self.excitation_angles_grid - np.pi/2 ) )
+                iem = np.argmin( np.abs( self.emission_angles_grid - np.pi/2 ) )
                 Ipara = s.sam[ iex, iem ]
                 Iperp = s.sam[ iex, 0 ] ## assumes that the first index is close to 0deg in emission angle grid
             else:
@@ -618,7 +618,7 @@ class Movie:
                 # for parallel detection, the phase is the same
                 iphempara = np.argmin( np.abs(self.emission_angles_grid - s.phase_ex) )
                 # for perpendicular detection, we need to find the phase+90deg
-                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(s.phase_ex+90, 180)) )
+                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(s.phase_ex + np.pi/2, np.pi)) )
                 Ipara = s.sam[ iphex, iphempara ]
                 Iperp = s.sam[ iphex, iphemperp ]
             
@@ -846,6 +846,7 @@ class Movie:
         self.are_spots_valid( SNR )
         self.fit_all_portraits_spot_parallel()
         self.find_modulation_depths_and_phases()
+        self.ETrulerFFT()
 
     def chew_AM( self, quiet=False, loud=False, SNR=10 ):
         self.collect_data()
