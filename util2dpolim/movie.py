@@ -695,11 +695,16 @@ class Movie:
                 # find where the found phase matches the phase in the portrait matrix
                 # portrait matrices are constructed from the angle grid, so look up which 
                 # index corresponds to the found phase
-                iphex = np.argmin( np.abs(self.excitation_angles_grid - s.phase_ex) )
-                # for parallel detection, the phase is the same
-                iphempara = np.argmin( np.abs(self.emission_angles_grid - s.phase_ex) )
+                if s.phase_ex < 0:
+                    iphex = np.argmin( np.abs(self.excitation_angles_grid - (np.pi+s.phase_ex)) )
+                    # for parallel detection, the phase is the same
+                    iphempara = np.argmin( np.abs(self.emission_angles_grid - (np.pi+s.phase_ex)) )
+                else:
+                    iphex = np.argmin( np.abs(self.excitation_angles_grid - s.phase_ex) )
+                    iphempara = np.argmin( np.abs(self.emission_angles_grid - s.phase_ex) )
+
                 # for perpendicular detection, we need to find the phase+90deg
-                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(s.phase_ex+np.pi/2, np.pi)) )
+                iphemperp = np.argmin( np.abs(self.emission_angles_grid - (s.phase_ex+np.pi/2)) )
                 Ipara = s.sam[ iphex, iphempara ]
                 Iperp = s.sam[ iphex, iphemperp ]
             
@@ -763,19 +768,24 @@ class Movie:
             #### anisotropy ####
         
             if (self.validspots[si].M_ex < .15):
-                iex = np.argmin( np.abs( self.excitation_angles_grid - 90 ) )
-                iem = np.argmin( np.abs( self.emission_angles_grid - 90 ) )
+                iex = np.argmin( np.abs( self.excitation_angles_grid - np.pi/2 ) )
+                iem = np.argmin( np.abs( self.emission_angles_grid - np.pi/2 ) )
                 Ipara = self.validspots[si].sam[ iex, iem ]
                 Iperp = self.validspots[si].sam[ iex, 0 ] ## assumes that the first index is close to 0deg in emission angle grid
             else:
                 # find where the found phase matches the phase in the portrait matrix
                 # portrait matrices are constructed from the angle grid, so look up which 
                 # index corresponds to the found phase
-                iphex = np.argmin( np.abs(self.excitation_angles_grid - self.validspots[si].phase_ex) )
-                # for parallel detection, the phase is the same
-                iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
+                if self.validspots[si].phase_ex < 0:
+                    iphex = np.argmin( np.abs(self.excitation_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
+                    iphempara = np.argmin( np.abs(self.emission_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
+                else:
+                    iphex = np.argmin( np.abs(self.excitation_angles_grid - self.validspots[si].phase_ex) )
+                    # for parallel detection, the phase is the same
+                    iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
+
                 # for perpendicular detection, we need to find the phase+90deg
-                iphemperp = np.argmin( np.abs(self.emission_angles_grid - np.mod(self.validspots[si].phase_ex+90, 180)) )
+                iphemperp = np.argmin( np.abs(self.emission_angles_grid - (self.validspots[si].phase_ex+np.pi/2)) )
                 Ipara = self.validspots[si].sam[ iphex, iphempara ]
                 Iperp = self.validspots[si].sam[ iphex, iphemperp ]
             
@@ -845,6 +855,118 @@ class Movie:
         # now go over all spots
         cet=0
         for si,s in enumerate(self.validspots):
+
+            # if we deviate from the normalized sum by more than 5%,
+            # we shouldn't use this ruler
+            if np.abs(np.sum( self.peaks[:,si] )-1) > .08:
+                print 'fuck. Data peaks are weird... %f' % (np.sum(self.peaks[:,si]))
+                self.validspots[si].ET_ruler = np.nan
+            
+            # now let's rule
+            crossdiff = self.peaks[1,si]-self.peaks[3,si]
+            
+            # 3-dipole model (all of same length, no ET) starts here
+            kappa     = .5 * np.arccos( .5*(3*self.validspots[si].M_ex-1) ) 
+            alpha     = np.array([ -kappa, 0, kappa ])
+            
+            phix =   np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
+            phim = 7*np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
+
+            ModelNoET = np.zeros_like( phix )
+            for n in range(3):
+                ModelNoET[:] += np.cos(phix-alpha[n])**2 * np.cos(phim-alpha[n])**2
+            ModelNoET /= 3
+            MYY = np.fft.fft(ModelNoET)
+            MYpower = np.real( (MYY*MYY.conj()) )/MYY.size
+
+            MYpeaks = np.array( [ np.sum( MYpower[np.round(ii-df):np.round(ii+df)] ) \
+                                      for ii in [i1,i2,i3,i4] ] )
+            MYpeaks /= np.sum(MYpeaks)
+            
+            # test again if peaks make sense
+            if np.abs(np.sum( MYpeaks )-1) > .08:
+                print 'fuck. MYpeaks is off... %f' % (np.sum( MYpeaks ))
+                self.validspots[si].ET_ruler = np.nan
+
+            MYcrossdiff = MYpeaks[1]-MYpeaks[3]
+            # model done
+            
+            ruler = 1-(crossdiff/MYcrossdiff)
+
+            if (ruler < -.1) or (ruler > 1.1):
+                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
+                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
+                print "You can thank me later."
+                cet+=1
+                print cet
+
+            if ruler < 0:
+                ruler = 0
+            if ruler > 1:
+                ruler = 1
+
+            self.validspots[si].ET_ruler = ruler
+            self.ET_ruler_image[ self.validspots[si].coords[1]:self.validspots[si].coords[3]+1, \
+                               self.validspots[si].coords[0]:self.validspots[si].coords[2]+1 ] = ruler
+
+
+    def ETrulerFFT_selective( self, myspots, slope=7, newdatalength=2048 ):
+        # we re-sample the 2D portrait matrix along a slanted line to
+        # get a 1D array which contains information about both angular
+        # dimensions
+
+        # first we compute the indices into the 2D portrait matrix,
+        # this depends only on the angular grids and is therefore the same for
+        # all spots and portraits.
+        
+        # along one direction we increase in single steps along the angular grid:
+        ind_em = 1*      np.linspace(0,newdatalength-1,newdatalength).astype(np.int)
+        # along the other we have a slope
+        ind_ex = slope * np.linspace(0,newdatalength-1,newdatalength).astype(np.int)
+
+        # both index arrays need to wrap around their angular axes
+        ind_em = np.mod( ind_em, self.emission_angles_grid.size-1 )
+        ind_ex = np.mod( ind_ex, self.excitation_angles_grid.size-1 )
+        
+        # Now we use these to get the new data.
+        # We could do this for every portrait of every spot, but we'll 
+        # restrict ourselves to the average portrait of each spot.
+
+        # the angular grids likely include redundancy at the edges, and
+        # we need to exclude those to not oversample
+        newdata = []
+        for si in myspots:
+            sam = self.validspots[si].recover_average_portrait_matrix()
+            if self.excitation_angles_grid[-1]==np.pi:
+                sam = sam[:,:-1]
+            if self.emission_angles_grid[-1]==np.pi:
+                sam = sam[:-1,:]
+            newdata.append( sam[ ind_em,ind_ex ] )
+        newdata = np.array( newdata )
+
+        # voila, we have new 1d data
+
+        # now we work out the position of the peaks in the FFTs of these new data columns
+
+        f = np.fft.fft( newdata, axis=1 )
+        powerspectra = np.real( f*f.conj() )/newdatalength
+        normpowerspectra = powerspectra[:,1:newdatalength/2] \
+            /np.outer( np.sum(powerspectra[:,1:newdatalength/2],axis=1), np.ones( (1,newdatalength/2-1) ) )
+
+        # first peak index, pops out at newdatalength / grid  (we are awesome.)
+        i1 = newdatalength/(self.excitation_angles_grid.size-1.0)
+        # second
+        i2 = i1*(slope-1)
+        i3 = i1*slope
+        i4 = i1*(slope+1)
+        df = i1/3
+        
+        self.peaks = np.array( [ np.sum(normpowerspectra[:, np.round(ii-df):np.round(ii+df)], axis=1) \
+                      for ii in [i1,i2,i3,i4] ] )
+
+        # now go over all spots
+        cet=0
+        for si in myspots:
 
             # if we deviate from the normalized sum by more than 5%,
             # we shouldn't use this ruler
