@@ -107,10 +107,12 @@ def update_image_files( movie, what, fileprefix ):
         np.savetxt( filename, getattr(movie, what+'_image') )
 
 
-def save_hdf5( movie, fileprefix, proc, images=True, spots=True ):
+def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
 
-    # first we grab all the data we have now
+    ###### first we grab all the data we have now #########
+    #######################################################
 
+    ### `normal' contrast images ###
     if images:
         # compile dict of images
         imagedict = {}
@@ -118,7 +120,27 @@ def save_hdf5( movie, fileprefix, proc, images=True, spots=True ):
             if d.endswith('_image') and type(getattr(movie,d))==np.ndarray:
                 imagedict[d] = getattr(movie,d)
 
-    # now let's see if there's an existing file
+    ### a we also generate an image-representation of the spot fits ###
+    Nrows      = movie.camera_data.datasize[1]
+    Ncols      = movie.camera_data.datasize[2]
+    Nportraits = len( movie.validspots[0].portraits )
+    Nlines     = len( movie.validspots[0].portraits[0].lines )
+    # the image has dimensions [Nrows x Ncols x Nportraits x Nlines x 3]    
+    fits_image = np.zeros( (Nrows,Ncols,Nportraits,Nlines,3) )
+    for si in myspots:
+        for pi,p in enumerate(movie.validspots[si].portraits):
+            for li,l in enumerate(p.lines):
+                a = movie.validspots[si].coords[1]
+                b = movie.validspots[si].coords[3]+1
+                c = movie.validspots[si].coords[0]
+                d = movie.validspots[si].coords[2]+1
+                fits_image[ a:b, c:d, pi, li, : ] = [l.I0, l.M0, l.phase]
+    # append that to the imagedict
+    imagedict['fits_image'] = fits_image
+
+
+    ###### now let's see if there's an existing file ######
+    #######################################################
     filename = fileprefix + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
     print 'Looking for output file with name %s ...' % filename
     if os.path.isfile(filename):
@@ -145,33 +167,11 @@ def save_hdf5( movie, fileprefix, proc, images=True, spots=True ):
         print 'No output file found; creating it now'
         readimagedict = imagedict
 
+    ### and we write the file ###
     fid = h5py.File(filename,'w')
-
     fid.create_group('images')
     for imagename in readimagedict:
-        fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
-    
-    # if spots:
-    #     # basically save spot data here: first, we need the coordinates, which
-    #     # are stored as a single [Nspots x 4] matrix
-    #     Nspots = len(movie.validspots)
-    #     coordmatrix = np.zeros( (Nspots,4) )
-    #     for si,s in enumerate(movie.validspots):
-    #         coordmatrix[si,:] = s.coords
-        
-    #     # now we need the fit data (I0, M0, phase) for each spot, for each 
-    #     # portrait, for each line...  [Nspots x Nportraits x Nlines x 3]
-    #     Nportraits = len( movie.validspots[0].portraits )
-    #     Nlines     = len( movie.validspots[0].portraits[0].lines )
-    #     fitmatrix = np.zeros( (Nspots,Nportraits,Nlines,3) )
-    #     for si,s in enumerate(movie.validspots):
-    #         for pi,p in enumerate(s.portraits):
-    #             for li,l in enumerate(p.lines):
-    #                 fitmatrix[si,pi,li,:] = [l.I0, l.M0, l.phase]
-
-    # fid.create_group('spots')
-    # fid.create_dataset('spots/coordinates', data=coordmatrix)
-    # fid.create_dataset('spots/fits',data=fitmatrix)
+        fid.create_dataset('images/'+imagename, data=readimagedict[imagename] )
 
     fid.close()
 

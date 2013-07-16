@@ -16,14 +16,13 @@ show_mem()
 tstart = stopwatch.time()
 
 
-
 prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130708/Yuxis_high_conc_sample/'
 basename = 'test2'
 
 bgbounds   = [0,50,60,400]
 fullbounds = [90,60,340,300]
-resolution = 2
-Nrowsatatime = 10*resolution
+resolution = 4
+Nrowsatatime = 4*resolution
 
 
 
@@ -35,7 +34,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     bounds = [ fullbounds[0], r, fullbounds[2], r+Nrowsatatime ]
     if myrank==0: print 'current bounds: ',bounds
 
-    grid_image_section_into_squares_and_define_spots( m, res=1, bounds=bounds )
+    grid_image_section_into_squares_and_define_spots( m, res=resolution, bounds=bounds )
     if myrank==0: print 'nspots: ',len(m.spots)
 
     m.collect_data()
@@ -53,7 +52,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     m.ETmodel_selective( myspots[myrank] )
 
     # all processes save their contributions separately
-    save_hdf5( m, prefix, myrank )
+    save_hdf5( m, myspots[myrank], prefix, myrank )
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
