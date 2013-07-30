@@ -4,6 +4,7 @@ from spot import Spot
 from portrait import Portrait
 from motors import *
 import os
+import scipy.optimize as so
 
 class Movie:
     def __init__( self, \
@@ -715,7 +716,7 @@ class Movie:
                 s.r = np.nan
             # store in contrast image
             self.r_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.r
-            del(s.sam)  # don't need that anymore
+#            del(s.sam)  # don't need that anymore
 
 
     def find_modulation_depths_and_phases_selective( self, myspots=None ):
@@ -796,7 +797,7 @@ class Movie:
                 self.validspots[si].r = np.nan
             # store in contrast image
             self.r_image[ a:b, c:d ] = self.validspots[si].r
-            del(self.validspots[si].sam)  # don't need that anymore
+#            del(self.validspots[si].sam)  # don't need that anymore
 
 
     def ETrulerFFT( self, slope=7, newdatalength=2048 ):
@@ -825,7 +826,7 @@ class Movie:
         # we need to exclude those to not oversample
         newdata = []
         for s in self.validspots:
-            sam = s.recover_average_portrait_matrix()
+            sam = s.sam#recover_average_portrait_matrix()
             if self.excitation_angles_grid[-1]==np.pi:
                 sam = sam[:,:-1]
             if self.emission_angles_grid[-1]==np.pi:
@@ -937,7 +938,7 @@ class Movie:
         # we need to exclude those to not oversample
         newdata = []
         for si in myspots:
-            sam = self.validspots[si].recover_average_portrait_matrix()
+            sam = self.validspots[si].sam#recover_average_portrait_matrix()
             if self.excitation_angles_grid[-1]==np.pi:
                 sam = sam[:,:-1]
             if self.emission_angles_grid[-1]==np.pi:
@@ -1070,7 +1071,7 @@ class Movie:
             print ' A=',A
 
 
-    def ETmodel_selective( self, fac=1e4, pg=1e-9, epsi=1e-11 ):
+    def ETmodel_selective( self, myspots, fac=1e4, pg=1e-9, epsi=1e-11 ):
 
         from fitting import fit_portrait_single_funnel_symmetric
 
@@ -1079,18 +1080,18 @@ class Movie:
 
             # we 'correct' the modulation in excitation to be within 
             # limits of reason (and proper arccos functionality)
-            mex = np.clip( s.M_ex, .000001, .999999 )
+            mex = np.clip( self.validspots[si].M_ex, .000001, .999999 )
 
             a0 = [mex, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
-            funargs = (EX, EM, self.validspots[si].averagematrix, mex, self.validspots[si].phase_ex, 'fitting')
+            funargs = (EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, 'fitting')
 
             LB = [0.001,   -np.pi/2, 0]
             UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
             print "upper limit: ", 2*(1+self.validspots[si].M_ex)/(1-self.validspots[si].M_ex)
             print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
 
-            a = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
+            fitresult = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
                                       x0=a0, \
                                       fprime=None, \
                                       args=funargs, \
@@ -1100,22 +1101,22 @@ class Movie:
                                       factr=fac, \
                                       pgtol=pg )
 
-            et,A = fit_portrait_single_funnel_symmetric( a[0], EX, EM, self.validspots[si].averagematrix, mex, self.validspots[si].phase_ex, \
+            et,A = fit_portrait_single_funnel_symmetric( fitresult[0], EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, \
                                                              mode='show_et_and_A', use_least_sq=True)
-            self.validspots[si].ETmodel_md_fu = a[0][0]
-            self.validspots[si].ETmodel_th_fu = a[0][1]
-            self.validspots[si].ETmodel_gr    = a[0][2]
+            self.validspots[si].ETmodel_md_fu = fitresult[0][0]
+            self.validspots[si].ETmodel_th_fu = fitresult[0][1]
+            self.validspots[si].ETmodel_gr    = fitresult[0][2]
             self.validspots[si].ETmodel_et    = et            
             a = self.validspots[si].coords[1]
             b = self.validspots[si].coords[3]+1
             c = self.validspots[si].coords[0]
             d = self.validspots[si].coords[2]+1
-            self.ET_model_md_fu_image[ a:b, c:d ] = a[0][0]
-            self.ET_model_th_fu_image[ a:b, c:d ] = a[0][1]
-            self.ET_model_gr_image[ a:b, c:d ]    = a[0][2]
+            self.ET_model_md_fu_image[ a:b, c:d ] = fitresult[0][0]
+            self.ET_model_th_fu_image[ a:b, c:d ] = fitresult[0][1]
+            self.ET_model_gr_image[ a:b, c:d ]    = fitresult[0][2]
             self.ET_model_et_image[ a:b, c:d ]    = et
 
-            print 'fit done\t',a[0],
+            print 'fit done\t',fitresult[0],
             print ' et=',et,
             print ' A=',A
 

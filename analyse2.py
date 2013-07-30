@@ -23,8 +23,7 @@ basename = 'S1-633ex-OD1-gain1-675LP-01'
 bgbounds   = [0,415,440,450]
 fullbounds = [110,90,405,400]
 resolution = 2
-Nrowsatatime = 10*resolution
-
+Nrowsatatime = 4*resolution
 
 
 for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
@@ -35,7 +34,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     bounds = [ fullbounds[0], r, fullbounds[2], r+Nrowsatatime ]
     if myrank==0: print 'current bounds: ',bounds
 
-    grid_image_section_into_squares_and_define_spots( m, res=1, bounds=bounds )
+    grid_image_section_into_squares_and_define_spots( m, res=resolution, bounds=bounds )
     if myrank==0: print 'nspots: ',len(m.spots)
 
     m.collect_data()
@@ -53,7 +52,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     #m.ETmodel_selective( myspots[myrank] )
 
     # all processes save their contributions separately
-    save_hdf5( m, prefix, myrank )
+    save_hdf5( m, myspots[myrank], prefix, myrank )
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
