@@ -967,16 +967,16 @@ class Movie:
 
         # now go over all spots
         cet=0
-        for si in myspots:
+        for sii,si in enumerate(myspots):
 
             # if we deviate from the normalized sum by more than 5%,
             # we shouldn't use this ruler
-            if np.abs(np.sum( self.peaks[:,si] )-1) > .08:
-                print 'fuck. Data peaks are weird... %f' % (np.sum(self.peaks[:,si]))
+            if np.abs(np.sum( self.peaks[:,sii] )-1) > .08:
+                print 'fuck. Data peaks are weird... %f' % (np.sum(self.peaks[:,sii]))
                 self.validspots[si].ET_ruler = np.nan
             
             # now let's rule
-            crossdiff = self.peaks[1,si]-self.peaks[3,si]
+            crossdiff = self.peaks[1,sii]-self.peaks[3,sii]
             
             # 3-dipole model (all of same length, no ET) starts here
             kappa     = .5 * np.arccos( .5*(3*self.validspots[si].M_ex-1) ) 
