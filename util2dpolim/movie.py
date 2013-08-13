@@ -337,6 +337,21 @@ class Movie:
         self.data = output
 
 
+    def correct_emission_intensities( self, corrM, corrphase ):
+        # correction function
+        corrfun = lambda angle: (1+corrM*np.cos(angle + corrphase )**2)/(1+corrM)
+
+        # assemble all corrections in a vector
+        corrections = np.nan*np.ones((self.data.shape[0],))
+        for i,emangle in enumerate(self.data[:,2]):
+            correction[i] = corrfun( emangle )
+
+        # now go through all spots and apply that vector
+        for s in self.spots:
+            s.intensity *= correction
+        
+
+
     def startstop( self ):
         """
         This function determines the indices at which portraits start and end.

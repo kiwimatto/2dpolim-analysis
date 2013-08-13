@@ -4,7 +4,8 @@ from util2dpolim.movie import Movie
 from util2dpolim.misc import grid_image_section_into_squares_and_define_spots, \
     save_hdf5, \
     combine_outputs, \
-    show_mem
+    show_mem, \
+    find_measurement_files_in_directory
 import time as stopwatch
 
 from mpi4py import MPI
@@ -16,13 +17,13 @@ show_mem()
 tstart = stopwatch.time()
 
 
-prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130708/Yuxis_high_conc_sample/'
-basename = 'test2'
+prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130719__new_fredrik_samples/'
+basename = 'edge3'
 
-bgbounds   = [0,50,60,400]
-fullbounds = [90,60,340,300]
-resolution = 4
-Nrowsatatime = 4*resolution
+bgbounds   = [20,30,100,500]
+fullbounds = [130,30,400,500]
+resolution = 1
+Nrowsatatime = 40*resolution
 
 
 
@@ -40,19 +41,21 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     m.collect_data()
     m.startstop()
     m.assign_portrait_data()
-    m.are_spots_valid(SNR=4)
-    # m.fit_all_portraits_spot_parallel()
-    # m.find_modulation_depths_and_phases()
+    m.are_spots_valid(SNR=3)
+    # the rest is done only if we actually have any valid spots here
+    if not len(m.validspots)==0:
+        # m.fit_all_portraits_spot_parallel()
+        # m.find_modulation_depths_and_phases()
 
-    myspots = np.array_split( np.arange(len(m.validspots)), nprocs )
+        myspots = np.array_split( np.arange(len(m.validspots)), nprocs )
 
-    m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
-    m.find_modulation_depths_and_phases_selective( myspots[myrank] )
-    m.ETrulerFFT_selective( myspots[myrank] )
-    m.ETmodel_selective( myspots[myrank] )
+        m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
+        m.find_modulation_depths_and_phases_selective( myspots[myrank] )
+        #    m.ETrulerFFT_selective( myspots[myrank] )
+        #    m.ETmodel_selective( myspots[myrank] )
 
-    # all processes save their contributions separately
-    save_hdf5( m, myspots[myrank], prefix, myrank )
+        # all processes save their contributions separately
+        save_hdf5( m, myspots[myrank], prefix, myrank )
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
