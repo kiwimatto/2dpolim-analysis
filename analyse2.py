@@ -16,14 +16,14 @@ show_mem()
 tstart = stopwatch.time()
 
 
-prefix = '/home/rafael/Desktop/Win/130711-CT-Measurements/S1/'
+prefix = '/home/rafael/Desktop/Win/130610/S4-NotRubTQ1/823LP/'
 
-basename = 'S1-633ex-OD1-gain1-675LP-01'
+basename = 'S4-NotRubTQ1-675LP+823lp-OD3-gain1-04'
 
-bgbounds   = [0,415,440,450]
-fullbounds = [110,90,405,400]
+bgbounds   = [0,430,435,455]
+fullbounds = [50,90,360,390]
 resolution = 2
-Nrowsatatime = 4*resolution
+Nrowsatatime = 20*resolution
 
 
 for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
