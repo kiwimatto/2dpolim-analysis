@@ -33,6 +33,30 @@ def deal_with_date_time_string( motorobj, datetimestring ):
 
 
 
+def find_measurement_files_in_directory( directory ):
+
+    basenames  = []
+    spefiles   = []
+    motorfiles = []
+
+    # go to dir
+    os.chdir( directory )
+    print "Looking for SPE data..."
+    # get all filenames
+    for file1 in os.listdir("."):
+        # get all that end in spe
+        if file1.endswith(".spe") or file1.endswith(".SPE"):
+            # see if we can find the corresponding motor file
+            for file2 in os.listdir("."):
+                if file2 == 'MS-'+file1[:-4]+'.txt':
+                    # got it, so store all names
+                    spefiles.append(file1)
+                    motorfiles.append(file2)
+                    basenames.append(file1[:-4])
+
+    return basenames, spefiles, motorfiles
+
+
 def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
     
     rb = bounds #[80,56,155,89]  # pixel indices (starting from zero!)
@@ -168,6 +192,7 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
         readimagedict = imagedict
 
     ### and we write the file ###
+    print 'filename: %s' % filename
     fid = h5py.File(filename,'w')
     fid.create_group('images')
     for imagename in readimagedict:

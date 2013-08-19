@@ -117,7 +117,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.showStuffComboBox.activated.connect( self.showStuff )
         self.ETrulerPushButton.clicked.connect( self.ETruler )
         self.showWhatComboBox.activated.connect( self.dataview_updater )
-        self.saveContrastImagesPushButton.clicked.connect( self.saveContrastImages )
+        self.saveContrastImagesPushButton.clicked.connect( self.saveContrastImages_hdf5 )
         self.toolButton1.clicked.connect( self.tool1 )
         self.toolButton2.clicked.connect( self.tool2 )
         self.toolButton3.clicked.connect( self.tool3 )
@@ -177,6 +177,12 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         # np.savetxt( basefilename+'_ET_model_et_image.txt', self.m.ET_model_et_image )
         self.saveContrastImagesPushButton.setChecked(False)
 
+    def saveContrastImages_hdf5( self ):
+        outputdir = os.path.normpath( self.data_directory+'/' )
+        print outputdir
+        save_hdf5( movie=self.m, myspots=range(len(self.m.validspots)), \
+                       fileprefix=outputdir, proc=0, images=True, spots=True )
+        combine_outputs( basename=self.m.data_basename, fileprefix=outputdir )
 
     def ETruler(self):
         oldtext = self.setButtonWait( self.ETrulerPushButton )
@@ -237,7 +243,11 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                                facecolor=color, edgecolor=color, alpha=1, zorder=7 )
             self.imageview.phase_ex_rects.append( r )
 
-            color = cm.jet(s.phase_em/np.pi+.5)
+            color = cm.hsv(s.phase_ex/np.pi+.5)
+            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+                               facecolor=color, edgecolor=color, alpha=1, zorder=7 )
+            self.imageview.phase_ex_rects.append( r )
+            color = cm.hsv(s.phase_em/np.pi+.5)
             r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
                                facecolor=color, edgecolor=color, alpha=1, zorder=7 )
             self.imageview.phase_em_rects.append( r )

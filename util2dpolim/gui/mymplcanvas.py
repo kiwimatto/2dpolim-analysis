@@ -17,11 +17,12 @@ class MyMplCanvas(FigureCanvas):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         matplotlib.rcParams.update( {'font size': 9} )
         self.axes = self.fig.add_subplot(111)
-        i = self.axes.imshow(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) ), zorder=1 )
-        self.cbar = self.fig.colorbar(i)
+        self.refimagehsv = self.axes.imshow(180*(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) )-.5), cmap=cm.hsv, zorder=1 )
+        self.refimagejet = self.axes.imshow(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) ), cmap=cm.jet, zorder=1 )
+        self.cbar = self.fig.colorbar(self.refimagejet)
         # push cbar to right edge of canvas
-        cbaraxis = self.fig.axes[1]
-        cbaraxis.set_position( [.9,.1,.05,.8] )
+        self.cbaraxis = self.fig.axes[1]
+        self.cbaraxis.set_position( [.9,.1,.05,.8] )
         # now size up the main plot a bit
         self.axes.set_position( [.05, .1, .8, .8] )
 #        self.figure.canvas.draw()
@@ -162,21 +163,27 @@ class MyMplCanvas(FigureCanvas):
         if what=='spots':
             for r in self.spot_rects:
                 self.axes.add_patch( r )
+            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='M_ex':
             for r in self.M_ex_rects:
                 self.axes.add_patch( r )
+            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='M_em':
             for r in self.M_em_rects:
                 self.axes.add_patch( r )
+            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='phase_ex':
             for r in self.phase_ex_rects:
                 self.axes.add_patch( r )
+            self.cbar = self.fig.colorbar(self.refimagehsv, cax=self.cbaraxis )
         elif what=='phase_em':
             for r in self.phase_em_rects:
                 self.axes.add_patch( r )
+            self.cbar = self.fig.colorbar(self.refimagehsv, cax=self.cbaraxis )
         elif what=='ET_ruler':
             for r in self.ET_ruler_rects:
                 self.axes.add_patch( r )
+            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
 
         self.hline.set_visible(False)
         self.vline.set_visible(False)
