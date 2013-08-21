@@ -236,6 +236,10 @@ def combine_outputs( basename, fileprefix ):
         fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
     fid.close()
 
+    # delete basefiles
+    for f in filelist:
+        os.remove(f)
+
 
 def save_spot_data( movie, what='M_ex', whole_image=True, fileprefix='' ):
     # We assume in the following that the first spot (movie.spots[0]) is

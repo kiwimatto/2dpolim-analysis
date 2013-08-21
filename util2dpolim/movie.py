@@ -106,6 +106,9 @@ class Movie:
         os.chdir( self.data_directory )
         
         ###### look if we can find the data file, and import it ######
+        print 'Looking for file: %s.[spe|SPE]' % (self.data_directory+self.data_basename)
+#        print os.listdir('.')
+
         if os.path.exists( self.data_basename+'.SPE' ):
             self.spefilename = self.data_basename+'.SPE'
         elif os.path.exists( self.data_basename+'.spe' ):
@@ -339,16 +342,17 @@ class Movie:
 
     def correct_emission_intensities( self, corrM, corrphase ):
         # correction function
-        corrfun = lambda angle: (1+corrM*np.cos(angle + corrphase )**2)/(1+corrM)
+        corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
 
         # assemble all corrections in a vector
         corrections = np.nan*np.ones((self.data.shape[0],))
         for i,emangle in enumerate(self.data[:,2]):
-            correction[i] = corrfun( emangle )
+            corrections[i] = corrfun( emangle )
 
         # now go through all spots and apply that vector
-        for s in self.spots:
-            s.intensity *= correction
+        for i,s in enumerate(self.spots):
+            self.data[:,3+i] /= corrections
+            s.intensity /= corrections
         
 
 

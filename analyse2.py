@@ -17,14 +17,13 @@ show_mem()
 tstart = stopwatch.time()
 
 
-prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130719__new_fredrik_samples/'
-basename = 'edge3'
+prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/test_emission_correction/'
+basename = 'S3-633ex-OD1-gain1-675LP-01'
 
-bgbounds   = [20,30,100,500]
-fullbounds = [130,30,400,500]
-resolution = 1
+bgbounds   = [110,405,400,450]   #[20,30,100,500]
+fullbounds = [110, 80,400,360]   #[130,30,400,500]
+resolution = 8
 Nrowsatatime = 40*resolution
-
 
 
 for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
@@ -39,6 +38,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     if myrank==0: print 'nspots: ',len(m.spots)
 
     m.collect_data()
+    m.correct_emission_intensities( .5, 45.0/180*np.pi )
     m.startstop()
     m.assign_portrait_data()
     m.are_spots_valid(SNR=3)
