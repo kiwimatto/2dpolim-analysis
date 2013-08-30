@@ -147,18 +147,14 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
     ### a we also generate an image-representation of the spot fits ###
     Nrows      = movie.camera_data.datasize[1]
     Ncols      = movie.camera_data.datasize[2]
-    Nportraits = len( movie.validspots[0].portraits )
-    Nlines     = len( movie.validspots[0].portraits[0].lines )
     # the image has dimensions [Nrows x Ncols x Nportraits x Nlines x 3]    
-    fits_image = np.zeros( (Nrows,Ncols,Nportraits,Nlines,3) )
+    fits_image = np.zeros( (Nrows, Ncols, movie.Nportraits, movie.Nlines, 4) )
     for si in myspots:
-        for pi,p in enumerate(movie.validspots[si].portraits):
-            for li,l in enumerate(p.lines):
-                a = movie.validspots[si].coords[1]
-                b = movie.validspots[si].coords[3]+1
-                c = movie.validspots[si].coords[0]
-                d = movie.validspots[si].coords[2]+1
-                fits_image[ a:b, c:d, pi, li, : ] = [l.I0, l.M0, l.phase]
+        a = movie.validspots[si].coords[1]
+        b = movie.validspots[si].coords[3]+1
+        c = movie.validspots[si].coords[0]
+        d = movie.validspots[si].coords[2]+1
+        fits_image[ a:b, c:d, :, :, : ] = movie.validspots[si].linefitparams
     # append that to the imagedict
     imagedict['fits_image'] = fits_image
 
