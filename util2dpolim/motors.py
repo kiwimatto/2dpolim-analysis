@@ -58,14 +58,21 @@ class BothMotorsWithHeader:
                 raise ValueError("Phase offset in header is NaN (which should only be the case if this is an AM measurement), but no phase offset was specified to the movie class.")
 
         self.framenumbers = md[:,0]
-        print self.header['optical element in excitation']
-        if self.header['optical element in excitation']=='l/2 plate':
-            print 'Header says that l/2 plate was used.'
-            self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+#        print self.header['optical element in excitation']
+
+        if md.shape[1]==4:  #### NEW STYLE ANGLES!
+            self.excitation_angles = (md[:,2] + phase_offset_in_deg ) * np.pi/180.0
+            self.emission_angles   = md[:,3] * np.pi/180.0
+        elif md.shape[2]==3:
+            if self.header['optical element in excitation']=='l/2 plate':
+                print 'Header says that l/2 plate was used.'
+                self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+            else:
+                print 'Er... header says that l/2 plate was _not_ used. Correct??'
+                self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+            self.emission_angles   = md[:,2] * np.pi/180.0
         else:
-            print 'Er... header says that l/2 plate was _not_ used. Correct??'
-            self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
-        self.emission_angles   = md[:,2] * np.pi/180.0
+            raise ValueError("Huh? What the fuck man?")
 
         self.excitation_angles     = np.mod( self.excitation_angles, np.pi ) 
         self.emission_angles       = np.mod( self.emission_angles, np.pi )
