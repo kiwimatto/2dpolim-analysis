@@ -60,9 +60,10 @@ class BothMotorsWithHeader:
         self.framenumbers = md[:,0]
 #        print self.header['optical element in excitation']
 
-        if md.shape[1]==4:  #### NEW STYLE ANGLES!
-            self.excitation_angles = (md[:,2] + phase_offset_in_deg ) * np.pi/180.0
-            self.emission_angles   = md[:,3] * np.pi/180.0
+        if md.shape[1]==5:  #### NEW STYLE ANGLES!
+            self.excitation_angles        = (md[:,2] + phase_offset_in_deg ) * np.pi/180.0
+            self.emission_angles          = md[:,4] * np.pi/180.0
+            self.sample_plane_intensities = md[:,3]
         elif md.shape[2]==3:
             if self.header['optical element in excitation']=='l/2 plate':
                 print 'Header says that l/2 plate was used.'

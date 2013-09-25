@@ -147,6 +147,11 @@ class Movie:
         self.mean_intensity_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.mean_intensity
 
 
+    def correct_excitation_intensities( self ):
+        for i,s in enumerate(self.spots):
+            s.intensity /= self.motors.sample_plane_intensities
+
+
     def correct_emission_intensities( self, corrM, corrphase ):
         # correction function
         corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
