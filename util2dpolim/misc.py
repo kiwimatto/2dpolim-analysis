@@ -57,6 +57,40 @@ def find_measurement_files_in_directory( directory ):
     return basenames, spefiles, motorfiles
 
 
+def import_spot_positions( movie, coords_filename, boxedgelength=5, spot_type='square', \
+                               use_exspot=False, use_borderbg=False ):
+    f  = open(coords_filename, 'r')
+    cs = f.readlines()
+    f.close()
+
+    cs = np.array( [ [float(n) for n in c.split('\t')] for c in cs] )
+    print 'Read the following coordinates from file:'
+    print cs
+
+    for c in cs:
+        center_row = np.int( np.round(c[0]) )
+        center_col = np.int( np.round(c[1]) )
+        if spot_type=='square':
+            ci  = np.int( center_col - (boxedgelength-1)/2 )
+            ri  = np.int( center_row - (boxedgelength-1)/2 )
+            ci2 = np.int( center_col + (boxedgelength-1)/2 )
+            ri2 = np.int( center_row + (boxedgelength-1)/2 )
+            shape = {'type':'Rectangle', \
+                         'left':  ci, \
+                         'right': ci2, \
+                         'lower': ri2, \
+                         'upper': ri }
+        elif spot_type=='circle':
+            shape = {'type':'Circle', \
+                         'center':  (center_row,center_col), \
+                         'radius': boxedgelength }
+        else:
+            raise testosterone_levels
+
+        movie.define_spot( shape, intensity_type='max', use_exspot=use_borderbg, use_borderbg=use_borderbg )
+    print 'defined %d spots (shape: %s)' % (cs.shape[0], spot_type)
+
+
 def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
     
     rb = bounds #[80,56,155,89]  # pixel indices (starting from zero!)
@@ -76,7 +110,9 @@ def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
 
     for xi in leftedges:
         for yi in topedges:
-            movie.define_spot( [yi,xi,yi-1+res,xi-1+res] )
+            print 'trying to define spot  [ %d, %d, %d, %d ]' % (yi,xi,yi-1+res,xi-1+res)
+            movie.define_spot( [ yi, xi, yi-1+res, xi-1+res ] )
+
 
     return 
 
@@ -145,16 +181,19 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
                 imagedict[d] = getattr(movie,d)
 
     ### a we also generate an image-representation of the spot fits ###
-    Nrows      = movie.camera_data.datasize[1]
-    Ncols      = movie.camera_data.datasize[2]
+    Nrows      = movie.sample_data.datasize[1]
+    Ncols      = movie.sample_data.datasize[2]
     # the image has dimensions [Nrows x Ncols x Nportraits x Nlines x 3]    
     fits_image = np.zeros( (Nrows, Ncols, movie.Nportraits, movie.Nlines, 4) )
     for si in myspots:
-        a = movie.validspots[si].coords[1]
-        b = movie.validspots[si].coords[3]+1
-        c = movie.validspots[si].coords[0]
-        d = movie.validspots[si].coords[2]+1
-        fits_image[ a:b, c:d, :, :, : ] = movie.validspots[si].linefitparams
+        for p in movie.validspots[si].pixel:
+            fits_image[ p[0], p[1], :, :, : ] = movie.validspots[si].linefitparams
+    # for si in myspots:
+    #     a = movie.validspots[si].coords[1]
+    #     b = movie.validspots[si].coords[3]+1
+    #     c = movie.validspots[si].coords[0]
+    #     d = movie.validspots[si].coords[2]+1
+    #     fits_image[ a:b, c:d, :, :, : ] = movie.validspots[si].linefitparams
     # append that to the imagedict
     imagedict['fits_image'] = fits_image
 
