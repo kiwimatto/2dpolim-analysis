@@ -17,13 +17,13 @@ show_mem()
 tstart = stopwatch.time()
 
 
-prefix = '/home/rafael/Desktop/Win/130610/S4-NotRubTQ1/823LP/'
+prefix = '/home/rafael/Desktop/Win/Well 01/'
 
-basename = 'S4-NotRubTQ1-675LP+823lp-OD3-gain1-04'
+basename = 'Cells-633ex-Well1-Area-01.SPE'
 
-bgbounds   = [0,430,435,455]
-fullbounds = [50,90,360,390]
-resolution = 2
+bgbounds   = [3,110,53,490]
+fullbounds = [60,110,480,490]
+resolution = 4
 Nrowsatatime = 20*resolution
 
 
@@ -39,9 +39,10 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     if myrank==0: print 'nspots: ',len(m.spots)
 
     m.collect_data()
+    m.correct_emission_intensities( corrM=0.075 , corrphase=90*np.pi/180 )
     m.startstop()
     m.assign_portrait_data()
-    m.are_spots_valid(SNR=3)
+    m.are_spots_valid(SNR=4)
     # the rest is done only if we actually have any valid spots here
     if not len(m.validspots)==0:
         # m.fit_all_portraits_spot_parallel()
