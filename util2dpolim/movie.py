@@ -14,10 +14,19 @@ class Movie:
 
         self.data_directory = datadir
         self.data_basename  = basename
+ 
+        self.sample_data = None
+        self.blank_data  = None
+        self.exspot_data = None
+
+        self.bg_spot_sample    = None
+        self.bg_spot_blank     = None
+        self.bg_spot_exspot    = None
 
         self.read_in_EVERYTHING()
 
         self.spots = []
+        self.validspots = None
         self.initContrastImages()
 
         # fix the excitation and emission angle grids for now
@@ -42,8 +51,8 @@ class Movie:
             print "Couldn't find data SPE file! Bombing out..."
             raise SystemExit
         
-        self.camera_data    = CameraData( self.spefilename, compute_frame_average=True )
-        self.timeaxis       = self.camera_data.timestamps
+        self.sample_data    = CameraData( self.spefilename, compute_frame_average=True )
+        self.timeaxis       = self.sample_data.timestamps
         print 'Imported data file %s' % self.spefilename
 
 
@@ -58,7 +67,6 @@ class Movie:
                 got_motors = True
                 break
 
-        # now import it depending on which setup it is
         if got_motors:
             ### Supplying the phase offset here means it overrides the value 
             ### which is read from the header, unless it is NaN (the default). 
@@ -71,16 +79,27 @@ class Movie:
        
         ###### look for blank sample ######
         print 'Looking for blank...',
-        self.blanks = []
         for file in os.listdir("."):
             if file.startswith("blank-") and (file.endswith(".spe") or file.endswith(".SPE")):
                 print '\t found file %s' % file
-                b = CameraData( file, compute_frame_average=True )
-                self.blanks.append( b )
+                self.blank_data = CameraData( file, compute_frame_average=True )
+                break
+
+        ###### look for excitation spot sample ######
+        print 'Looking for excitation spot data...',
+        for file in os.listdir("."):
+            if file.startswith("excitation-spot-") and (file.endswith(".spe") or file.endswith(".SPE")):
+                print '\t found file %s' % file
+                self.exspot_data = CameraData( file, compute_frame_average=True )
+                # we also collapse all frames (if more than one) into a single mean frame:
+                self.exspot_data.rawdata = np.mean( self.exspot_data_rawdata, axis=0 )
+                self.exspot_data.datasize[0] = 1
+                self.exspot_data.timeaxis    = self.exspot_data.timeaxis[0]
+                break
 
 
     def initContrastImages(self):
-        self.spot_coverage_image  = np.ones( (self.camera_data.datasize[1],self.camera_data.datasize[2]) )*np.nan
+        self.spot_coverage_image  = np.ones( (self.sample_data.datasize[1],self.sample_data.datasize[2]) )*np.nan
         self.mean_intensity_image = self.spot_coverage_image.copy()
         self.SNR_image            = self.spot_coverage_image.copy()
         self.M_ex_image           = self.spot_coverage_image.copy()
@@ -88,7 +107,7 @@ class Movie:
         self.phase_ex_image       = self.spot_coverage_image.copy()
         self.phase_em_image       = self.spot_coverage_image.copy()
         self.LS_image             = self.spot_coverage_image.copy()
-        self.r_image              = self.spot_coverage_image.copy()
+        self.anisotropy_image     = self.spot_coverage_image.copy()
         self.ET_ruler_image       = self.spot_coverage_image.copy()
         self.ET_model_md_fu_image = self.spot_coverage_image.copy()
         self.ET_model_th_fu_image = self.spot_coverage_image.copy()
@@ -96,63 +115,74 @@ class Movie:
         self.ET_model_et_image    = self.spot_coverage_image.copy()
 
 
-    def define_background_spot( self, coords, intensity_type='mean' ):
-        # create new spot object
-        s = Spot( self.camera_data.rawdata, coords, bg=0, int_type=intensity_type, \
-                      label='background area', is_bg_spot=True, parent=self )
-        self.bg_spot = s        
+    def define_background_spot( self, shape, intensity_type='mean' ):
+        
+        if not type(shape)==dict:
+            shape = {'type': 'Rectangle', \
+                         'upper': shape[1], \
+                         'lower': shape[3], \
+                         'left': shape[0], \
+                         'right': shape[2] }
 
-        # if blank data is present, automatically work out its bg, correct for it,
-        # and compute average blank image
-        if len(self.blanks)>0:
-            # init a blank image
-            self.blank_image = np.zeros_like(self.blanks[0])
-            # go through all blanks
-            for b in self.blanks:
-                # get that background spot
-                s = Spot( b.resize((1,b.shape[0],b.shape[1])), coords, bg=0, int_type=intensity_type, \
-                              label='background area', is_bg_spot=True, parent=self )
-                # add bg-corrected blank to blank_image
-                self.blank_image += b-s.I
-            # divide blank image by number of blanks
-            self.blank_image /= len(self.blanks)
+        # create new spot object
+        s = Spot( shape, int_type=intensity_type, label='sample bg area', parent=self, \
+                      is_bg_spot=True, which_bg='sample' )
+        self.bg_spot_sample = s
+
+        # if blank data is present, automatically create a bg spot here too
+        if not self.blank_data==None:
+            s = Spot( shape, int_type=intensity_type, label='blank bg area', parent=self, \
+                          is_bg_spot=True, which_bg='blank' )
+            self.bg_spot_blank = s
+
+        # if excitation spot data is present, create a bg spot here too
+        if not self.exspot_data==None:
+            s = Spot( shape, int_type=intensity_type, label='exspot bg area', parent=self, \
+                          is_bg_spot=True, which_bg='exspot' )
+            self.bg_spot_exspot = s
 
         # record background spot in spot coverage image
-        self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = -1
+        for p in s.pixel:
+            self.spot_coverage_image[ p[0], p[1] ] = -1
         
 
-    def define_spot( self, coords, intensity_type='mean', label=None ):
+    def define_spot( self, shape, intensity_type='mean', label=None, \
+                         use_blank=True, use_exspot=False, use_borderbg=False ):
         """Defines a new spot object and adds it to the list.
         FIXME: make sure coordinate definitions do not exceed frame size
-        TO-DO: how about being able to specify center+radius ?
         """
 
-        if hasattr( self, 'bg_spot' ):
-            bgself = self.bg_spot.intensity
-        else:
-            bgself = 0
-                
-        if hasattr( self, 'blank_image' ):
-            bgblank=True
-        else:
-            bgblank=False
+        if not type(shape)==dict:
+            shape = {'type': 'Rectangle', \
+                         'upper': shape[1], \
+                         'lower': shape[3], \
+                         'left': shape[0], \
+                         'right': shape[2] }
 
         # create new spot object
-        s = Spot( self.camera_data.rawdata, coords, bg=bgself, int_type='mean', \
-                      label=label, parent=self, blankdata=bgblank )
+        s = Spot( shape, int_type=intensity_type, label=label, parent=self, \
+                      is_bg_spot=False, which_bg='sample', \
+                      use_blank=use_blank, use_exspot=use_exspot, use_borderbg=use_borderbg )
         # append spot object to spots list
         self.spots.append( s )
 
-        self.spot_coverage_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = 1
-        self.mean_intensity_image[ s.coords[1]:s.coords[3]+1, s.coords[0]:s.coords[2]+1 ] = s.mean_intensity
+        # store in image
+        self.store_property_in_image( s, 'spot_coverage_image', 'value_for_coverage_image' )
+
+        return s
 
 
     def correct_excitation_intensities( self ):
+        Icorr = self.motors.sample_plane_intensities/np.max(self.motors.sample_plane_intensities)
         for i,s in enumerate(self.spots):
-            s.intensity /= self.motors.sample_plane_intensities
+            s.intensity /= Icorr
 
 
-    def correct_emission_intensities( self, corrM, corrphase ):
+    def correct_emission_intensities( self ): #, corrM, corrphase ):
+        
+        corrM     = self.motors.header['em correction modulation depth']
+        corrphase = self.motors.header['em correction phase']/180.0*np.pi
+
         # correction function
         corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
 
@@ -160,6 +190,8 @@ class Movie:
         corrections = np.nan*np.ones((self.emangles.size,))
         for i,emangle in enumerate(self.emangles):
             corrections[i] = corrfun( emangle )
+
+#        print corrections
 
         # now go through all spots and apply that vector
         for i,s in enumerate(self.spots):
@@ -249,6 +281,23 @@ class Movie:
         portrait.phase_em = phase[0]
         portrait.M_em = M
         
+
+    def retrieve_angles( self, iportrait, iline ):
+        pstart = self.portrait_indices[ iportrait, 0 ]
+        pstop  = self.portrait_indices[ iportrait, 1 ]+1
+        lstart = self.line_edges[ iline ]
+        lstop  = self.line_edges[ iline+1 ]
+        exangles = self.exangles[ pstart:pstop ][ lstart:lstop ]
+        emangle  = self.emangles[ pstart:pstop ][ lstart:lstop ]
+        # print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+        # print exangles
+        # print self.exangles
+        # print emangle
+        # print self.emangles
+        # print '$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$'
+        assert np.all(emangle[0]==emangle)  # emangle must be constant with a scan line
+        return exangles, emangle[0]
+
 
     def fit_all_portraits_spot_parallel_selective( self, myspots=None ):
 
@@ -374,15 +423,20 @@ class Movie:
             self.validspots[si].M_em     = M_em[sii]
             self.validspots[si].LS       = LS[sii]
             # store in coverage maps
-            a = self.validspots[si].coords[1]
-            b = self.validspots[si].coords[3]+1
-            c = self.validspots[si].coords[0]
-            d = self.validspots[si].coords[2]+1
-            self.M_ex_image[ a:b, c:d ]     = self.validspots[si].M_ex
-            self.M_em_image[ a:b, c:d ]     = self.validspots[si].M_em
-            self.phase_ex_image[ a:b, c:d ] = self.validspots[si].phase_ex
-            self.phase_em_image[ a:b, c:d ] = self.validspots[si].phase_em
-            self.LS_image[ a:b, c:d ]       = self.validspots[si].LS        
+            self.store_property_in_image( self.validspots[si], 'M_ex_image', 'M_ex' )
+            self.store_property_in_image( self.validspots[si], 'M_em_image', 'M_em' )
+            self.store_property_in_image( self.validspots[si], 'phase_ex_image', 'phase_ex' )
+            self.store_property_in_image( self.validspots[si], 'phase_em_image', 'phase_em' )
+            self.store_property_in_image( self.validspots[si], 'LS_image', 'LS' )
+            # a = self.validspots[si].coords[1]
+            # b = self.validspots[si].coords[3]+1
+            # c = self.validspots[si].coords[0]
+            # d = self.validspots[si].coords[2]+1
+            # self.M_ex_image[ a:b, c:d ]     = self.validspots[si].M_ex
+            # self.M_em_image[ a:b, c:d ]     = self.validspots[si].M_em
+            # self.phase_ex_image[ a:b, c:d ] = self.validspots[si].phase_ex
+            # self.phase_em_image[ a:b, c:d ] = self.validspots[si].phase_em
+            # self.LS_image[ a:b, c:d ]       = self.validspots[si].LS        
 
             #### anisotropy ####
         
@@ -409,11 +463,12 @@ class Movie:
                 Iperp = self.validspots[si].sam[ iphex, iphemperp ]
             
             if not float(Ipara+2*Iperp)==0:
-                self.validspots[si].r = float(Ipara-Iperp)/float(Ipara+2*Iperp)
+                self.validspots[si].anisotropy = float(Ipara-Iperp)/float(Ipara+2*Iperp)
             else:
-                self.validspots[si].r = np.nan
+                self.validspots[si].anisotropy = np.nan
             # store in contrast image
-            self.r_image[ a:b, c:d ] = self.validspots[si].r
+            self.store_property_in_image( self.validspots[si], 'anisotropy_image', 'anisotropy' )
+#            self.r_image[ a:b, c:d ] = self.validspots[si].r
 #            del(self.validspots[si].sam)  # don't need that anymore
 
 
@@ -525,9 +580,8 @@ class Movie:
                 ruler = 1
 
             self.validspots[si].ET_ruler = ruler
-            self.ET_ruler_image[ self.validspots[si].coords[1]:self.validspots[si].coords[3]+1, \
-                               self.validspots[si].coords[0]:self.validspots[si].coords[2]+1 ] = ruler
-
+            self.store_property_in_image( self.validspots[si], 'ET_ruler_image', 'ET_ruler' )
+            
 
     def ETmodel_selective( self, myspots, fac=1e4, pg=1e-9, epsi=1e-11 ):
 
@@ -595,28 +649,36 @@ class Movie:
 
 
     def are_spots_valid(self, SNR=10, quiet=False):
-        # do we actually have the background std
-        bgstd = 0
-        if hasattr( self, 'bg_spot' ):
-            bgstd = self.bg_spot.std
-        else:
-            print "Dude --- no background spot defined, therefore no standard deviation. Will treat all spots as valid (i.e. as having sufficient intensity)."
 
-        # then we create a new list containing valid spots only
+        # not sure if we have a value for the bg std 
+        bgstd=np.nan
+
+        if not self.bg_spot_sample==None:         # yes we do
+            bgstd = self.bg_spot_sample.std
+
+        # create a new list containing valid spots only
         validspots = []   
         validspotindices = []
         for si,s in enumerate(self.spots):
-            s.SNR = s.mean_intensity/bgstd
-            if s.SNR > SNR:
+            if s.use_borderbg:        # hang on a sec, spot knows its own bg!
+                bgstd = s.borderbgstd
+            s.SNR = s.intensity/bgstd     # --> SNR for each frame
+            if np.sum(s.SNR > SNR) >= .7*len(s.SNR):
                 validspots.append(s)
                 validspotindices.append(si)
-            # store SNR in SNR_image
-            s.store_property_in_image( self.SNR_image, 'SNR' )    # let's see if this works...
-
+            s.meanSNR = np.mean(s.SNR)
+            # store mean SNR in SNR_image
+            self.store_property_in_image( s, 'SNR_image', 'meanSNR' )    # let's see if this works...
 
         # and store in movie object
         self.validspots = validspots
         self.validspotindices = validspotindices        
 
-        if not quiet: print "Got %d valid spots" % len(self.validspots)
+        if not quiet: print "Got %d valid spots (of %d spots total)" % (len(self.validspots),len(self.spots))
+
+    def store_property_in_image(self, spot, image, prop):
+        # record the spot in the mean intensity image
+        for p in spot.pixel:
+            getattr(self,image)[ p[0], p[1] ] = getattr(spot, prop)
+#        image[ self.coords[1]:self.coords[3]+1, self.coords[0]:self.coords[2]+1 ] = getattr(self,prop)
 

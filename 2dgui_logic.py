@@ -1,6 +1,7 @@
 from PyQt4 import QtCore,QtGui
 import sys, os, time
 import util2dpolim.gui.the2dgui as the2dgui
+from sm_detection.sm_detector_gui import sm_detector_gui_logic
 import numpy as np
 from util2dpolim.movie import Movie
 from util2dpolim.misc import *
@@ -16,16 +17,15 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         super(the2dlogic,self).__init__(parent)
         self.setupUi(self)
         self.connectActions()
-
+        self.set_up_plots()
+        
         self.spefiles = []
         self.m = None
         self.pwd = os.path.dirname(os.path.abspath(__file__))
-        self.optical_element = 'Polarizer'
-        self.which_setup = self.whichSetupComboBox.currentIndex()
-        self.setup_list = ['old setup','new setup','cool new setup','header']
-        self.phase_offset = self.phaseOffsetLineEdit.text().toDouble()[0]        
         self.current_spot = None
         self.app = app
+        self.window_sm_detector = None
+        self.hi_my_name_is = "the 2d gui logic class!"
 
     def keyPressEvent(self, event):
         if event.key()==QtCore.Qt.Key_Up:
@@ -36,107 +36,109 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             self.move_crosshairs('left')
         if event.key()==QtCore.Qt.Key_Right:
             self.move_crosshairs('right')
+            
+    def set_up_plots( self ):
+        self.dataview.fig.clear()
+        self.dataview.myaxes = self.dataview.fig.add_subplot(111)
 
     def move_crosshairs( self, direction ):
         x = self.imageview.crosshairs_x
         y = self.imageview.crosshairs_y
         if not self.current_spot==None:
-            if direction=='up' or direction=='down':
-                delta = self.m.spots[self.current_spot].height
-            elif direction=='left' or direction=='right':
-                delta = self.m.spots[self.current_spot].width
-            else:
-                print 'whoa?'
+            while self.m.spots[self.current_spot].has_pixel( (x,y) ):
+                if direction=='up':   y -= 1
+                if direction=='down': y += 1
+                if direction=='left':  x -= 1
+                if direction=='right': x += 1
         else:
-            delta = 1
-
-        if direction=='up':
-            y -= delta
-        elif direction=='down':
-            y += delta
-        elif direction=='left':
-            x -= delta
-        elif direction=='right':
-            x += delta
-        x = np.clip(x,0,self.m.camera_data.datasize[1])
-        y = np.clip(y,0,self.m.camera_data.datasize[2])
+            if direction=='up':   y -= 1
+            if direction=='down': y += 1
+            if direction=='left':  x -= 1
+            if direction=='right': x += 1
+        x = np.clip(x,0,self.m.sample_data.datasize[1])
+        y = np.clip(y,0,self.m.sample_data.datasize[2])
         self.imageview.crosshairs_x = x
-        self.imageview.crosshairs_y = y
+        self.imageview.crosshairs_y = y                
+        self.imageview.hline.set_ydata( np.array([y,y]) )
+        self.imageview.vline.set_xdata( np.array([x,x]) )
+
         self.crosshair_pick()
 
     def crosshair_pick(self):
-        x = self.imageview.crosshairs_x
-        y = self.imageview.crosshairs_y
-        print 'x0=%f\ty0=%f' % (x,y)
+
+        col = self.imageview.crosshairs_c
+        row = self.imageview.crosshairs_r
+        print 'row=%f\tcol=%f' % (row,col)
         sys.stdout.flush()        
         
         self.current_spot = None
         if (not self.m==None) and hasattr(self.m,'spots'):
             # find the spot which covers these coordinates
             for si,s in enumerate(self.m.spots):
-                if (s.coords[0] <= x) and (s.coords[0]+s.width > x):
-                    if (s.coords[1] <= y) and (s.coords[1]+s.height > y):
-                        self.current_spot = si
-                        x = s.coords[0]+.5*s.width
-                        y = s.coords[1]+.5*s.height
-                        print 'picked spot #%d' % si
-                        sys.stdout.flush()
-                        break
-        self.imageview.crosshairs_x = x
-        self.imageview.crosshairs_y = y
-        self.imageview.hline.set_ydata( np.array([y,y]) )
-        self.imageview.vline.set_xdata( np.array([x,x]) )
+                if s.has_pixel( (row,col) ): 
+                    print 'yup'
+                    self.current_spot = si
+                    row = s.center[0]
+                    col = s.center[1]
+                    print 'picked spot #%d' % si
+                    sys.stdout.flush()
+                    break
+            if not self.m.bg_spot_sample==None:
+                if self.m.bg_spot_sample.has_pixel( (row,col) ):
+                    self.current_spot = -1
+                    row = self.m.bg_spot_sample.center[0]
+                    col = self.m.bg_spot_sample.center[1]
 
-        self.imageview.figure.canvas.restore_region(self.imageview.blitbackground)
+        self.imageview.crosshairs_c = col
+        self.imageview.crosshairs_r = row
+        self.imageview.hline.set_ydata( np.array([row,row]) )
+        self.imageview.vline.set_xdata( np.array([col,col]) )
+
         # self.imageview.figure.canvas.draw()
-        self.imageview.axes.draw_artist(self.imageview.hline)
-        self.imageview.axes.draw_artist(self.imageview.vline)
-        self.imageview.figure.canvas.blit(self.imageview.axes.bbox)
+#        self.imageview.myaxes.draw_artist(self.imageview.hline)
+#        self.imageview.myaxes.draw_artist(self.imageview.vline)
+        self.imageview.figure.canvas.draw()
 
         self.dataview_updater()
         self.spotInfo_updater()
+
 
     def main(self):
         self.show()
 
     def connectActions(self):
         """Connect the user interface controls to the logic """
+        self.centralwidget.keyPressEvent = self.keyPressEvent
         self.selectDataDirPushButton.clicked.connect( self.selectDataDir )
-        self.phaseOffsetLineEdit.editingFinished.connect( self.setPhaseOffset )
-        self.whichSetupComboBox.activated.connect( self.setWhichSetup )
         self.selectSPEComboBox.activated.connect( self.selectSPE )
         self.setBGSpotPushButton.clicked.connect( self.setBGSpot )
         self.addSignalSpotPushButton.clicked.connect( self.addSignalSpot )
         self.createSpotArrayPushButton.clicked.connect( self.createSpotArray )
         self.clearAllSpotsPushButton.clicked.connect( self.clearAllSpots )
-        self.initAnalysisPushButton.clicked.connect( self.initAnalysis )
+#        self.initAnalysisPushButton.clicked.connect( self.initAnalysis )
         self.checkSpotValidityPushButton.clicked.connect( self.checkSpotValidity )
-        self.centralwidget.keyPressEvent = self.keyPressEvent
         self.cosineFitPushButton.clicked.connect( self.cosineFit )
         self.findModDepthsPushButton.clicked.connect( self.findModDepths )
         self.showStuffComboBox.activated.connect( self.showStuff )
         self.ETrulerPushButton.clicked.connect( self.ETruler )
         self.showWhatComboBox.activated.connect( self.dataview_updater )
         self.saveContrastImagesPushButton.clicked.connect( self.saveContrastImages_hdf5 )
-        self.toolButton1.clicked.connect( self.tool1 )
-        self.toolButton2.clicked.connect( self.tool2 )
-        self.toolButton3.clicked.connect( self.tool3 )
+        self.importSpotCoordsPushButton.clicked.connect( self.importSpotCoords )
+        self.selectLastDataDirPushButton.clicked.connect( self.selectLastDataDir )
+        self.addSMPushButton.clicked.connect( self.addSM )
+        self.testPushButton.clicked.connect( self.test )
+        self.clearSpotPushButton.clicked.connect( self.clearSpot )
+        self.moveSpotUpPushButton.clicked.connect( self.moveSpotUp )
+        self.moveSpotDownPushButton.clicked.connect( self.moveSpotDown )
+        self.moveSpotLeftPushButton.clicked.connect( self.moveSpotLeft )
+        self.moveSpotRightPushButton.clicked.connect( self.moveSpotRight )
+        self.frameSlider.valueChanged.connect( self.frameSliderChanged )
 
-    def tool3(self):
-        self.tool2()
-        self.findModDepths()
-        time.sleep(.1)
-
-    def tool2(self):
-        self.tool1()
-        self.cosineFit()
-        time.sleep(.1)
-
-    def tool1(self):
-        self.initAnalysis()
-        time.sleep(.1)
-        self.checkSpotValidity()
-        time.sleep(.1)
+    def test(self):
+        b = self.m.spots[0].dilate()
+        self.dataview.myaxes.cla()
+        self.dataview.myaxes.imshow(b, interpolation='nearest')
+        self.dataview.figure.canvas.draw()
 
     def tryToUpdateFile( self, basefilename, what ):
         filename = basefilename+'_'+what+'_image.txt'
@@ -225,24 +227,24 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.imageview.M_em_rects = []
         self.imageview.phase_ex_rects = []
         self.imageview.phase_em_rects = []
-        self.m.find_modulation_depths_and_phases()
-        for s in self.m.validspots:
-            color = cm.jet(s.M_ex)
-            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
-                               facecolor=color, edgecolor=color, alpha=1, zorder=7 )
-            self.imageview.M_ex_rects.append( r )
-            color = cm.jet(s.M_em)
-            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
-                               facecolor=color, edgecolor=color, alpha=1, zorder=7 )
-            self.imageview.M_em_rects.append( r )
-            color = cm.hsv(s.phase_ex/np.pi+.5)
-            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
-                               facecolor=color, edgecolor=color, alpha=1, zorder=7 )
-            self.imageview.phase_ex_rects.append( r )
-            color = cm.hsv(s.phase_em/np.pi+.5)
-            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
-                               facecolor=color, edgecolor=color, alpha=1, zorder=7 )
-            self.imageview.phase_em_rects.append( r )
+        self.m.find_modulation_depths_and_phases_selective()
+        # for s in self.m.validspots:
+        #     color = cm.jet(s.M_ex)
+        #     r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+        #                        facecolor=color, edgecolor=color, alpha=1, zorder=7 )
+        #     self.imageview.M_ex_rects.append( r )
+        #     color = cm.jet(s.M_em)
+        #     r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+        #                        facecolor=color, edgecolor=color, alpha=1, zorder=7 )
+        #     self.imageview.M_em_rects.append( r )
+        #     color = cm.hsv(s.phase_ex/np.pi+.5)
+        #     r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+        #                        facecolor=color, edgecolor=color, alpha=1, zorder=7 )
+        #     self.imageview.phase_ex_rects.append( r )
+        #     color = cm.hsv(s.phase_em/np.pi+.5)
+        #     r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+        #                        facecolor=color, edgecolor=color, alpha=1, zorder=7 )
+        #     self.imageview.phase_em_rects.append( r )
 #            self.imageview.axes.add_patch( self.imageview.spot_rects[-1] )
 #        self.imageview.show_stuff( what='M_ex' )
         self.imageview.show_stuff(what='M_ex')
@@ -264,9 +266,9 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         
     def cosineFit(self):
         oldtext = self.setButtonWait( self.cosineFitPushButton )
-        self.m.excitation_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
-        self.m.emission_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
-        self.m.fit_all_portraits_spot_parallel()
+        # self.m.excitation_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
+        # self.m.emission_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
+        self.m.fit_all_portraits_spot_parallel_selective()
         self.unsetButtonWait( self.cosineFitPushButton, oldtext )
 
     def checkSpotValidity(self):
@@ -274,12 +276,12 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
 
         self.m.are_spots_valid( SNR=self.SNRSpinBox.value() )
         # reset color back to red 
-        for r in self.imageview.spot_rects:
+        for r in self.imageview.spot_gfxrepr:
             r.set_facecolor('red')
         # turn valid spots back on green
         for vsi in self.m.validspotindices:
-            self.imageview.spot_rects[vsi].set_facecolor('green')
-            self.imageview.spot_rects[vsi].set_edgecolor('green')
+            self.imageview.spot_gfxrepr[vsi].set_facecolor('green')
+            self.imageview.spot_gfxrepr[vsi].set_edgecolor('green')
 #        self.imageview.figure.canvas.draw()
         self.imageview.show_stuff(what='spots')
 
@@ -294,6 +296,60 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.initAnalysisPushButton.setChecked(False)
         self.unsetButtonWait( self.initAnalysisPushButton, oldtext )
 
+    def addSM(self):
+        nspotsbefore = len(self.m.spots)
+        boxedgelength = self.spotEdgeLengthSpinBox.value()
+
+        r = self.imageview.crosshairs_r
+        c = self.imageview.crosshairs_c
+
+        ri  = np.int( np.floor(r) - (boxedgelength-1)/2 )
+        ci  = np.int( np.floor(c) - (boxedgelength-1)/2 )
+        ri2 = np.int( np.ceil(r) + (boxedgelength-1)/2 )
+        ci2 = np.int( np.ceil(c) + (boxedgelength-1)/2 )
+        shape = {'type': 'Rectangle', \
+                     'left':  ci, \
+                     'right': ci2, \
+                     'lower': ri2, \
+                     'upper': ri }
+        self.m.define_spot( shape )
+        print 'defined spot  [ %d, %d, %d, %d ]' % ( ri,ci, ri2,ci2 )
+
+        # now populate that list
+        for s in self.m.spots[nspotsbefore:]:
+            r = s.graphical_representation()
+            self.imageview.spot_gfxrepr.append( r )
+
+        # reset selection rectangle
+        self.imageview.myrect.set_xy((0,0))
+        self.imageview.myrect.set_width(0)
+        self.imageview.myrect.set_height(0)
+
+        self.imageview.figure.canvas.draw()
+        self.imageview.show_stuff()
+
+    def importSpotCoords(self):
+        nspotsbefore  = len(self.m.spots)
+        print "nspotsbefore: ",nspotsbefore
+        import_spot_positions( self.m, 'coords.txt', \
+                                   boxedgelength=self.spotEdgeLengthSpinBox.value(), \
+                                   spot_type=self.spotTypeComboBox.currentText(), \
+                                   use_exspot=self.useExSpotCheckBox.isChecked(), \
+                                   use_borderbg=self.useBorderBGCheckBox.isChecked() )
+
+        # now populate that list
+        for s in self.m.spots[nspotsbefore:]:
+            r = s.graphical_representation()
+            self.imageview.spot_gfxrepr.append( r )
+
+        # reset selection rectangle
+        self.imageview.myrect.set_xy((0,0))
+        self.imageview.myrect.set_width(0)
+        self.imageview.myrect.set_height(0)
+
+        self.imageview.figure.canvas.draw()
+        self.imageview.show_stuff()
+        self.app.processEvents()
 
     def createSpotArray(self):
         oldtext = self.setButtonWait( self.createSpotArrayPushButton )
@@ -317,13 +373,13 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         for s in self.m.spots[nspotsbefore:]:
             r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
                                facecolor='red', edgecolor='red', alpha=.3, zorder=7 )
-            self.imageview.spot_rects.append( r )
-            self.imageview.axes.add_patch( self.imageview.spot_rects[-1] )
+            self.imageview.spot_gfxrepr.append( r )
+            self.imageview.myaxes.add_collection( self.imageview.spot_gfxrepr[-1] )
 
         # reset selection rectangle
-        self.imageview.rect.set_xy((0,0))
-        self.imageview.rect.set_width(0)
-        self.imageview.rect.set_height(0)
+        self.imageview.myrect.set_xy((0,0))
+        self.imageview.myrect.set_width(0)
+        self.imageview.myrect.set_height(0)
 
         self.imageview.figure.canvas.draw()
         self.imageview.show_stuff()
@@ -331,25 +387,24 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.unsetButtonWait( self.createSpotArrayPushButton, oldtext )
 
     def setBGSpot(self):
-        coords = np.round( np.array( [self.imageview.x0, self.imageview.y0, \
-                                          self.imageview.x1, self.imageview.y1] ) ).astype(np.int)
-        if coords[0]>coords[2]:
-            coords[0],coords[2]=coords[2],coords[0]
-        if coords[1]>coords[3]:
-            coords[1],coords[3]=coords[3],coords[1]
+        shape = {'type':'Rectangle', \
+                     'left':  np.int(self.imageview.c0), \
+                     'right': np.int(self.imageview.c1), \
+                     'upper': np.int(self.imageview.r0), \
+                     'lower': np.int(self.imageview.r1) }
 
 #        self.bg_region_coords = coords
-        self.imageview.bg_rect.set_xy((coords[0],coords[1]))
-        self.imageview.bg_rect.set_width(coords[2]-coords[0])
-        self.imageview.bg_rect.set_height(coords[3]-coords[1])
+        self.imageview.bg_rect.set_xy((self.imageview.c0,self.imageview.r0))
+        self.imageview.bg_rect.set_width(self.imageview.c1-self.imageview.c0)
+        self.imageview.bg_rect.set_height(self.imageview.r1-self.imageview.r0)
         # reset selection rectangle
-        self.imageview.rect.set_xy((0,0))
-        self.imageview.rect.set_width(0)
-        self.imageview.rect.set_height(0)
+        self.imageview.myrect.set_xy((0,0))
+        self.imageview.myrect.set_width(0)
+        self.imageview.myrect.set_height(0)
         # update canvas
         self.imageview.figure.canvas.draw()                       
         self.imageview.show_stuff()
-        self.m.define_background_spot( coords, intensity_type='mean' )
+        self.m.define_background_spot( shape, intensity_type='mean' )
 
 
     def addSignalSpot(self):
@@ -360,133 +415,234 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         if coords[1]>coords[3]:
             coords[1],coords[3]=coords[3],coords[1]
 
-        r = Rectangle( (coords[0],coords[1]), coords[2]-coords[0], \
-                           coords[3]-coords[1], facecolor='green', edgecolor='green', alpha=.3, zorder=8 )
-        self.imageview.spot_rects.append( r )
-        self.imageview.axes.add_patch( self.imageview.spot_rects[-1] )
+        # create spot
+        s = self.m.define_spot( coords, intensity_type='mean' )
+
+        # create rectangle patch which represents spot
+        r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+                           facecolor='red', edgecolor='red', alpha=.3, zorder=8 )
+        self.imageview.spot_gfxrepr.append( r )
+        self.imageview.myaxes.add_collection( r )
 
         # reset selection rectangle
-        self.imageview.rect.set_xy((0,0))
-        self.imageview.rect.set_width(0)
-        self.imageview.rect.set_height(0)
+        self.imageview.myrect.set_xy((0,0))
+        self.imageview.myrect.set_width(0)
+        self.imageview.myrect.set_height(0)
         # update canvas
         self.imageview.figure.canvas.draw()
-        self.m.define_spot( coords, intensity_type='mean' )
 
+    def clearSpot(self):
+        if not self.current_spot==None:
+            self.imageview.spot_gfxrepr[ self.current_spot ].remove()
+            self.imageview.spot_gfxrepr.pop( self.current_spot )
+            self.m.spots.pop( self.current_spot )
+            self.validspots = None
+            self.m.initContrastImages()
+            self.imageview.figure.canvas.draw()
 
     def clearAllSpots(self):
-        for r in self.imageview.spot_rects:
+        for r in self.imageview.spot_gfxrepr:
+            print r.get_axes()
             r.remove()
-        self.imageview.spot_rects = []
+        self.imageview.spot_gfxrepr = []
         self.m.spots = []
+        self.validspots = None
         self.m.initContrastImages()
         self.imageview.figure.canvas.draw()
 
 
-    def dataview_updater(self):
+    def moveSpot(self, direction, dist):
         if not self.current_spot==None:
+            # grab coords
+            coords = self.m.spots[self.current_spot].coords
+            # clear old spot
+            self.clearSpot()
+            # move spot
+            if direction=='up':
+                coords[1] -= dist
+                coords[3] -= dist
+            elif direction=='down':
+                coords[1] += dist
+                coords[3] += dist
+            elif direction=='left':
+                coords[0] -= dist
+                coords[2] -= dist
+            elif direction=='right':
+                coords[0] += dist
+                coords[2] += dist
+            else:
+                raise ValueError('moveSpot: bad direction "%s", should be up|down|left|right.' % direction)
+
+            # check for boundary cases
+            if coords[0] < 0:
+                coords[0] -= coords[0]
+                coords[2] -= coords[0]
+            if coords[2] >= self.m.sample_data.datasize[2]:
+                coords[0] -= coords[2] -self.m.sample_data.datasize[2] +1
+                coords[2] -= coords[2] -self.m.sample_data.datasize[2] +1
+            if coords[1] < 0:
+                coords[1] -= coords[1]
+                coords[3] -= coords[1]
+            if coords[3] >= self.m.sample_data.datasize[1]:
+                coords[0] -= coords[3] -self.m.sample_data.datasize[3] +1
+                coords[3] -= coords[3] -self.m.sample_data.datasize[3] +1
+
+
+            # re-define spot
+            s = self.m.define_spot( coords, intensity_type='mean' )
+            # the previous 'current spot' doesn't exist anymore (the index will point to
+            # some other spot, or may be invalid) -- the moved spot is at the end
+            # of the spot list:
+            self.current_spot = len(self.m.spots)-1
+            # keep the crosshairs on said spot                        
+            x = s.coords[0]+.5*s.width
+            y = s.coords[1]+.5*s.height
+            self.imageview.hline.set_ydata( np.array([y,y]) )
+            self.imageview.vline.set_xdata( np.array([x,x]) )
+
+            # recreate rectangle patch and update canvas
+            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
+                               facecolor='red', edgecolor='red', alpha=.3, zorder=8 )
+            self.imageview.spot_gfxrepr.append( r )
+            self.imageview.myaxes.add_collection( r )
+            self.imageview.figure.canvas.draw()
+
+            # for some reason this needs to happen after re-drawing the canvas
+            self.imageview.myaxes.draw_artist(self.imageview.hline)
+            self.imageview.myaxes.draw_artist(self.imageview.vline)
+
+            self.dataview_updater()
+            self.spotInfo_updater()
+
+
+    def moveSpotUp(self):
+        self.moveSpot( direction='up', dist=1 )
+            
+    def moveSpotDown(self):
+        self.moveSpot( direction='down', dist=1 )
+
+    def moveSpotLeft(self):
+        self.moveSpot( direction='left', dist=1 )
+
+    def moveSpotRight(self):
+        self.moveSpot( direction='right', dist=1 )
+
+    def dataview_updater(self):
+        self.dataview.figure.clear()
+        self.dataview.myaxes = self.dataview.figure.add_subplot(111)
+
+        if not self.current_spot==None:
+            if self.current_spot==-1:
+                spot = self.m.bg_spot_sample
+            else:
+                spot = self.m.spots[self.current_spot]
+
             showWhat = self.showWhatComboBox.currentIndex()
             if showWhat==0:    # intensity trace
-                if hasattr(self.m.spots[self.current_spot], 'intensity'):
-#                    print 'showing intensity trace'
-                    self.dataview.clear()
-                    self.dataview.figure.canvas.draw()
-                    self.dataview.axes.plot( self.m.spots[self.current_spot].intensity, 'bx-' )
-                    self.dataview.figure.canvas.draw()
+                if hasattr(spot, 'intensity'):
+                    # self.dataview.myaxes.cla()
+                    # self.dataview.figure.canvas.draw()
+                    self.dataview.myaxes.plot( spot.intensity, 'bx-' )
+                    self.dataview.myaxes.set_aspect('normal')
+
             elif showWhat==1:    # portrait data
-                if hasattr(self.m.spots[self.current_spot], 'portraits'):
- #                   print 'showing portrait data'
-                    self.dataview.clear()
-                    self.dataview.figure.canvas.draw()
-                    # collect all intensities
+                # self.dataview.myaxes.cla()
+                # self.dataview.myaxes.set_ylim(0,1)
+                # self.dataview.myaxes.set_ylim(auto=True)
 
-                    Nemangles = np.unique(self.m.spots[self.current_spot].portraits[0].emangles).size
-                    print self.m.spots[self.current_spot].portraits[0].emangles
-                    allints = np.array([])
-                    for l in self.m.spots[self.current_spot].portraits[0].lines:
-                        allints = np.hstack( (allints,l.intensities) )
-                    maxint = np.max(allints)
-                    scaler = 180.0/Nemangles/2/maxint
-                    
-                    for p in self.m.spots[self.current_spot].portraits:
-                        for l in p.lines:
-                            self.dataview.axes.plot( l.exangles, 180/np.pi*l.emangle + scaler*l.intensities, 'bx:' )
-                            self.dataview.axes.fill_between( l.exangles, \
-                                     180/np.pi*l.emangle + scaler*l.intensities, \
-                                     180/np.pi*l.emangle*np.ones_like(l.intensities), \
-                                     facecolor='b', alpha=.4 )
-                            print np.min(l.intensities),' --- ',np.max(l.intensities)
+                Nemangles = np.unique( self.m.emangles ).size
+                scaler = 180.0/Nemangles/2/np.max( spot.intensity )
 
-                            if l.was_fitted:
-                                self.dataview.axes.plot( l.exangles, 180/np.pi*l.emangle + scaler*l.cosValue(l.exangles), 'r-' )
-                                print 'phase=%f\tI0=%f\tM0=%f\tresi=%f' % (l.phase,l.I0,l.M0,l.resi)
-                                print 'l.exangles=', str(l.exangles)
-
-                    self.dataview.figure.canvas.draw()
+                for p in range(self.m.Nportraits):
+                    for l in range(self.m.Nlines):
+                        exangles, emangle = self.m.retrieve_angles( p, l )
+                        print "emangle: ",emangle
+                        intensity = spot.retrieve_intensity( p, l )
+                        print intensity
+                        print exangles
+                        sortind = np.argsort( exangles )
+                        self.dataview.myaxes.plot( exangles[sortind], \
+                                                       180/np.pi*emangle + scaler*intensity[sortind], \
+                                                       'bx:' )
+                        self.dataview.myaxes.fill_between( exangles[sortind], \
+                                                               180/np.pi*emangle + scaler*intensity[sortind], \
+                                                               180/np.pi*emangle*np.ones_like(intensity[sortind]), \
+                                                               facecolor='b', alpha=.4 )
+                        
+                        if hasattr( spot, 'linefitparams' ):
+                            fit = spot.retrieve_line_fit( p, l, exangles )
+                            self.dataview.myaxes.plot( exangles[sortind], \
+                                                         180/np.pi*emangle + scaler*fit[sortind], \
+                                                         'r-' )            
 
             elif showWhat==2:    # portrait fit
-                print 'yup'
-                self.dataview.clear()
-                self.dataview.figure.canvas.draw()
-                i=self.dataview.axes.imshow( self.m.spots[self.current_spot].recover_average_portrait_matrix(),\
+                i=self.dataview.myaxes.imshow( spot.recover_average_portrait_matrix(),\
                                                  origin='lower', interpolation='nearest' )
-                self.dataview.axes.set_position( [.25,.1,.62,.62] )
+                self.dataview.myaxes.set_position( [.25,.1,.62,.62] )
                 axis_proj_em = self.dataview.fig.add_axes([.05,.1,.2,.62])
                 axis_proj_ex = self.dataview.fig.add_axes([.25,.1+.62,.62,.2])
 
-                axis_proj_em.plot( self.m.spots[self.current_spot].proj_em, self.m.emission_angles_grid )
+                axis_proj_em.plot( spot.proj_em, self.m.emission_angles_grid )
                 axis_proj_em.set_xlim( xmin=np.max(axis_proj_em.get_xlim()), xmax=0 )
                 [ label.set_rotation(90) for label in axis_proj_em.get_xticklabels() ]
-                axis_proj_ex.plot( self.m.excitation_angles_grid, self.m.spots[self.current_spot].proj_ex )
+                axis_proj_ex.plot( self.m.excitation_angles_grid, spot.proj_ex )
                 axis_proj_ex.set_ylim( ymin=0, ymax=np.max(axis_proj_ex.get_ylim()) )
 
-                self.dataview.figure.canvas.draw()
-
-
-#            print dir(self.m.spots[self.current_spot])
         else:
-            self.dataview.clear()
-            self.dataview.figure.canvas.draw()
+            r = self.imageview.crosshairs_r
+            c = self.imageview.crosshairs_c
+            self.dataview.myaxes.plot( self.m.sample_data.rawdata[ :, r, c ] )
+            frame = self.frameSlider.value()
+            self.dataview.myaxes.axvline( frame, color='r', ls=':', zorder=9 )
+
+        self.dataview.figure.canvas.draw()
 
 
     def spotInfo_updater(self):
-        # is this a valid spot?
-        isvalid = False
-        s = self.m.spots[self.current_spot]
-        if hasattr(self.m, 'validspotindices'):
-            if self.m.validspotindices.count( self.current_spot )>0:
-                isvalid = True
+        if not self.current_spot==None:
 
-        # prepare info
-        infostring  = "area=( %d--%d, %d--%d )<br>" % (s.coords[0],s.coords[0]+s.width, \
-                                                           s.coords[1],s.coords[1]+s.height)
-        if hasattr(s,'SNR'):
-            if isvalid:
-                infostring += 'SNR   = <font color="#00ff00">%f</font>    <br>' % s.SNR
+            if self.current_spot==-1:
+                s = self.m.bg_spot_sample
             else:
-                infostring += 'SNR   = <font color="#ff0000">%f</font>    <br>' % s.SNR
+                s = self.m.spots[self.current_spot]
 
-        if hasattr(s,'M_ex'):
-            infostring += 'M<sub>ex</sub>  = %f<br>' % s.M_ex
-        if hasattr(s,'M_em'):
-            infostring += 'M<sub>em</sub>  = %f<br>' % s.M_em
-        if hasattr(s,'phase_ex'):
-            infostring += '&phi;<sub>ex</sub>  = %f deg<br>' % (s.phase_ex*180/np.pi)
-        if hasattr(s,'phase_em'):
-            infostring += '&phi;<sub>em</sub>  = %f deg<br>' % (s.phase_em*180/np.pi)
-        if hasattr(s,'ET_ruler'):
-            infostring += 'ET<sub>ruler</sub>  = %f<br>' % s.ET_ruler
-        if hasattr(s,'ET_model_md_fu'):
-            infostring += 'ET model: M<sub>funnel</sub>  = %f<br>' % s.ET_model_md_fu
-            infostring += 'ET model: &theta;<sub>funnel</sub>  = %f<br>' % (s.ET_model_th_fu*180/np.pi)
-            infostring += 'ET model: geom. ratio  = %f<br>' % s.ET_model_gr
-            infostring += 'ET model: ET param.  = %f<br>' % s.ET_model_et
+            # is this a valid spot?
+            isvalid = False
+            if hasattr(self.m, 'validspotindices'):
+                if self.m.validspotindices.count( self.current_spot )>0:
+                    isvalid = True
 
-        if hasattr(s,'intensity'):
-            infostring += 'min(intensity) = %f<br>' % np.min(s.intensity)
-            infostring += 'max(intensity) = %f<br>' % np.max(s.intensity)
+            # prepare info
+            # infostring  = "area=( %d--%d, %d--%d )<br>" % (s.coords[0],s.coords[0]+s.width, \
+            #                                                s.coords[1],s.coords[1]+s.height)
+            infostring  = "shape=%s<br>" % (str(s.shape))
+            if hasattr(s,'SNR'):
+                if isvalid:
+                    infostring += 'mean SNR   = <font color="#00df00">%f</font>    <br>' % s.meanSNR
+                else:
+                    infostring += 'mean SNR   = <font color="#ef0000">%f</font>    <br>' % s.meanSNR
 
-        self.spotInfoTextBrowser.setHtml(infostring)
+            if hasattr(s,'M_ex'):
+                infostring += 'M<sub>ex</sub>  = %f<br>' % s.M_ex
+            if hasattr(s,'M_em'):
+                infostring += 'M<sub>em</sub>  = %f<br>' % s.M_em
+            if hasattr(s,'phase_ex'):
+                infostring += '&phi;<sub>ex</sub>  = %f deg<br>' % (s.phase_ex*180/np.pi)
+            if hasattr(s,'phase_em'):
+                infostring += '&phi;<sub>em</sub>  = %f deg<br>' % (s.phase_em*180/np.pi)
+            if hasattr(s,'ET_ruler'):
+                infostring += 'ET<sub>ruler</sub>  = %f<br>' % s.ET_ruler
+            if hasattr(s,'ET_model_md_fu'):
+                infostring += 'ET model: M<sub>funnel</sub>  = %f<br>' % s.ET_model_md_fu
+                infostring += 'ET model: &theta;<sub>funnel</sub>  = %f<br>' % (s.ET_model_th_fu*180/np.pi)
+                infostring += 'ET model: geom. ratio  = %f<br>' % s.ET_model_gr
+                infostring += 'ET model: ET param.  = %f<br>' % s.ET_model_et
+
+            if hasattr(s,'intensity'):
+                infostring += 'min(intensity) = %f<br>' % np.min(s.intensity)
+                infostring += 'max(intensity) = %f<br>' % np.max(s.intensity)
+
+            self.spotInfoTextBrowser.setHtml(infostring)
 
 
     def selectSPE(self):
@@ -494,23 +650,49 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.load_and_display_spe_file(fileindex=self.selectSPEComboBox.currentIndex())
 
 
-    def setWhichSetup(self):
-        self.which_setup = self.whichSetupComboBox.currentIndex()        
-
     def setPhaseOffset(self):
         self.phaseOffset = self.phaseOffsetLineEdit.text().toDouble()[0]
         print "Phase offset set to %f [deg]" % self.phaseOffset
 
+    def selectLastDataDir(self):
+        # get from lastdir
+        f = open('lastdir.txt','r')
+        fname = f.readline()
+        f.close()
+
+        self.data_directory = str(fname)
+        self.dataDirLabel.setText(self.data_directory)
+
+        # go to dir
+        os.chdir( self.data_directory )
+
+        self.handleDataDir()
+
+        
     def selectDataDir(self):
         fname = QtGui.QFileDialog.getExistingDirectory(self, 'Show me where the data is', \
                 directory='' )
         print "Selected data directory ", fname
 
+        if fname=='':
+            return
+
         self.data_directory = str(fname)
-        self.selectDataDirPushButton.setText(self.data_directory)
+        self.dataDirLabel.setText(self.data_directory)
+
+        # save in lastdir
+        f = open('lastdir.txt','w')
+        f.writelines( [self.data_directory] )
+        f.close()
 
         # go to dir
         os.chdir( self.data_directory )
+
+
+        self.handleDataDir()
+
+    def handleDataDir(self):
+
         print "Looking for SPE data..."
         # get all filenames
         for file in os.listdir("."):
@@ -566,16 +748,53 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         #                     phase_offset_excitation=self.phase_offset*np.pi/180.0, \
         #                     which_setup=self.setup_list[self.which_setup], \
         #                     excitation_optical_element=self.optical_element)
+        # self.m = Movie( self.data_directory, \
+        #                     self.spefiles[fileindex][:-4], \
+        #                     phase_offset_in_deg=self.phase_offset, \
+        #                     which_setup=self.setup_list[self.which_setup], \
+        #                     excitation_optical_element=self.optical_element)
         self.m = Movie( self.data_directory, \
-                            self.spefiles[fileindex][:-4], \
-                            phase_offset_in_deg=self.phase_offset, \
-                            which_setup=self.setup_list[self.which_setup], \
-                            excitation_optical_element=self.optical_element)
+                            self.spefiles[fileindex][:-4] )
+#                            phase_offset_in_deg=self.phase_offset )
+        self.m.startstop()
 
-        self.imageview.show_image( self.m.camera_data.rawdata[0,:,:], zorder=1, cmap=cm.gray )
-#        self.imageview.axes.imshow( 
+        print self.imageview.myaxes.artists
+        print self.imageview.myaxes.patch
+        print self.imageview.myaxes.collections
+        print self.imageview.myaxes.images
+        print self.imageview.myaxes.lines
+        print self.imageview.myaxes.patches
+        print self.imageview.myaxes.texts
+        print self.imageview.myaxes.xaxis
+        print self.imageview.myaxes.yaxis
+        print '-----------------------------------------'
+
+        self.imageview.show_image( self.m.sample_data.rawdata[0,:,:], zorder=1, cmap=cm.gray )
+#        self.imageview.myaxes.imshow( 
 #        self.imageview.draw()
         print "done"
+        print self.imageview.myaxes.artists
+        print self.imageview.myaxes.patch
+        print self.imageview.myaxes.collections
+        print self.imageview.myaxes.images
+        print self.imageview.myaxes.lines
+        print self.imageview.myaxes.patches
+        print self.imageview.myaxes.texts
+        print self.imageview.myaxes.xaxis
+        print self.imageview.myaxes.yaxis
+
+        self.frameSlider.setMaximum( self.m.sample_data.rawdata.shape[0]-1 )
+
+
+    def frameSliderChanged( self ):
+        frame = self.frameSlider.value()
+        print frame
+        self.imageview.show_image( self.m.sample_data.rawdata[frame,:,:], zorder=1, cmap=cm.gray )
+
+        self.dataview_updater()
+
+
+
 
 
 if __name__=='__main__':

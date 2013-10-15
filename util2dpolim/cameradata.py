@@ -3,7 +3,7 @@ from spefiles import MyPrincetonSPEFile
 
 class CameraData:
 
-    def __init__( self, spe_filename, compute_frame_average=False, in_counts_per_sec=True ):
+    def __init__( self, spe_filename, compute_frame_average=False, in_counts_per_sec=False ):
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
 
         self.filename           = spe_filename

@@ -14,21 +14,24 @@ import spot_picker
 class MyMplCanvas(FigureCanvas):
     """Simple canvas with a sine plot."""
     def __init__(self, parent=None, width=5, height=4, dpi=100):
+
+#        self.use_blit = False
+
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         matplotlib.rcParams.update( {'font size': 9} )
-        self.axes = self.fig.add_subplot(111)
-        self.refimagehsv = self.axes.imshow(180*(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) )-.5), cmap=cm.hsv, zorder=1 )
-        self.refimagejet = self.axes.imshow(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) ), cmap=cm.jet, zorder=1 )
+        self.myaxes = self.fig.add_subplot(111)
+        self.refimagehsv = self.myaxes.imshow(180*(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) )-.5), cmap=cm.hsv, zorder=1 )
+        self.refimagejet = self.myaxes.imshow(np.outer( np.linspace(0,1,10),np.linspace(0,1,10) ), cmap=cm.jet, zorder=1 )
         self.cbar = self.fig.colorbar(self.refimagejet)
         # push cbar to right edge of canvas
         self.cbaraxis = self.fig.axes[1]
         self.cbaraxis.set_position( [.9,.1,.05,.8] )
         # now size up the main plot a bit
-        self.axes.set_position( [.05, .1, .8, .8] )
+        self.myaxes.set_position( [.05, .1, .8, .8] )
 #        self.figure.canvas.draw()
 
         # We want the axes cleared every time plot() is called
-#        self.axes.hold(False)
+#        self.myaxes.hold(False)
 
         #
         FigureCanvas.__init__(self, self.fig)
@@ -39,38 +42,42 @@ class MyMplCanvas(FigureCanvas):
                                    QtGui.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
 
-        self.crosshairs_x = 0
-        self.crosshairs_y = 0
-        self.hline = self.axes.axhline(0, color='w', ls=':', zorder=9)
-        self.vline = self.axes.axvline(0, color='w', ls=':', zorder=9)
+        self.crosshairs_c = 0
+        self.crosshairs_r = 0
+        self.hline = self.myaxes.axhline(0, color='w', ls=':', zorder=9)
+        self.vline = self.myaxes.axvline(0, color='w', ls=':', zorder=9)
+        self.hline.set_gid( 'crosshair_horizontal' )
+        self.vline.set_gid( 'crosshair_vertical' )
 
-        self.bg_rect = Rectangle((0,0), 0, 0, facecolor='blue', edgecolor='blue', alpha=.3, zorder=8 )
-        self.axes.add_patch(self.bg_rect)
+        self.bg_rect = Rectangle((0,0), 0, 0, facecolor='blue', edgecolor='blue', alpha=.15, zorder=8 )
+        self.bg_rect.set_gid( 'background rectangle' )
+        self.myaxes.add_artist(self.bg_rect)
 
         # self.signal_rect = Rectangle((0,0), 0, 0, facecolor='red', edgecolor='red', alpha=.3, zorder=9 )
-        # self.axes.add_patch(self.signal_rect)
+        # self.myaxes.add_patch(self.signal_rect)
 
         self.M_ex_rects = []
         self.M_em_rects = []
         self.phase_ex_rects = []
         self.phase_em_rects = []
-        self.spot_rects = []
+        self.spot_gfxrepr = []
 
-#        self.anno = spot_picker.Annotate(self.axes)
+#        self.anno = spot_picker.Annotate(self.myaxes)
 
 
-        self.rect = Rectangle((0,0), 0, 0, facecolor='yellow', edgecolor='yellow', alpha=.5, \
+        self.myrect = Rectangle((0,0), 0, 0, facecolor='yellow', edgecolor='yellow', alpha=.15, \
                                   zorder=10, clip_on=False)
-        self.x0 = None
-        self.y0 = None
-        self.x1 = None
-        self.y1 = None
+        self.myrect.set_gid( 'selection rectangle' )
+        self.c0 = None
+        self.r0 = None
+        self.c1 = None
+        self.r1 = None
         self.is_pressed = False
-        self.axes.add_patch(self.rect)
-        self.axes.figure.canvas.mpl_connect('button_press_event', self.on_press)
-        self.axes.figure.canvas.mpl_connect('button_release_event', self.on_release)
-        self.axes.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-        self.axes.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        self.myaxes.add_artist(self.myrect)
+        self.myaxes.figure.canvas.mpl_connect('button_press_event', self.on_press)
+        self.myaxes.figure.canvas.mpl_connect('button_release_event', self.on_release)
+        self.myaxes.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+#        self.myaxes.figure.canvas.mpl_connect('key_press_event', self.on_key)
         self.draw()
 
     def on_key(self, event):
@@ -82,118 +89,123 @@ class MyMplCanvas(FigureCanvas):
             
 
     def on_press(self, event):
-        self.is_pressed = True
-        print 'press'
-        self.x0 = event.xdata
-        self.y0 = event.ydata    
-        self.x1 = event.xdata
-        self.y1 = event.ydata
-        if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):
-            self.rect.set_width(self.x1 - self.x0)
-            self.rect.set_height(self.y1 - self.y0)
-            self.rect.set_xy((self.x0, self.y0))
-            self.rect.set_linestyle('dashed')
-        self.figure.canvas.restore_region(self.blitbackground)
-        self.axes.draw_artist(self.rect)
-        self.figure.canvas.blit(self.axes.bbox)
-#        self.axes.figure.canvas.draw()
+        if self.parent().parent().imageview_navbar.mode=='':
+            self.is_pressed = True
+            print 'press'
+            self.c0 = np.round( event.xdata )
+            self.r0 = np.round( event.ydata )
+            self.c1 = np.round( event.xdata )
+            self.r1 = np.round( event.ydata )
+            if not np.any( [c==None for c in [self.c0,self.r0,self.c1,self.r1]] ):
+                self.myrect.set_width(self.c1 - self.c0)
+                self.myrect.set_height(self.r1 - self.r0)
+                self.myrect.set_xy((self.c0, self.r0))
+                self.myrect.set_linestyle('dashed')
+                self.myaxes.figure.canvas.draw()
     def on_motion(self,event):
-        if self.is_pressed is True:
-            self.x1 = event.xdata
-            self.y1 = event.ydata
-            if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):
-                self.rect.set_width(self.x1 - self.x0)
-                self.rect.set_height(self.y1 - self.y0)
-                self.rect.set_xy((self.x0, self.y0))
-                self.rect.set_linestyle('dashed')
-                self.figure.canvas.restore_region(self.blitbackground)
-                self.axes.draw_artist(self.rect)
-                self.figure.canvas.blit(self.axes.bbox)
-#                self.axes.figure.canvas.draw()
+        if self.parent().parent().imageview_navbar.mode=='':
+            if self.is_pressed is True:
+                self.c1 = np.round( event.xdata )
+                self.r1 = np.round( event.ydata )
+                if not np.any( [c==None for c in [self.c0,self.r0,self.c1,self.r1]] ):
+                    self.myrect.set_width(self.c1 - self.c0)
+                    self.myrect.set_height(self.r1 - self.r0)
+                    self.myrect.set_xy((self.c0, self.r0))
+                    self.myrect.set_linestyle('dashed')
+                    self.myaxes.figure.canvas.draw()
     def on_release(self, event):
-        self.is_pressed = False
-        print 'release'
-        self.x1 = event.xdata
-        self.y1 = event.ydata
-        if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):
-            self.rect.set_width(self.x1 - self.x0)
-            self.rect.set_height(self.y1 - self.y0)
-            self.rect.set_xy((self.x0, self.y0))
-            self.rect.set_linestyle('solid')
-            self.figure.canvas.restore_region(self.blitbackground)
-            self.axes.draw_artist(self.rect)
-            self.figure.canvas.blit(self.axes.bbox)
-            # self.axes.figure.canvas.draw()
-        print self.x0,self.y0,self.x1,self.y1
+        if self.parent().parent().imageview_navbar.mode=='':
+            self.is_pressed = False
+            print 'release'
+            self.c1 = np.round( event.xdata )
+            self.r1 = np.round( event.ydata )
+            if self.c0 > self.c1:
+                self.c0,self.c1=self.c1,self.c0
+            if self.r0 > self.r1:
+                self.r0,self.r1=self.r1,self.r0
+            if not np.any( [c==None for c in [self.c0,self.r0,self.c1,self.r1]] ):
+                self.myrect.set_width(self.c1 - self.c0)
+                self.myrect.set_height(self.r1 - self.r0)
+                self.myrect.set_xy((self.c0, self.r0))
+                self.myrect.set_linestyle('solid')
+                self.myaxes.figure.canvas.draw()
+            print self.c0,self.r0,self.c1,self.r1
         
-        self.crosshairs_active = False
-        if self.x0==self.x1 and self.y0==self.y1:
-            self.crosshairs_active = True
-            self.crosshairs_x = np.round(self.x0)
-            self.crosshairs_y = np.round(self.y0)
-            self.hline.set_ydata( np.array([self.crosshairs_y,self.crosshairs_y]) )
-            self.vline.set_xdata( np.array([self.crosshairs_x,self.crosshairs_x]) )
-            # self.figure.canvas.restore_region(self.imageview.blitbackground)
-            # self.axes.draw_artist(self.hline)
-            # self.axes.draw_artist(self.vline)
-            # self.figure.canvas.blit(self.axes.bbox)
-#            self.axes.figure.canvas.draw()
-            self.parent().parent().crosshair_pick()
+            self.crosshairs_active = False
+            if self.c0==self.c1 and self.r0==self.r1:
+                self.crosshairs_active = True
+                self.crosshairs_c = np.round(self.c0)
+                self.crosshairs_r = np.round(self.r0)
+                # self.hline.set_ydata( np.array([self.crosshairs_y,self.crosshairs_y]) )
+                # self.vline.set_xdata( np.array([self.crosshairs_x,self.crosshairs_x]) )
+                self.parent().parent().crosshair_pick()
 
-
-    def clear(self):
-        self.fig.clear()
-        self.axes = self.fig.add_subplot(111)
 
     def show_image(self,image, origin='upper', zorder=1, cmap=cm.gray):
-        # self.fig.clear()
-        # self.axes = self.fig.add_subplot(111)
-        self.axes.imshow( image, origin=origin, zorder=zorder, cmap=cmap )
+        self.myaxes.cla()
+
+        im = self.myaxes.imshow( image, origin=origin, \
+                                 zorder=zorder, cmap=cmap, \
+                                 interpolation='nearest', alpha=1 )
+
+        self.cbar = self.fig.colorbar(im, cax=self.fig.axes[1] )
+        self.fig.axes[0].set_position( [.05, .1, .8, .8] )
+        self.fig.axes[1].set_position( [.9,.1,.05,.8] )
         self.figure.canvas.draw()
         self.show_stuff(what='')
 
+        # print 'artists in mymplcanvas:'
+        # print self.myaxes.artists
+        # for a in self.myaxes.artists:
+        #     print a," --> ",a.get_gid()
+
     def show_stuff(self, what='spots' ):        
 
-        while len(self.axes.patches)>0:
-            self.axes.patches[0].remove()
+        for g in self.spot_gfxrepr:
+            if not g.get_axes()==None:
+                g.remove()
 
-        self.axes.add_patch( self.rect )
-        self.axes.add_patch( self.bg_rect )
+        self.myaxes.add_artist( self.hline )
+        self.myaxes.add_artist( self.vline )
+        self.myaxes.add_artist( self.myrect )
+        self.myaxes.add_artist( self.bg_rect )
 
         if what=='spots':
-            for r in self.spot_rects:
-                self.axes.add_patch( r )
-            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
+            for r in self.spot_gfxrepr:
+                self.myaxes.add_artist( r )
+                self.myaxes.draw_artist( r )
+#            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='M_ex':
-            for r in self.M_ex_rects:
-                self.axes.add_patch( r )
-            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
+            mex_im = self.myaxes.imshow( self.parent().parent().m.M_ex_image, alpha=1, zorder=2 )
+            self.cbar = self.fig.colorbar(mex_im, cax=self.fig.axes[1] )
+#            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='M_em':
             for r in self.M_em_rects:
-                self.axes.add_patch( r )
-            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
+                self.myaxes.add_patch( r )
+#            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='phase_ex':
             for r in self.phase_ex_rects:
-                self.axes.add_patch( r )
-            self.cbar = self.fig.colorbar(self.refimagehsv, cax=self.cbaraxis )
+                self.myaxes.add_patch( r )
+#            self.cbar = self.fig.colorbar(self.refimagehsv, cax=self.cbaraxis )
         elif what=='phase_em':
             for r in self.phase_em_rects:
-                self.axes.add_patch( r )
-            self.cbar = self.fig.colorbar(self.refimagehsv, cax=self.cbaraxis )
+                self.myaxes.add_patch( r )
+#            self.cbar = self.fig.colorbar(self.refimagehsv, cax=self.cbaraxis )
         elif what=='ET_ruler':
             for r in self.ET_ruler_rects:
-                self.axes.add_patch( r )
-            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
+                self.myaxes.add_patch( r )
+#            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
 
-        self.hline.set_visible(False)
-        self.vline.set_visible(False)
+#         self.hline.set_visible(False)
+#         self.vline.set_visible(False)
             
         self.figure.canvas.draw()
 
-        self.blitbackground = self.figure.canvas.copy_from_bbox(self.axes.bbox)
+# #        if self.use_blit:
+# #            self.blitbackground = self.figure.canvas.copy_from_bbox(self.myaxes.bbox)
 
-        self.hline.set_visible(True)
-        self.vline.set_visible(True)
+#         self.hline.set_visible(True)
+#         self.vline.set_visible(True)
 
-        self.axes.draw_artist(self.hline)
-        self.axes.draw_artist(self.vline)
+#         self.myaxes.draw_artist(self.hline)
+#         self.myaxes.draw_artist(self.vline)
