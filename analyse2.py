@@ -4,8 +4,7 @@ from util2dpolim.movie import Movie
 from util2dpolim.misc import grid_image_section_into_squares_and_define_spots, \
     save_hdf5, \
     combine_outputs, \
-    show_mem, \
-    find_measurement_files_in_directory
+    show_mem
 import time as stopwatch
 
 from mpi4py import MPI
@@ -18,18 +17,20 @@ tstart = stopwatch.time()
 
 
 prefix = '/home/rafael/Desktop/Win/Well 01/'
-
-basename = 'Cells-633ex-Well1-Area-01.SPE'
+# basename = 'S3-633ex-OD1-gain1-675LP-01'
+# basename = 'edge1'
+basename = 'Cells-633ex-Well1-Area-01'
 
 bgbounds   = [3,110,53,490]
 fullbounds = [60,110,480,490]
 resolution = 4
 Nrowsatatime = 20*resolution
 
-
 for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
 
     m = Movie( prefix, basename )
+    m.startstop()
+
     m.define_background_spot( bgbounds )
 
     bounds = [ fullbounds[0], r, fullbounds[2], r+Nrowsatatime ]
@@ -43,6 +44,7 @@ for r in np.arange(fullbounds[1], fullbounds[3], Nrowsatatime):
     m.startstop()
     m.assign_portrait_data()
     m.are_spots_valid(SNR=4)
+
     # the rest is done only if we actually have any valid spots here
     if not len(m.validspots)==0:
         # m.fit_all_portraits_spot_parallel()

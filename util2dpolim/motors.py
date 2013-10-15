@@ -58,14 +58,22 @@ class BothMotorsWithHeader:
                 raise ValueError("Phase offset in header is NaN (which should only be the case if this is an AM measurement), but no phase offset was specified to the movie class.")
 
         self.framenumbers = md[:,0]
-        print self.header['optical element in excitation']
-        if self.header['optical element in excitation']=='l/2 plate':
-            print 'Header says that l/2 plate was used.'
-            self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+#        print self.header['optical element in excitation']
+
+        if md.shape[1]==5:  #### NEW STYLE ANGLES!
+            self.excitation_angles        = (md[:,2] + phase_offset_in_deg ) * np.pi/180.0
+            self.emission_angles          = md[:,4] * np.pi/180.0
+            self.sample_plane_intensities = md[:,3]
+        elif md.shape[2]==3:
+            if self.header['optical element in excitation']=='l/2 plate':
+                print 'Header says that l/2 plate was used.'
+                self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+            else:
+                print 'Er... header says that l/2 plate was _not_ used. Correct??'
+                self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
+            self.emission_angles   = md[:,2] * np.pi/180.0
         else:
-            print 'Er... header says that l/2 plate was _not_ used. Correct??'
-            self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
-        self.emission_angles   = md[:,2] * np.pi/180.0
+            raise ValueError("Huh? What the fuck man?")
 
         self.excitation_angles     = np.mod( self.excitation_angles, np.pi ) 
         self.emission_angles       = np.mod( self.emission_angles, np.pi )
@@ -80,7 +88,7 @@ class BothMotors:
         self.phase_offset_in_deg = phase_offset_in_deg
 
         # deal with motor file
-        f = open(filename,'r')
+        f = open(filename,'r')        
         optelemstring = f.readline().strip()   # read first line and strip newline character(s)
         f.close()
         if optelemstring.lower()=='l/2 plate':
@@ -117,14 +125,14 @@ class NewSetupMotors:
         """Initialize the class: read in the file"""
         self.experiment_start_datetime = None
         self.filename = filename
-        self.timeaxis = timeaxis
+#        self.timeaxis = timeaxis
         self.phase_offset_in_deg = phase_offset_in_deg
         self.optical_element = optical_element
 
-        self.load_motor_file( filename, which_motor )
+        self.load_motor_file( filename )
 
 
-    def load_motor_file( self, filename, which_motor ):
+    def load_motor_file( self, filename ):
         """Reads the labview file written for that motor. 
         It assumes that fields (time, motor position(s), shutter) are separated 
         by _two_ spaces (which seems to be the case in all file generated so far).
@@ -148,8 +156,10 @@ class NewSetupMotors:
         self.emisangles = md[:,1] * np.pi/180.0
         if self.optical_element.lower()=='l/2 plate':
             self.exciangles = (2*md[:,2] + self.phase_offset_in_deg ) * np.pi/180.0
-        else:
+        elif self.optical_element.lower()=='polarizer':
             self.exciangles = (  md[:,2] + self.phase_offset_in_deg ) * np.pi/180.0
+        else:
+            raise hell
         self.shutter    = md[:,3]
 
 

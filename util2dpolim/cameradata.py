@@ -19,6 +19,10 @@ class CameraData:
             self.rawdata            = self.rawdata_fileobject.return_Array()#.astype(np.float64)
             self.datasize           = self.rawdata_fileobject.getSize()
             self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
+            self.timeaxis           = self.exposuretime*np.arange(self.datasize[0])
+            # print self.exposuretime
+            # print self.datasize[0]
+            # print self.timeaxis
             # scale signal to counts/second:
             if in_counts_per_sec:
                 self.rawdata           /= self.rawdata_fileobject.Exposure
