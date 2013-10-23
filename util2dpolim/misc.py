@@ -87,7 +87,7 @@ def import_spot_positions( movie, coords_filename, boxedgelength=5, spot_type='s
         else:
             raise testosterone_levels
 
-        movie.define_spot( shape, intensity_type='max', use_exspot=use_borderbg, use_borderbg=use_borderbg )
+        movie.define_spot( shape, intensity_type='mean', use_exspot=use_borderbg, use_borderbg=use_borderbg )
     print 'defined %d spots (shape: %s)' % (cs.shape[0], spot_type)
 
 
@@ -210,12 +210,14 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
             readimagedict = {}
             for item in rfidimages.items():
                 readimagedict[item[0]] = np.array( item[1] )
+                print np.array( item[1] ).shape
             rfid.close()
             print 'Found existing output file, updating data'
 
             # update read images with current images
             for item in imagedict.items():
-                new_value_indices = ~np.isnan( imagedict[item[0]] )
+                print item[0]
+                new_value_indices = ~np.isnan( imagedict[item[0]] )                
                 readimagedict[item[0]][new_value_indices] = imagedict[item[0]][new_value_indices]
                 # now readimagedict has the latest values
 

@@ -288,7 +288,7 @@
         </widget>
        </item>
        <item row="5" column="1">
-        <widget class="QLabel" name="phaseOffsetLabel_7">
+        <widget class="QLabel" name="spotAttributeLabel">
          <property name="font">
           <font>
            <pointsize>8</pointsize>

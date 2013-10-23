@@ -76,7 +76,6 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             # find the spot which covers these coordinates
             for si,s in enumerate(self.m.spots):
                 if s.has_pixel( (row,col) ): 
-                    print 'yup'
                     self.current_spot = si
                     row = s.center[0]
                     col = s.center[1]
@@ -133,6 +132,15 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.moveSpotLeftPushButton.clicked.connect( self.moveSpotLeft )
         self.moveSpotRightPushButton.clicked.connect( self.moveSpotRight )
         self.frameSlider.valueChanged.connect( self.frameSliderChanged )
+        self.spotTypeComboBox.activated.connect( self.spotTypeChanged )
+
+    def spotTypeChanged( self ):
+        if self.spotTypeComboBox.currentText()=='square':
+            self.spotAttributeLabel.setText('edge length')
+        elif self.spotTypeComboBox.currentText()=='circle':
+            self.spotAttributeLabel.setText('diameter')
+        else:
+            raise taxes
 
     def test(self):
         b = self.m.spots[0].dilate()
@@ -298,22 +306,34 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
 
     def addSM(self):
         nspotsbefore = len(self.m.spots)
-        boxedgelength = self.spotEdgeLengthSpinBox.value()
+        boxedgelength = np.int( self.spotEdgeLengthSpinBox.value() )
 
-        r = self.imageview.crosshairs_r
-        c = self.imageview.crosshairs_c
+        r = np.int( self.imageview.crosshairs_r )
+        c = np.int( self.imageview.crosshairs_c )
 
-        ri  = np.int( np.floor(r) - (boxedgelength-1)/2 )
-        ci  = np.int( np.floor(c) - (boxedgelength-1)/2 )
-        ri2 = np.int( np.ceil(r) + (boxedgelength-1)/2 )
-        ci2 = np.int( np.ceil(c) + (boxedgelength-1)/2 )
-        shape = {'type': 'Rectangle', \
-                     'left':  ci, \
-                     'right': ci2, \
-                     'lower': ri2, \
-                     'upper': ri }
-        self.m.define_spot( shape )
-        print 'defined spot  [ %d, %d, %d, %d ]' % ( ri,ci, ri2,ci2 )
+        spot_type=self.spotTypeComboBox.currentText()
+        use_exspot=self.useExSpotCheckBox.isChecked()
+        use_borderbg=self.useBorderBGCheckBox.isChecked()
+
+        if spot_type=='square':
+            ri  = np.int( np.floor(r) - (boxedgelength-1)/2 )
+            ci  = np.int( np.floor(c) - (boxedgelength-1)/2 )
+            ri2 = np.int( np.ceil(r) + (boxedgelength-1)/2 )
+            ci2 = np.int( np.ceil(c) + (boxedgelength-1)/2 )
+            shape = {'type': 'Rectangle', \
+                         'left':  ci, \
+                         'right': ci2, \
+                         'lower': ri2, \
+                         'upper': ri }
+        elif spot_type=='circle':
+            shape = {'type': 'Circle', \
+                         'center': (r,c), \
+                         'radius': boxedgelength}
+        else:
+            raise hell
+
+        self.m.define_spot( shape, use_exspot=use_exspot, use_borderbg=use_borderbg )
+        print "Defined",self.m.spots[-1]
 
         # now populate that list
         for s in self.m.spots[nspotsbefore:]:
@@ -354,27 +374,23 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
     def createSpotArray(self):
         oldtext = self.setButtonWait( self.createSpotArrayPushButton )
 
-        res = self.spotEdgeLengthSpinBox.value()
-        coords = np.round( np.array( [self.imageview.x0, self.imageview.y0, \
-                                          self.imageview.x1, self.imageview.y1] ) ).astype(np.int)
-        if coords[0]>coords[2]:
-            coords[0],coords[2]=coords[2],coords[0]
-        if coords[1]>coords[3]:
-            coords[1],coords[3]=coords[3],coords[1]
-
         # how many spots do we have already?
         nspotsbefore = len(self.m.spots)
-        print nspotsbefore
 
-        # now add spots
-        grid_image_section_into_squares_and_define_spots( self.m, res, coords )
+        resolution = np.int( self.spotEdgeLengthSpinBox.value() )
+
+        fullbounds = [self.imageview.c0, self.imageview.r0, self.imageview.c1, self.imageview.r1]
+        topedges = np.arange( np.int(fullbounds[1]), np.int(fullbounds[3]), resolution )  
+
+        for line in topedges:
+            for col in range( np.int(fullbounds[0]), np.int(fullbounds[2]), resolution ):
+                bounds = [ col, line, col+resolution-1, line+resolution-1 ]
+                self.m.define_spot( bounds )
 
         # now populate that list
         for s in self.m.spots[nspotsbefore:]:
-            r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
-                               facecolor='red', edgecolor='red', alpha=.3, zorder=7 )
+            r = s.graphical_representation()
             self.imageview.spot_gfxrepr.append( r )
-            self.imageview.myaxes.add_collection( self.imageview.spot_gfxrepr[-1] )
 
         # reset selection rectangle
         self.imageview.myrect.set_xy((0,0))
@@ -408,21 +424,21 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
 
 
     def addSignalSpot(self):
-        coords = np.round( np.array( [self.imageview.x0, self.imageview.y0, \
-                                          self.imageview.x1, self.imageview.y1] ) ).astype(np.int)
-        if coords[0]>coords[2]:
-            coords[0],coords[2]=coords[2],coords[0]
-        if coords[1]>coords[3]:
-            coords[1],coords[3]=coords[3],coords[1]
+        nspotsbefore  = len(self.m.spots)
+
+        shape = {'type':'Rectangle', \
+                     'left':  np.int(self.imageview.c0), \
+                     'right': np.int(self.imageview.c1), \
+                     'upper': np.int(self.imageview.r0), \
+                     'lower': np.int(self.imageview.r1) }
 
         # create spot
-        s = self.m.define_spot( coords, intensity_type='mean' )
+        s = self.m.define_spot( shape, intensity_type='mean' )
 
-        # create rectangle patch which represents spot
-        r = Rectangle( (s.coords[0],s.coords[1]), s.width, s.height, \
-                           facecolor='red', edgecolor='red', alpha=.3, zorder=8 )
-        self.imageview.spot_gfxrepr.append( r )
-        self.imageview.myaxes.add_collection( r )
+        # now populate that list
+        for s in self.m.spots[nspotsbefore:]:
+            r = s.graphical_representation()
+            self.imageview.spot_gfxrepr.append( r )
 
         # reset selection rectangle
         self.imageview.myrect.set_xy((0,0))
@@ -543,6 +559,8 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                     # self.dataview.myaxes.cla()
                     # self.dataview.figure.canvas.draw()
                     self.dataview.myaxes.plot( spot.intensity, 'bx-' )
+                    if hasattr(spot,'borderbg'):
+                        self.dataview.myaxes.plot( spot.borderbg, 'gx-' )
                     self.dataview.myaxes.set_aspect('normal')
 
             elif showWhat==1:    # portrait data
@@ -556,10 +574,10 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                 for p in range(self.m.Nportraits):
                     for l in range(self.m.Nlines):
                         exangles, emangle = self.m.retrieve_angles( p, l )
-                        print "emangle: ",emangle
+#                        print "emangle: ",emangle
                         intensity = spot.retrieve_intensity( p, l )
-                        print intensity
-                        print exangles
+#                        print intensity
+#                        print exangles
                         sortind = np.argsort( exangles )
                         self.dataview.myaxes.plot( exangles[sortind], \
                                                        180/np.pi*emangle + scaler*intensity[sortind], \
@@ -621,6 +639,9 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                     infostring += 'mean SNR   = <font color="#00df00">%f</font>    <br>' % s.meanSNR
                 else:
                     infostring += 'mean SNR   = <font color="#ef0000">%f</font>    <br>' % s.meanSNR
+
+#            print s.verticalfitparams
+            print s.linefitparams
 
             if hasattr(s,'M_ex'):
                 infostring += 'M<sub>ex</sub>  = %f<br>' % s.M_ex
@@ -697,7 +718,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         # get all filenames
         for file in os.listdir("."):
             # get all that end in spe
-            if file.endswith(".spe") or file.endswith(".SPE"):
+            if file.endswith(".spe") or file.endswith(".SPE") or file.endswith(".npy"):
                 # if we don't have it already
                 if self.spefiles.count(file)==0:
                     # add it to the list
