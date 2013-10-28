@@ -39,7 +39,7 @@ basename = 'TDM5-488-OD1-01'
 
 bgbounds   = [20,30,100,500]         #[110,405,400,450] 
 fullbounds = [130,30,400,500]        #[110, 80,400,360]
-resolution = 2
+resolution = 4
 Nsplit     = 3
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
@@ -66,12 +66,7 @@ for ste in splittopedges:
     m.correct_excitation_intensities()
     m.correct_emission_intensities()   # .5, 45.0/180*np.pi )
 
-    m.are_spots_valid( SNR=3 )
-
-    m.test_mp( Nprocs=3 )
-    stopwatch.sleep(1)
-    raise SystemExit
-
+    m.are_spots_valid( SNR=1 )
 
     # the rest is done only if we actually have any valid spots here
     if not len(m.validspots)==0:

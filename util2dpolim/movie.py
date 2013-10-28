@@ -3,7 +3,7 @@ from fitting import CosineFitter_new
 from spot import Spot
 from portrait import Portrait
 from motors import *
-import os, os.path
+import os, os.path, time
 import scipy.optimize as so
 import multiprocessing
 
@@ -39,14 +39,30 @@ class Movie:
                                          for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
     def test_mp(self, Nprocs):
-        def worker( thesespots ):
-            print thesespots
-#            self.fit_all_portraits_spot_parallel_selective( myspots=None )
+        def worker( thesespots, whichproc ):
+            print thesespots , '----->' , whichproc            
+            self.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
+            self.find_modulation_depths_and_phases_selective( myspots=thesespots )
+            self.ETrulerFFT_selective( myspots=thesespots )
 
         myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
+        jobs = []
         for i in range(Nprocs):
-            p = multiprocessing.Process(target=worker, args=(myspots[i],))
+            p = multiprocessing.Process(target=worker, args=(myspots[i],i))
+            jobs.append(p)
             p.start()
+
+        # while p.is_alive()==True:
+        #     for i in range(Nprocs):
+        #         print 'i=',i,' alive --> ',jobs[i].is_alive()
+        #     time.sleep(.1)
+
+        # this should block until all processes have finished
+        
+        for job in jobs:
+            job.join()
+
+        print 'all done i guess'
 
 
     def read_in_EVERYTHING(self):
@@ -409,8 +425,8 @@ class Movie:
                 # print 'vertical fit params:'
                 # print self.validspots[si].verticalfitparams[pi,:,:]
 
-                print 'line fit params:'
-                print self.validspots[si].linefitparams[pi,:,:]
+                # print 'line fit params:'
+                # print self.validspots[si].linefitparams[pi,:,:]
 
 
 

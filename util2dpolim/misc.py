@@ -167,7 +167,7 @@ def update_image_files( movie, what, fileprefix ):
         np.savetxt( filename, getattr(movie, what+'_image') )
 
 
-def save_hdf5( movie, myspots, proc, images=True, spots=True ):
+def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
 
     ###### first we grab all the data we have now #########
     #######################################################
@@ -200,7 +200,10 @@ def save_hdf5( movie, myspots, proc, images=True, spots=True ):
 
     ###### now let's see if there's an existing file ######
     #######################################################
-    filename = movie.data_directory + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
+    if proc==None:
+        filename = movie.data_directory + movie.data_basename + '_output.hdf5'
+    else:
+        filename = movie.data_directory + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
     print 'Looking for output file with name %s ...' % filename
     if os.path.isfile(filename):
         try: 
