@@ -164,7 +164,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             np.savetxt( filename, getattr(self.m, what+'_image') )
         
     def saveContrastImages( self ):
-        basefilename = self.data_directory + '/' + self.spefiles[self.selectSPEComboBox.currentIndex()][:-4]
+        basefilename = self.data_directory + self.spefiles[self.selectSPEComboBox.currentIndex()][:-4]
         self.tryToUpdateFile( basefilename, 'spot_coverage' )
         self.tryToUpdateFile( basefilename, 'M_ex' )
         self.tryToUpdateFile( basefilename, 'M_em' )
@@ -188,7 +188,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.saveContrastImagesPushButton.setChecked(False)
 
     def saveContrastImages_hdf5( self ):
-        outputdir = os.path.normpath( self.data_directory+'/' )
+        outputdir = os.path.normpath( self.data_directory )
         print outputdir
         save_hdf5( movie=self.m, myspots=range(len(self.m.validspots)), \
                        fileprefix=outputdir, proc=0, images=True, spots=True )
@@ -681,7 +681,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         fname = f.readline()
         f.close()
 
-        self.data_directory = str(fname)
+        self.data_directory = os.path.normpath( str(fname) ) + os.path.sep
         self.dataDirLabel.setText(self.data_directory)
 
         # go to dir
@@ -698,7 +698,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         if fname=='':
             return
 
-        self.data_directory = str(fname)
+        self.data_directory = os.path.normpath( str(fname) ) + os.path.sep
         self.dataDirLabel.setText(self.data_directory)
 
         # save in lastdir
