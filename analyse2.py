@@ -67,6 +67,12 @@ for ste in splittopedges:
     m.correct_emission_intensities()   # .5, 45.0/180*np.pi )
 
     m.are_spots_valid( SNR=3 )
+
+    m.test_mp( Nprocs=3 )
+    stopwatch.sleep(1)
+    raise SystemExit
+
+
     # the rest is done only if we actually have any valid spots here
     if not len(m.validspots)==0:
         # m.fit_all_portraits_spot_parallel()

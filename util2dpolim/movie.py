@@ -5,6 +5,7 @@ from portrait import Portrait
 from motors import *
 import os, os.path
 import scipy.optimize as so
+import multiprocessing
 
 class Movie:
     def __init__( self, datadir, basename, phase_offset_in_deg=np.nan ):
@@ -36,6 +37,17 @@ class Movie:
         self.Nphases_for_cos_fitter = 91
         self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
                                          for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
+
+    def test_mp(self, Nprocs):
+        def worker( thesespots ):
+            print thesespots
+#            self.fit_all_portraits_spot_parallel_selective( myspots=None )
+
+        myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
+        for i in range(Nprocs):
+            p = multiprocessing.Process(target=worker, args=(myspots[i],))
+            p.start()
+
 
     def read_in_EVERYTHING(self):
         # change to the data directory
@@ -187,12 +199,12 @@ class Movie:
 
     def correct_emission_intensities( self ): #, corrM, corrphase ):
 
-        if np.isnan(corrM): corrM=0
-        if np.isnan(corrphase): corrM=phase
-        
         corrM     = self.motors.header['em correction modulation depth']
         corrphase = self.motors.header['em correction phase']/180.0*np.pi
 
+        if np.isnan(corrM): corrM=0
+        if np.isnan(corrphase): corrM=phase
+        
         # correction function
         corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
 
