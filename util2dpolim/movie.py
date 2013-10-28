@@ -3,7 +3,7 @@ from fitting import CosineFitter_new
 from spot import Spot
 from portrait import Portrait
 from motors import *
-import os
+import os, os.path
 import scipy.optimize as so
 
 class Movie:
@@ -12,7 +12,8 @@ class Movie:
         self.cos_fitter = CosineFitter_new
         self.phase_offset_in_deg = phase_offset_in_deg
 
-        self.data_directory = datadir
+        # format path correctly for whichever OS we're running under, and add trailing separator
+        self.data_directory = os.path.normpath( datadir ) + os.path.sep
         self.data_basename  = basename
  
         self.sample_data = None
@@ -185,6 +186,9 @@ class Movie:
 
 
     def correct_emission_intensities( self ): #, corrM, corrphase ):
+
+        if np.isnan(corrM): corrM=0
+        if np.isnan(corrphase): corrM=phase
         
         corrM     = self.motors.header['em correction modulation depth']
         corrphase = self.motors.header['em correction phase']/180.0*np.pi

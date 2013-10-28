@@ -80,7 +80,7 @@ for ste in splittopedges:
         #    m.ETmodel_selective( myspots[myrank] )
 
         # all processes save their contributions separately
-        save_hdf5( m, myspots[myrank], prefix, myrank )
+        save_hdf5( m, myspots[myrank], myrank )
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 

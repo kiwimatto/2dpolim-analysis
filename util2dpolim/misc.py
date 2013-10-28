@@ -1,4 +1,4 @@
-import os
+import os, os.path
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -167,7 +167,7 @@ def update_image_files( movie, what, fileprefix ):
         np.savetxt( filename, getattr(movie, what+'_image') )
 
 
-def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
+def save_hdf5( movie, myspots, proc, images=True, spots=True ):
 
     ###### first we grab all the data we have now #########
     #######################################################
@@ -200,7 +200,7 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
 
     ###### now let's see if there's an existing file ######
     #######################################################
-    filename = fileprefix + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
+    filename = movie.data_directory + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
     print 'Looking for output file with name %s ...' % filename
     if os.path.isfile(filename):
         try: 
@@ -238,10 +238,12 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
     fid.close()
 
 
-def combine_outputs( basename, fileprefix ):
+def combine_outputs( movie ):
+    # make sure we're in the right directory
+    os.chdir( movie.data_directory )
     # collect list of files    
     filelist = []
-    for file in os.listdir("."):
+    for file in os.listdir('.'):
         if file.endswith('.hdf5') and file.startswith(basename+'_output'):
             filelist.append(file)
 
@@ -267,7 +269,7 @@ def combine_outputs( basename, fileprefix ):
         rfid.close()
 
     # now save those to a new file
-    fid = h5py.File(basename+'_output.hdf5','w')
+    fid = h5py.File(movie.data_directory+movie.data_basename+'_output.hdf5','w')
     fid.create_group('images')
     for imagename in readimagedict:
         fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
@@ -275,7 +277,8 @@ def combine_outputs( basename, fileprefix ):
 
     # delete basefiles
     for f in filelist:
-        os.remove(f)
+        if not f==movie.data_directory+movie.data_basename+'_output.hdf5':
+            os.remove(f)
 
 
 def save_spot_data( movie, what='M_ex', whole_image=True, fileprefix='' ):
