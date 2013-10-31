@@ -188,6 +188,7 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
     for si in myspots:
         for p in movie.validspots[si].pixel:
             fits_image[ p[0], p[1], :, :, : ] = movie.validspots[si].linefitparams
+   
     # for si in myspots:
     #     a = movie.validspots[si].coords[1]
     #     b = movie.validspots[si].coords[3]+1
@@ -210,12 +211,15 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
             readimagedict = {}
             for item in rfidimages.items():
                 readimagedict[item[0]] = np.array( item[1] )
+   
             rfid.close()
             print 'Found existing output file, updating data'
 
             # update read images with current images
             for item in imagedict.items():
+                #print item[0]
                 new_value_indices = ~np.isnan( imagedict[item[0]] )
+                #print np.shape(new_value_indices)
                 readimagedict[item[0]][new_value_indices] = imagedict[item[0]][new_value_indices]
                 # now readimagedict has the latest values
 
@@ -265,15 +269,20 @@ def combine_outputs( basename, fileprefix ):
         rfid.close()
 
     # now save those to a new file
+    print "Combine outputs: creating file %s ..." % (basename+'_output.hdf5'),
     fid = h5py.File(basename+'_output.hdf5','w')
     fid.create_group('images')
     for imagename in readimagedict:
         fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
     fid.close()
+    print "done."
 
     # delete basefiles
     for f in filelist:
-        os.remove(f)
+        print f
+        if not (f ==  basename+'_output.hdf5' ):
+            print 'removing proc file %s' % f
+            os.remove(f)
 
 
 def save_spot_data( movie, what='M_ex', whole_image=True, fileprefix='' ):

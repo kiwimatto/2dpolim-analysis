@@ -18,15 +18,14 @@ nprocs = comm.Get_size()
 show_mem()
 tstart = stopwatch.time()
 
-
-
-prefix = '/home/rafael/Desktop/Win/Well 01/'
-basename = 'Cells-633ex-Well1-Area-01'
-bgbounds   = [3,110,53,490]
-fullbounds = [60,110,480,490]
+prefix = '/home/rafael/Desktop/Win/TDM3/'
+basename = 'TDM3-488-OD1-02'
+bgbounds   = [10,155,95,480]
+fullbounds = [100,155,480,480]
 resolution = 2
-Nsplit     = 3
-rafaSNR    = 3
+Nsplit     = 15
+rafaSNR    = 0
+
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
@@ -45,7 +44,7 @@ splittopedges = np.array_split( topedges, Nsplit )
 
 #for r in np.arange(fullbounds[1], fullbounds[3]-Nrowsatatime, Nrowsatatime):
 for ste in splittopedges:
-
+    print '-->Rafa you changed the BG substraction to have the right shape<--'
     m = Movie( prefix, basename )
     m.startstop()
 
@@ -82,9 +81,12 @@ for ste in splittopedges:
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
 comm.barrier()
+stopwatch.sleep(1)
 
 # first process gets to combine them into a single file
-if myrank==0: combine_outputs( m.data_basename, prefix )
+if myrank==0: 
+    print "proc 0 here: combining output"
+    combine_outputs( m.data_basename, prefix )
 
 # all done
 

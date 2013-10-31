@@ -568,12 +568,12 @@ class Movie:
             
             ruler = 1-(crossdiff/MYcrossdiff)
 
-            if (ruler < -.1) or (ruler > 1.1):
-                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
-                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
-                print "You can thank me later."
-                cet+=1
-                print cet
+#            if (ruler < -.1) or (ruler > 1.1):
+#                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
+#                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
+#                print "You can thank me later."
+#                cet+=1
+#                print cet
 
             if ruler < 0:
                 ruler = 0
