@@ -1,4 +1,4 @@
-import os
+import os, os.path
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -87,7 +87,7 @@ def import_spot_positions( movie, coords_filename, boxedgelength=5, spot_type='s
         else:
             raise testosterone_levels
 
-        movie.define_spot( shape, intensity_type='max', use_exspot=use_borderbg, use_borderbg=use_borderbg )
+        movie.define_spot( shape, intensity_type='mean', use_exspot=use_borderbg, use_borderbg=use_borderbg )
     print 'defined %d spots (shape: %s)' % (cs.shape[0], spot_type)
 
 
@@ -167,7 +167,7 @@ def update_image_files( movie, what, fileprefix ):
         np.savetxt( filename, getattr(movie, what+'_image') )
 
 
-def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
+def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
 
     ###### first we grab all the data we have now #########
     #######################################################
@@ -201,7 +201,10 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
 
     ###### now let's see if there's an existing file ######
     #######################################################
-    filename = fileprefix + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
+    if proc==None:
+        filename = movie.data_directory + movie.data_basename + '_output.hdf5'
+    else:
+        filename = movie.data_directory + movie.data_basename + '_output'+'_proc'+str(proc)+'.hdf5'
     print 'Looking for output file with name %s ...' % filename
     if os.path.isfile(filename):
         try: 
@@ -211,7 +214,6 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
             readimagedict = {}
             for item in rfidimages.items():
                 readimagedict[item[0]] = np.array( item[1] )
-   
             rfid.close()
             print 'Found existing output file, updating data'
 
@@ -240,11 +242,13 @@ def save_hdf5( movie, myspots, fileprefix, proc, images=True, spots=True ):
     fid.close()
 
 
-def combine_outputs( basename, fileprefix ):
+def combine_outputs( movie ):
+    # make sure we're in the right directory
+    os.chdir( movie.data_directory )
     # collect list of files    
     filelist = []
-    for file in os.listdir("."):
-        if file.endswith('.hdf5') and file.startswith(basename+'_output'):
+    for file in os.listdir('.'):
+        if file.endswith('.hdf5') and file.startswith( movie.data_basename+'_output'):
             filelist.append(file)
 
     # now grab the images from the first file (whichever that one is; doesn't matter)
@@ -269,8 +273,8 @@ def combine_outputs( basename, fileprefix ):
         rfid.close()
 
     # now save those to a new file
-    print "Combine outputs: creating file %s ..." % (basename+'_output.hdf5'),
-    fid = h5py.File(basename+'_output.hdf5','w')
+    print "Combine outputs: creating file"
+    fid = h5py.File(movie.data_directory+movie.data_basename+'_output.hdf5','w')
     fid.create_group('images')
     for imagename in readimagedict:
         fid.create_dataset('images/'+imagename, data=readimagedict[imagename])
@@ -279,8 +283,7 @@ def combine_outputs( basename, fileprefix ):
 
     # delete basefiles
     for f in filelist:
-        print f
-        if not (f ==  basename+'_output.hdf5' ):
+        if not f.endswith( movie.data_basename+'_output.hdf5' ):
             print 'removing proc file %s' % f
             os.remove(f)
 

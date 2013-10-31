@@ -162,6 +162,7 @@ class MyMplCanvas(FigureCanvas):
     def show_stuff(self, what='spots' ):        
 
         for g in self.spot_gfxrepr:
+
             if not g.get_axes()==None:
                 g.remove()
 
@@ -176,7 +177,8 @@ class MyMplCanvas(FigureCanvas):
                 self.myaxes.draw_artist( r )
 #            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='M_ex':
-            mex_im = self.myaxes.imshow( self.parent().parent().m.M_ex_image, alpha=1, zorder=2 )
+            mex_im = self.myaxes.imshow( self.parent().parent().m.M_ex_image, \
+                                             alpha=.7, zorder=2, interpolation='nearest' )
             self.cbar = self.fig.colorbar(mex_im, cax=self.fig.axes[1] )
 #            self.cbar = self.fig.colorbar(self.refimagejet, cax=self.cbaraxis )
         elif what=='M_em':

@@ -3,8 +3,9 @@ from fitting import CosineFitter_new
 from spot import Spot
 from portrait import Portrait
 from motors import *
-import os
+import os, os.path, time
 import scipy.optimize as so
+import multiprocessing
 
 class Movie:
     def __init__( self, datadir, basename, phase_offset_in_deg=np.nan ):
@@ -12,7 +13,8 @@ class Movie:
         self.cos_fitter = CosineFitter_new
         self.phase_offset_in_deg = phase_offset_in_deg
 
-        self.data_directory = datadir
+        # format path correctly for whichever OS we're running under, and add trailing separator
+        self.data_directory = os.path.normpath( datadir ) + os.path.sep
         self.data_basename  = basename
  
         self.sample_data = None
@@ -36,20 +38,48 @@ class Movie:
         self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
                                          for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
+    def test_mp(self, Nprocs):
+        def worker( thesespots, whichproc ):
+            print thesespots , '----->' , whichproc            
+            self.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
+            self.find_modulation_depths_and_phases_selective( myspots=thesespots )
+            self.ETrulerFFT_selective( myspots=thesespots )
+
+        myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
+        jobs = []
+        for i in range(Nprocs):
+            p = multiprocessing.Process(target=worker, args=(myspots[i],i))
+            jobs.append(p)
+            p.start()
+
+        # while p.is_alive()==True:
+        #     for i in range(Nprocs):
+        #         print 'i=',i,' alive --> ',jobs[i].is_alive()
+        #     time.sleep(.1)
+
+        # this should block until all processes have finished
+        
+        for job in jobs:
+            job.join()
+
+        print 'all done i guess'
+
+
     def read_in_EVERYTHING(self):
         # change to the data directory
         os.chdir( self.data_directory )
         
         ###### look if we can find the data file, and import it ######
-        print 'Looking for file: %s.[spe|SPE]' % (self.data_directory+self.data_basename)
+        print 'Looking for data file: %s.[spe|SPE]... ' % (self.data_directory+self.data_basename)
 
         if os.path.exists( self.data_basename+'.SPE' ):
             self.spefilename = self.data_basename+'.SPE'
         elif os.path.exists( self.data_basename+'.spe' ):
             self.spefilename = self.data_basename+'.spe'
+        elif os.path.exists( self.data_basename+'.npy' ):     # testing data is captured here!
+            self.spefilename = self.data_basename+'.npy'
         else:
-            print "Couldn't find data SPE file! Bombing out..."
-            raise SystemExit
+            raise IOError("Couldn't find data SPE file! Bombing out...")
         
         self.sample_data    = CameraData( self.spefilename, compute_frame_average=True )
         self.timeaxis       = self.sample_data.timestamps
@@ -57,7 +87,7 @@ class Movie:
 
 
         ###### look for motor files ######
-        print 'Looking for motor file(s)...'
+        print 'Looking for motor file(s)...',
         
         got_motors = False
         for file in os.listdir("."):
@@ -79,14 +109,18 @@ class Movie:
        
         ###### look for blank sample ######
         print 'Looking for blank...',
+        got_blank = False
         for file in os.listdir("."):
             if file.startswith("blank-") and (file.endswith(".spe") or file.endswith(".SPE")):
                 print '\t found file %s' % file
                 self.blank_data = CameraData( file, compute_frame_average=True )
+                got_blank = True
                 break
+        if not got_blank: print ' none.'
 
         ###### look for excitation spot sample ######
         print 'Looking for excitation spot data...',
+        got_exspot = False
         for file in os.listdir("."):
             if file.startswith("excitation-spot-") and (file.endswith(".spe") or file.endswith(".SPE")):
                 print '\t found file %s' % file
@@ -95,13 +129,16 @@ class Movie:
                 self.exspot_data.rawdata = np.mean( self.exspot_data_rawdata, axis=0 )
                 self.exspot_data.datasize[0] = 1
                 self.exspot_data.timeaxis    = self.exspot_data.timeaxis[0]
+                got_exspot = True
                 break
+        if not got_exspot: print ' none.'
 
 
     def initContrastImages(self):
         self.spot_coverage_image  = np.ones( (self.sample_data.datasize[1],self.sample_data.datasize[2]) )*np.nan
         self.mean_intensity_image = self.spot_coverage_image.copy()
-        self.SNR_image            = self.spot_coverage_image.copy()
+        self.meanSNR_image        = self.spot_coverage_image.copy()
+        self.framecountSNR_image  = self.spot_coverage_image.copy()
         self.M_ex_image           = self.spot_coverage_image.copy()
         self.M_em_image           = self.spot_coverage_image.copy()
         self.phase_ex_image       = self.spot_coverage_image.copy()
@@ -158,7 +195,6 @@ class Movie:
                          'lower': shape[3], \
                          'left': shape[0], \
                          'right': shape[2] }
-
         # create new spot object
         s = Spot( shape, int_type=intensity_type, label=label, parent=self, \
                       is_bg_spot=False, which_bg='sample', \
@@ -179,10 +215,13 @@ class Movie:
 
 
     def correct_emission_intensities( self ): #, corrM, corrphase ):
-        
+
         corrM     = self.motors.header['em correction modulation depth']
         corrphase = self.motors.header['em correction phase']/180.0*np.pi
 
+        if np.isnan(corrM): corrM=0
+        if np.isnan(corrphase): corrM=phase
+        
         # correction function
         corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
 
@@ -385,6 +424,13 @@ class Movie:
                 self.validspots[si].verticalfitparams[pi,:,2] = M[sii]
                 self.validspots[si].verticalfitparams[pi,:,3] = resi[sii]
 
+                # print 'vertical fit params:'
+                # print self.validspots[si].verticalfitparams[pi,:,:]
+
+                # print 'line fit params:'
+                # print self.validspots[si].linefitparams[pi,:,:]
+
+
 
     def find_modulation_depths_and_phases_selective( self, myspots=None ):
 
@@ -441,7 +487,7 @@ class Movie:
 
             #### anisotropy ####
         
-            if (self.validspots[si].M_ex < .15):
+            if (self.validspots[si].M_ex < .015):
                 iex = np.argmin( np.abs( self.excitation_angles_grid - np.pi/2 ) )
                 iem = np.argmin( np.abs( self.emission_angles_grid - np.pi/2 ) )
                 Ipara = self.validspots[si].sam[ iex, iem ]
@@ -649,31 +695,43 @@ class Movie:
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
 
-    def are_spots_valid(self, SNR=10, quiet=False):
+    def are_spots_valid(self, SNR=10, validframesratio=.7, quiet=False, all_are_valid=False):
 
         # not sure if we have a value for the bg std 
-        bgstd=np.nan
+        bgstd=None
 
-        if not self.bg_spot_sample==None:         # yes we do
+        if not self.bg_spot_sample==None:         # yes we do have a bg spot
             bgstd = self.bg_spot_sample.std
 
         # create a new list containing valid spots only
         validspots = []   
         validspotindices = []
         for si,s in enumerate(self.spots):
+
             if s.use_borderbg:        # hang on a sec, spot knows its own bg!
                 bgstd = s.borderbgstd
-            s.SNR = s.intensity/bgstd     # --> SNR for each frame
-            if np.sum(s.SNR > SNR) >= .7*len(s.SNR):
+
+            if not bgstd==None:
+                s.SNR = s.intensity/bgstd     # --> SNR for each frame
+            else:
+                s.SNR = np.ones_like(s.intensity)*np.inf    # --> default inf SNR if bg unknown
+
+            s.framecountSNR = np.sum(s.SNR > SNR)
+            if s.framecountSNR >= validframesratio*len(s.SNR):
                 validspots.append(s)
                 validspotindices.append(si)
             s.meanSNR = np.mean(s.SNR)
+
             # store mean SNR in SNR_image
-            self.store_property_in_image( s, 'SNR_image', 'meanSNR' )    # let's see if this works...
+            self.store_property_in_image( s, 'meanSNR_image', 'meanSNR' )    # let's see if this works...
+            self.store_property_in_image( s, 'framecountSNR_image', 'framecountSNR' )    # let's see if this works...
 
         # and store in movie object
         self.validspots = validspots
         self.validspotindices = validspotindices        
+
+        for s in self.validspots:
+            self.store_property_in_image( s, 'spot_coverage_image', 'value_for_coverage_valid_image' )
 
         if not quiet: print "Got %d valid spots (of %d spots total)" % (len(self.validspots),len(self.spots))
 

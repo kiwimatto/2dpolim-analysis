@@ -62,7 +62,9 @@ class Spot:
         self.use_blank  = use_blank
         self.use_exspot = use_exspot
         self.use_borderbg = use_borderbg
+
         self.value_for_coverage_image = 1
+        self.value_for_coverage_valid_image = 2
 
 #        self.width  = coords[2] -coords[0] +1
 #        self.height = coords[3] -coords[1] +1
@@ -317,8 +319,6 @@ class Spot:
         
         self.pixel = pixel
 
-
-
     def calculate_spot_std( self, which_data, int_type ):
         if which_data=='sample':
             rawdata = self.parent.sample_data.rawdata
@@ -395,10 +395,12 @@ class Spot:
 
         
 
-    def __str__(self):
-        return "Spot object: int_type=%s\tlowerleft=[%d,%d]\twidth=%d\theight=%d\tlabel=%s" % \
-            (self.intensity_type, self.coords[0], self.coords[1], \
-                 self.coords[2]-self.coords[0]+1, self.coords[3]-self.coords[1]+1, self.label)
+    def __str__(self):        
+        return "spot: "+str(self.shape)
+
+        # return "Spot object: int_type=%s\tlowerleft=[%d,%d]\twidth=%d\theight=%d\tlabel=%s" % \
+        #     (self.intensity_type, self.coords[0], self.coords[1], \
+        #          self.coords[2]-self.coords[0]+1, self.coords[3]-self.coords[1]+1, self.label)
 
 #     def store_property_in_image(self, image, prop):
 #         # record the spot in the mean intensity image
@@ -424,7 +426,7 @@ class Spot:
                                         self.verticalfitparams[pi,exi,0], \
                                         self.verticalfitparams[pi,exi,1], \
                                         self.verticalfitparams[pi,exi,2] )
-        pic /= self.parent.Nportraits
+        pic /= float(self.parent.Nportraits)
         return pic
 
 

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '2dgui.ui'
 #
-# Created: Mon Oct 14 15:50:20 2013
+# Created: Tue Oct 15 22:34:22 2013
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -135,14 +135,14 @@ class Ui_MainWindow(object):
         self.phaseOffsetLabel_6.setAlignment(QtCore.Qt.AlignCenter)
         self.phaseOffsetLabel_6.setObjectName(_fromUtf8("phaseOffsetLabel_6"))
         self.gridLayout_2.addWidget(self.phaseOffsetLabel_6, 4, 1, 1, 1)
-        self.phaseOffsetLabel_7 = QtGui.QLabel(self.groupBox_2)
+        self.spotAttributeLabel = QtGui.QLabel(self.groupBox_2)
         font = QtGui.QFont()
         font.setPointSize(8)
-        self.phaseOffsetLabel_7.setFont(font)
-        self.phaseOffsetLabel_7.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.phaseOffsetLabel_7.setAlignment(QtCore.Qt.AlignCenter)
-        self.phaseOffsetLabel_7.setObjectName(_fromUtf8("phaseOffsetLabel_7"))
-        self.gridLayout_2.addWidget(self.phaseOffsetLabel_7, 5, 1, 1, 1)
+        self.spotAttributeLabel.setFont(font)
+        self.spotAttributeLabel.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.spotAttributeLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.spotAttributeLabel.setObjectName(_fromUtf8("spotAttributeLabel"))
+        self.gridLayout_2.addWidget(self.spotAttributeLabel, 5, 1, 1, 1)
         self.useExSpotCheckBox = QtGui.QCheckBox(self.groupBox_2)
         font = QtGui.QFont()
         font.setPointSize(8)
@@ -373,7 +373,7 @@ class Ui_MainWindow(object):
         self.spotTypeComboBox.setItemText(1, QtGui.QApplication.translate("MainWindow", "circle", None, QtGui.QApplication.UnicodeUTF8))
         self.addSignalSpotPushButton.setText(QtGui.QApplication.translate("MainWindow", "add spot from selection", None, QtGui.QApplication.UnicodeUTF8))
         self.phaseOffsetLabel_6.setText(QtGui.QApplication.translate("MainWindow", "shape:", None, QtGui.QApplication.UnicodeUTF8))
-        self.phaseOffsetLabel_7.setText(QtGui.QApplication.translate("MainWindow", "edge length:", None, QtGui.QApplication.UnicodeUTF8))
+        self.spotAttributeLabel.setText(QtGui.QApplication.translate("MainWindow", "edge length:", None, QtGui.QApplication.UnicodeUTF8))
         self.useExSpotCheckBox.setText(QtGui.QApplication.translate("MainWindow", "use excitation spot", None, QtGui.QApplication.UnicodeUTF8))
         self.useBorderBGCheckBox.setText(QtGui.QApplication.translate("MainWindow", "use border bg", None, QtGui.QApplication.UnicodeUTF8))
         self.clearSpotPushButton.setText(QtGui.QApplication.translate("MainWindow", "clear spot", None, QtGui.QApplication.UnicodeUTF8))

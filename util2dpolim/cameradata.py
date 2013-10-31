@@ -3,13 +3,13 @@ from spefiles import MyPrincetonSPEFile
 
 class CameraData:
 
-    def __init__( self, spe_filename, compute_frame_average=False, in_counts_per_sec=False ):
+    def __init__( self, spe_filename, compute_frame_average=False, in_counts_per_sec=True ):
         # load SPE  ---- this will work for SPE format version 2.5 (probably not for 3...)
 
         self.filename           = spe_filename
 
         if self.filename.split('.')[-1]=='npy':   # we got test data, presumably
-            print "======== TEST DATA IT SEEMS =========="
+            print "======== USING TEST DATA ! ==========\n" * 3
             self.rawdata      = np.load(self.filename)
             self.datasize     = self.rawdata.shape
             self.exposuretime = .1    # in seconds
