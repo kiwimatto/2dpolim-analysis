@@ -18,6 +18,26 @@ nprocs = comm.Get_size()
 show_mem()
 tstart = stopwatch.time()
 
+prefix = '/home/rafael/Desktop/Win/Well01/'
+basename = 'S1-W1-Area02'
+prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM5/'
+basename = 'TDM5-488-OD1-01'
+
+# bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
+# correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
+bgbounds   = [120,190,180,400]
+fullbounds = [190,190,340,400]
+bgbounds   = [20,30,100,500]         #[110,405,400,450] 
+fullbounds = [130,30,400,500]        #[110, 80,400,360]
+resolution = 16
+Nsplit     = 3
+rafaSNR    = 7
+VFRrafa    = .5
+testrun    = False   #False/True
+
+topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
+splittopedges = np.array_split( topedges, Nsplit )
+
 
 ### for single-molecule samples you can use this:
 
@@ -26,32 +46,11 @@ tstart = stopwatch.time()
 # m.define_background_spot( bgbounds )
 # import_spot_positions( m, 'coords.txt', boxedgelength=5 )
 
-# prefix = '/home/kiwimatto/Desktop/Lund/2D/2dpolim-analysis/test_emission_correction/'
-# basename = 'S3-633ex-OD1-gain1-675LP-01'
-prefix = '/home/kiwimatto/Desktop/Lund/Experimental/130719__new_fredrik_samples/'
-basename = 'edge1'
-
-prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM5/'
-basename = 'TDM5-488-OD1-01'
-
-# bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
-# correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-
-bgbounds   = [20,30,100,500]         #[110,405,400,450] 
-fullbounds = [130,30,400,500]        #[110, 80,400,360]
-resolution = 16
-Nsplit     = 3
-
-topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
-splittopedges = np.array_split( topedges, Nsplit )
-
 #for r in np.arange(fullbounds[1], fullbounds[3]-Nrowsatatime, Nrowsatatime):
-for ste in splittopedges:
+for iste,ste in enumerate(splittopedges):
 
+    print "=== Now dealing with slice %d of %d ===" % (iste, Nsplit)
     m = Movie( prefix, basename )
-#    m.startstop()
-#    print m.portrait_indices
-#    print m.line_edges
     m.find_portraits( frameoffset=0 )
     m.find_lines()
 
@@ -62,15 +61,11 @@ for ste in splittopedges:
             bounds = [ col, line, col+resolution-1, line+resolution-1 ]
             m.define_spot( bounds )
 
-#    if myrank==0: print 'current bounds: ',bounds
-
-#    grid_image_section_into_squares_and_define_spots( m, res=resolution, bounds=bounds )
     if myrank==0: print 'nspots: ',len(m.spots)
 
     m.correct_excitation_intensities()
     m.correct_emission_intensities()   # .5, 45.0/180*np.pi )
-
-    m.are_spots_valid( SNR=1 )
+    m.are_spots_valid( SNR=rafaSNR, validframesratio=VFRrafa )
 
     # the rest is done only if we actually have any valid spots here
     if not len(m.validspots)==0:
@@ -79,18 +74,19 @@ for ste in splittopedges:
 
         myspots = np.array_split( np.arange(len(m.validspots)), nprocs )
 
-        m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
-        m.find_modulation_depths_and_phases_selective( myspots[myrank] )
-        dat = []
-        for s in self.m.validspots:
-            r0 = s.portrait_residuals( iportrait=0 )
-            r1 = s.portrait_residuals( iportrait=1 )
-            mex= s.M_ex
-            mem= s.M_em
-            dat.append( r0,r1,mex,mem )
-        print dat
-        raise SystemExit
-        m.ETrulerFFT_selective( myspots[myrank] )
+        if not testrun:
+            m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
+            m.find_modulation_depths_and_phases_selective( myspots[myrank] )
+            dat = []
+            for s in self.m.validspots:
+                r0 = s.portrait_residuals( iportrait=0 )
+                r1 = s.portrait_residuals( iportrait=1 )
+                mex= s.M_ex
+                mem= s.M_em
+                dat.append( r0,r1,mex,mem )
+            print dat
+            raise SystemExit
+            m.ETrulerFFT_selective( myspots[myrank] )
         #    m.ETmodel_selective( myspots[myrank] )
         
         # all processes save their contributions separately
@@ -99,9 +95,13 @@ for ste in splittopedges:
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
 comm.barrier()
+stopwatch.sleep(1)
 
 # first process gets to combine them into a single file
-if myrank==0: combine_outputs( m.data_basename, prefix )
+if myrank==0: 
+    print "proc 0 here: combining output"
+    print m.data_directory
+    combine_outputs( m )
 
 # all done
 

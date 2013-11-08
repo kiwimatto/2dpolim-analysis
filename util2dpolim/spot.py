@@ -64,7 +64,9 @@ class Spot:
         self.use_blank  = use_blank
         self.use_exspot = use_exspot
         self.use_borderbg = use_borderbg
+
         self.value_for_coverage_image = 1
+        self.value_for_coverage_valid_image = 2
 
 #        self.width  = coords[2] -coords[0] +1
 #        self.height = coords[3] -coords[1] +1
@@ -146,6 +148,8 @@ class Spot:
             # and bg-corrected (if a bg-spot was defined in the parent class). 
             # subtract blank from sample
             if self.have_blank and use_blank:
+#                Iblank2 =  np.concatenate((Iblank,Iblank))
+#                print Iblank2
                 Isample -= Iblank
 
             # divide by exspot power if that is required

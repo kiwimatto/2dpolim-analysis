@@ -172,7 +172,8 @@ class Movie:
         self.spot_coverage_image  = np.ones( (self.sample_data.datasize[1],self.sample_data.datasize[2]) )*np.nan
         self.original_mean_intensity_image = np.mean( self.sample_data.rawdata, axis=0 )
         self.mean_intensity_image = self.spot_coverage_image.copy()
-        self.SNR_image            = self.spot_coverage_image.copy()
+        self.meanSNR_image        = self.spot_coverage_image.copy()
+        self.framecountSNR_image  = self.spot_coverage_image.copy()
         self.M_ex_image           = self.spot_coverage_image.copy()
         self.M_em_image           = self.spot_coverage_image.copy()
         self.phase_ex_image       = self.spot_coverage_image.copy()
@@ -805,12 +806,12 @@ class Movie:
             
             ruler = 1-(crossdiff/MYcrossdiff)
 
-            if (ruler < -.1) or (ruler > 1.1):
-                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
-                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
-                print "You can thank me later."
-                cet+=1
-                print cet
+#            if (ruler < -.1) or (ruler > 1.1):
+#                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
+#                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
+#                print "You can thank me later."
+#                cet+=1
+#                print cet
 
             if ruler < 0:
                 ruler = 0
@@ -886,12 +887,12 @@ class Movie:
                 ( s.M_ex,s.M_em, s.phase_ex*180/np.pi, s.phase_em*180/np.pi, s.LS*180/np.pi )
 
 
-    def are_spots_valid(self, SNR=10, quiet=False, all_are_valid=False):
+    def are_spots_valid(self, SNR=10, validframesratio=.7, quiet=False, all_are_valid=False):
 
         # not sure if we have a value for the bg std 
         bgstd=None
 
-        if not self.bg_spot_sample==None:         # yes we do
+        if not self.bg_spot_sample==None:         # yes we do have a bg spot
             bgstd = self.bg_spot_sample.std
 
         # create a new list containing valid spots only
@@ -907,17 +908,22 @@ class Movie:
             else:
                 s.SNR = np.ones_like(s.intensity)*np.inf    # --> default inf SNR if bg unknown
 
-#            print s.SNR
-            if np.sum(s.SNR > SNR) >= .7*len(s.SNR):
+            s.framecountSNR = np.sum(s.SNR > SNR)
+            if s.framecountSNR >= validframesratio*len(s.SNR):
                 validspots.append(s)
                 validspotindices.append(si)
             s.meanSNR = np.mean(s.SNR)
+
             # store mean SNR in SNR_image
-            self.store_property_in_image( s, 'SNR_image', 'meanSNR' )    # let's see if this works...
+            self.store_property_in_image( s, 'meanSNR_image', 'meanSNR' )    # let's see if this works...
+            self.store_property_in_image( s, 'framecountSNR_image', 'framecountSNR' )    # let's see if this works...
 
         # and store in movie object
         self.validspots = validspots
         self.validspotindices = validspotindices        
+
+        for s in self.validspots:
+            self.store_property_in_image( s, 'spot_coverage_image', 'value_for_coverage_valid_image' )
 
         if not quiet: print "Got %d valid spots (of %d spots total)" % (len(self.validspots),len(self.spots))
 
