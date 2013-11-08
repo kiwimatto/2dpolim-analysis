@@ -42,25 +42,25 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.dataview.myaxes = self.dataview.fig.add_subplot(111)
 
     def move_crosshairs( self, direction ):
-        x = self.imageview.crosshairs_x
-        y = self.imageview.crosshairs_y
+        r = self.imageview.crosshairs_r
+        c = self.imageview.crosshairs_c
         if not self.current_spot==None:
-            while self.m.spots[self.current_spot].has_pixel( (x,y) ):
-                if direction=='up':   y -= 1
-                if direction=='down': y += 1
-                if direction=='left':  x -= 1
-                if direction=='right': x += 1
+            while self.m.spots[self.current_spot].has_pixel( (r,c) ):
+                if direction=='up':   r -= 1
+                if direction=='down': r += 1
+                if direction=='left':  c -= 1
+                if direction=='right': c += 1
         else:
-            if direction=='up':   y -= 1
-            if direction=='down': y += 1
-            if direction=='left':  x -= 1
-            if direction=='right': x += 1
-        x = np.clip(x,0,self.m.sample_data.datasize[1])
-        y = np.clip(y,0,self.m.sample_data.datasize[2])
-        self.imageview.crosshairs_x = x
-        self.imageview.crosshairs_y = y                
-        self.imageview.hline.set_ydata( np.array([y,y]) )
-        self.imageview.vline.set_xdata( np.array([x,x]) )
+            if direction=='up':   r -= 1
+            if direction=='down': r += 1
+            if direction=='left':  c -= 1
+            if direction=='right': c += 1
+        r = np.clip(r,0,self.m.sample_data.datasize[1]-1)
+        c = np.clip(c,0,self.m.sample_data.datasize[2]-1)
+        self.imageview.crosshairs_r = r
+        self.imageview.crosshairs_c = c
+        self.imageview.hline.set_ydata( np.array([r,r]) )
+        self.imageview.vline.set_xdata( np.array([c,c]) )
 
         self.crosshair_pick()
 
@@ -143,7 +143,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
             raise taxes
 
     def test(self):
-        b = self.m.spots[0].dilate()
+        b = self.m.spots[0].dilate( borderwidth=2 )
         self.dataview.myaxes.cla()
         self.dataview.myaxes.imshow(b, interpolation='nearest')
         self.dataview.figure.canvas.draw()
@@ -277,6 +277,8 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         # self.m.excitation_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
         # self.m.emission_angles_grid = np.linspace( 0, np.pi, self.NanglesSpinBox.value() )
         self.m.fit_all_portraits_spot_parallel_selective()
+        for s in self.m.validspots:
+            s.portrait_residuals( iportrait=0 )
         self.unsetButtonWait( self.cosineFitPushButton, oldtext )
 
     def checkSpotValidity(self):
@@ -421,7 +423,9 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.imageview.figure.canvas.draw()                       
         self.imageview.show_stuff()
         self.m.define_background_spot( shape, intensity_type='mean' )
-
+        print "BG spot defined."
+        print "BG spot: intensity: ",self.m.bg_spot_sample.intensity
+        print "BG spot: std      : ",self.m.bg_spot_sample.std
 
     def addSignalSpot(self):
         nspotsbefore  = len(self.m.spots)
@@ -641,7 +645,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                     infostring += 'mean SNR   = <font color="#ef0000">%f</font>    <br>' % s.meanSNR
 
 #            print s.verticalfitparams
-            print s.linefitparams
+#            print s.linefitparams
 
             if hasattr(s,'M_ex'):
                 infostring += 'M<sub>ex</sub>  = %f<br>' % s.M_ex
@@ -651,6 +655,8 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                 infostring += '&phi;<sub>ex</sub>  = %f deg<br>' % (s.phase_ex*180/np.pi)
             if hasattr(s,'phase_em'):
                 infostring += '&phi;<sub>em</sub>  = %f deg<br>' % (s.phase_em*180/np.pi)
+            if hasattr(s,'residual_full'):
+                infostring += 'resi<sub>full</sub>  = %f <br>' % (s.residual_full)
             if hasattr(s,'ET_ruler'):
                 infostring += 'ET<sub>ruler</sub>  = %f<br>' % s.ET_ruler
             if hasattr(s,'ET_model_md_fu'):
@@ -660,6 +666,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
                 infostring += 'ET model: ET param.  = %f<br>' % s.ET_model_et
 
             if hasattr(s,'intensity'):
+                infostring += 'mean(intensity)= %f<br>' % np.mean(s.intensity)
                 infostring += 'min(intensity) = %f<br>' % np.min(s.intensity)
                 infostring += 'max(intensity) = %f<br>' % np.max(s.intensity)
 
@@ -777,7 +784,9 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
         self.m = Movie( self.data_directory, \
                             self.spefiles[fileindex][:-4] )
 #                            phase_offset_in_deg=self.phase_offset )
-        self.m.startstop()
+#        self.m.startstop()
+        self.m.find_portraits()
+        self.m.find_lines()
 
         print self.imageview.myaxes.artists
         print self.imageview.myaxes.patch
@@ -810,7 +819,12 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
     def frameSliderChanged( self ):
         frame = self.frameSlider.value()
         print frame
-        self.imageview.show_image( self.m.sample_data.rawdata[frame,:,:], zorder=1, cmap=cm.gray )
+        self.imageview.im.set_data( self.m.sample_data.rawdata[frame,:,:] )
+        cmin = np.min( self.m.sample_data.rawdata[frame,:,:] )
+        cmax = np.max( self.m.sample_data.rawdata[frame,:,:] )
+        self.imageview.im.set_clim(cmin,cmax)
+        self.imageview.figure.canvas.draw()
+        #self.imageview.show_image( self.m.sample_data.rawdata[frame,:,:], zorder=1, cmap=cm.gray )
 
         self.dataview_updater()
 

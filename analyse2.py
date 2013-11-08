@@ -39,7 +39,7 @@ basename = 'TDM5-488-OD1-01'
 
 bgbounds   = [20,30,100,500]         #[110,405,400,450] 
 fullbounds = [130,30,400,500]        #[110, 80,400,360]
-resolution = 4
+resolution = 16
 Nsplit     = 3
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
@@ -49,7 +49,11 @@ splittopedges = np.array_split( topedges, Nsplit )
 for ste in splittopedges:
 
     m = Movie( prefix, basename )
-    m.startstop()
+#    m.startstop()
+#    print m.portrait_indices
+#    print m.line_edges
+    m.find_portraits( frameoffset=0 )
+    m.find_lines()
 
     m.define_background_spot( bgbounds )
     
@@ -77,9 +81,18 @@ for ste in splittopedges:
 
         m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
         m.find_modulation_depths_and_phases_selective( myspots[myrank] )
+        dat = []
+        for s in self.m.validspots:
+            r0 = s.portrait_residuals( iportrait=0 )
+            r1 = s.portrait_residuals( iportrait=1 )
+            mex= s.M_ex
+            mem= s.M_em
+            dat.append( r0,r1,mex,mem )
+        print dat
+        raise SystemExit
         m.ETrulerFFT_selective( myspots[myrank] )
         #    m.ETmodel_selective( myspots[myrank] )
-
+        
         # all processes save their contributions separately
         save_hdf5( m, myspots[myrank], myrank )
 

@@ -1,10 +1,12 @@
 import numpy as np
 import scipy.optimize as so
 import scipy.ndimage as sn
+from itertools import chain
 #from scipy.spatial import ConvexHull
 from matplotlib.patches import Rectangle, Polygon, Circle
-from matplotlib.collections import PatchCollection
-import matplotlib.cm as cmap
+# from matplotlib.collections import PatchCollection
+# import matplotlib.cm as cmap
+
 
 class Spot:
     def __init__( self, \
@@ -99,7 +101,7 @@ class Spot:
             # spot knows its own background!
             if use_borderbg:
                 Isample = self.calculate_spot_intensity( which_data='sample', int_type=int_type )
-                self.dilate()
+                self.dilate( borderwidth=2 )
                 # print Isample
                 # print self.borderbg
                 # print Isample-self.borderbg
@@ -227,7 +229,11 @@ class Spot:
             b[ p[0]-minr+borderwidth, p[1]-minc+borderwidth ] = True
 
         # now dilate the spot
-        c=sn.binary_dilation(b, iterations=borderwidth)
+        if self.shape['type']=='Rectangle':
+            structure = sn.generate_binary_structure(2, 2)
+        else:
+            structure = None
+        c = sn.binary_dilation(b, structure=structure, iterations=borderwidth)
         
         # bg is difference between original and dilated spot
         bgbitmap = c-b
@@ -240,11 +246,53 @@ class Spot:
                     bgpixel.append( (ri+minr-1, ci+minc-1) )
         
         self.bgpixel = bgpixel
+#        print 'Number of border pixel: %d' % len(bgpixel)
+
         data  = np.array( [self.parent.sample_data.rawdata[:,p[0],p[1]] for p in self.bgpixel] ).T
-        self.borderbg    = np.sum( data, axis=1 )/float(len(self.pixel))
+        self.borderbg    = np.sum( data, axis=1 )/float(len(self.bgpixel))
         self.borderbgstd = np.std( data, axis=1 )
         
         return bgbitmap
+
+
+    def check_exclusion_zones( self, share_bg_pixel=True ):
+        # # make a flat list of all pixel of all spots
+        # allpixel   = list( chain.from_iterable([s.pixel for s in self.parent.spots]) )
+        # allbgpixel = list( chain.from_iterable([s.bgpixel for s in self.parent.spots]) )
+
+        newbgps = []
+        for bgp in self.bgpixel:
+            isalreadytaken = False
+            for s in self.parent.spots:
+                if s.has_pixel( bgp ):
+                    isalreadytaken = True
+                    break
+                if not share_bg_pixel:
+                    if s.has_pixel( bgp, checkbgpixel=True ):
+                        isalreadytaken = True
+                        break
+            if not isalreadytaken:
+                newbgps.append( bgp )
+
+        self.bgpixel = newbgps
+
+        Isample = self.calculate_spot_intensity( which_data='sample', int_type=int_type )
+        # print Isample
+        # print self.borderbg
+        # print Isample-self.borderbg
+        # print "--------------------------------------"
+        data  = np.array( [self.parent.sample_data.rawdata[:,p[0],p[1]] for p in self.bgpixel] ).T
+        self.borderbg    = np.sum( data, axis=1 )/float(len(self.pixel))
+        self.borderbgstd = np.std( data, axis=1 )
+        Isample -= self.borderbg
+        self.intensity_type = int_type
+        self.intensity      = Isample
+        self.mean_intensity = np.mean(Isample)
+
+        # record the spot in the mean intensity image
+        for p in self.pixel:
+            self.parent.mean_intensity_image[ p[0], p[1] ] = self.mean_intensity
+        return
 
 
     def graphical_representation( self, color='red' ):
@@ -270,9 +318,13 @@ class Spot:
 
         return r
 
-    def has_pixel( self, pixel ):
-        for p in self.pixel:
-            if p==pixel: return True
+    def has_pixel( self, pixel, checkbgpixel=False ):
+        if checkbgpixel:
+            for p in self.bgpixel:
+                if p==pixel: return True
+        else:
+            for p in self.pixel:
+                if p==pixel: return True
         return False
 
     def set_spot_center( self ):
@@ -368,7 +420,6 @@ class Spot:
         return I
 
 
-
     def gaussianfit(self, rawdata):        
         x = np.arange( rawdata.shape[1] )
         y = np.arange( rawdata.shape[2] )
@@ -426,6 +477,70 @@ class Spot:
         return pic
 
 
+    def portrait_residuals( self, iportrait ):
+        print self.verticalfitparams[0,15,2]
+        mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+
+        # indices of the angles which were measured in the portrait
+        iuexa = self.parent.uexa_portrait_indices
+        iuema = self.parent.uema_portrait_indices
+      
+        experimental_portrait = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        experimental_exangles = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        experimental_emangles = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+
+        line_fitted_portrait  = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        line_fitted_exangles  = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        line_fitted_emangles  = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        
+        full_fitted_portrait  = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        full_fitted_exangles  = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        full_fitted_emangles  = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
+        # go through all lines
+        for iline in range(self.parent.Nlines):
+            # get correct angles here
+            exangles,emangle = self.parent.retrieve_angles( iportrait, iline )
+            # arrange lines of spot intensities into rows in this array
+            experimental_portrait[iline,:] = self.retrieve_intensity( iportrait, iline )
+            experimental_exangles[iline,:] = exangles
+            experimental_emangles[iline,:] = np.ones_like(exangles)*emangle
+            # arrange fitted lines in the same way
+            line_fitted_portrait[iline,:]  = self.retrieve_line_fit( iportrait, iline, exangles )
+            line_fitted_exangles[iline,:]  = exangles
+            line_fitted_emangles[iline,:] = np.ones_like(exangles)*emangle
+            # now the fully fitted portraits (ie vertical fits)
+            for iexa,exa in enumerate(exangles):
+                full_fitted_exangles[ iline,iexa ] = exa
+                full_fitted_emangles[ iline,iexa ] = emangle
+                # what's the index of this exangle in the portrait?
+                piexa = np.argmin( np.abs(exa-self.parent.excitation_angles_grid) )
+                assert np.min( np.abs(exa-self.parent.excitation_angles_grid) ) < 10*np.finfo(np.float).eps
+                # got it? ok, then use that vertical fit 
+                full_fitted_portrait[iline,iexa] = mycos( emangle, \
+                                        self.verticalfitparams[iportrait,piexa,0], \
+                                        self.verticalfitparams[iportrait,piexa,1], \
+                                        self.verticalfitparams[iportrait,piexa,2] )
+
+        assert np.all(experimental_exangles == line_fitted_exangles) 
+        assert np.all(experimental_exangles == full_fitted_exangles)
+        assert np.all(experimental_emangles == line_fitted_emangles)
+        assert np.all(experimental_emangles == full_fitted_emangles)
+
+        residuals_line = experimental_portrait - line_fitted_portrait
+        residuals_full = experimental_portrait - full_fitted_portrait
+
+        # print experimental_portrait
+        # print line_fitted_portrait
+        # print full_fitted_portrait
+        # print residuals_line
+        # print residuals_full
+        print 'residual of line fits    : ',np.linalg.norm(residuals_line)
+        print 'residual of vertical fits: ',np.linalg.norm(residuals_full)
+        self.residual_line = np.linalg.norm(residuals_line)
+        self.residual_full = np.linalg.norm(residuals_full)
+
+        return self.residual_full
+
     def retrieve_line_fit( self, iportrait, iline, angles ):
         I0 = self.linefitparams[iportrait, iline, 1]
         M0 = self.linefitparams[iportrait, iline, 2]
@@ -434,12 +549,13 @@ class Spot:
 
 
     def retrieve_intensity( self, iportrait, iline ):
-        pstart = self.parent.portrait_indices[ iportrait, 0 ]
-        pstop  = self.parent.portrait_indices[ iportrait, 1 ]+1
-        lstart = self.parent.line_edges[ iline ]
-        lstop  = self.parent.line_edges[ iline+1 ]
+        pstart = self.parent.portrait_indices[ iportrait ]
+        pstop  = self.parent.portrait_indices[ iportrait+1 ]
+        # lstart = self.parent.line_edges[ iline ]
+        # lstop  = self.parent.line_edges[ iline+1 ]
         # print 'portrait %d line %d:' % (iportrait, iline)
         # print self.intensity[ pstart:pstop ][ lstart:lstop ]
         # print self.intensity
         # print '==============================================='
-        return self.intensity[ pstart:pstop ][ lstart:lstop ]
+#        return self.intensity[ pstart:pstop ][ lstart:lstop ]
+        return self.intensity[ pstart:pstop ][ self.parent.line_indices[iportrait][iline] ]
