@@ -28,8 +28,8 @@ basename = 'TDM5-488-OD1-01'
 bgbounds   = [120,190,180,400]
 fullbounds = [190,190,340,400]
 bgbounds   = [20,30,100,500]         #[110,405,400,450] 
-fullbounds = [130,30,400,500]        #[110, 80,400,360]
-resolution = 16
+fullbounds = [130,230,400,500]        #[110, 80,400,360]
+resolution = 2
 Nsplit     = 3
 rafaSNR    = 7
 VFRrafa    = .5
@@ -78,13 +78,16 @@ for iste,ste in enumerate(splittopedges):
             m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
             m.find_modulation_depths_and_phases_selective( myspots[myrank] )
             dat = []
-            for s in self.m.validspots:
+            for s in m.validspots:
                 r0 = s.portrait_residuals( iportrait=0 )
                 r1 = s.portrait_residuals( iportrait=1 )
-                mex= s.M_ex
-                mem= s.M_em
-                dat.append( r0,r1,mex,mem )
-            print dat
+                mex= s.phase_ex
+                mem= s.phase_em
+                dat.append( [r0,r1,mex,mem] )
+                s.values_for_ETruler()
+                raise SystemExit
+            print np.array(dat)
+            np.save( 'yuarp.npy', np.array(dat) )
             raise SystemExit
             m.ETrulerFFT_selective( myspots[myrank] )
         #    m.ETmodel_selective( myspots[myrank] )

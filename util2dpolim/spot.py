@@ -482,7 +482,6 @@ class Spot:
 
 
     def portrait_residuals( self, iportrait ):
-        print self.verticalfitparams[0,15,2]
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
         # indices of the angles which were measured in the portrait
@@ -563,3 +562,54 @@ class Spot:
         # print '==============================================='
 #        return self.intensity[ pstart:pstop ][ lstart:lstop ]
         return self.intensity[ pstart:pstop ][ self.parent.line_indices[iportrait][iline] ]
+
+
+    def values_for_ETruler( self, newdatalength=2048, emainc=10*np.exp(1) ):
+
+        def look_up_cosine( self, exa, emas, Ndigits ):
+            mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+
+            which_portrait = 0
+            iexa = np.argmin( np.abs(exa-self.parent.excitation_angles_grid) )
+            assert np.abs(exa-self.parent.excitation_angles_grid[iexa]) < 1e-5
+
+            return mycos( emas, \
+                              self.verticalfitparams[which_portrait,iexa,0], \
+                              self.verticalfitparams[which_portrait,iexa,1], \
+                              self.verticalfitparams[which_portrait,iexa,2] )
+        
+
+        # uexa   = np.array([0.0, 30.0, 60.0, 90.0, 120.0, 150.0])/180.0*np.pi
+        uexa   = self.parent.unique_exangles
+        exdiff = np.pi/len(uexa)
+
+        slope = emainc/180.0        # go up one degree in emission for 180 deg in excitation
+        exa = np.linspace(0, newdatalength-1, newdatalength)*exdiff
+        ema = slope * exa
+
+        # now round and wrap back to the [0,180)[0,180) portrait
+        Ndigits = 6
+        exa = np.round( np.mod( exa, np.pi ), Ndigits )
+        ema = np.round( np.mod( ema, np.pi ), Ndigits )
+
+        # import matplotlib.pyplot as plt
+        # plt.plot( exa, ema, '.', alpha=.5 )
+        # plt.show()
+
+        print np.unique( exa ).size
+        print np.unique( ema ).size
+
+        intensities = np.zeros_like(ema)
+        for i in range(len(uexa)):
+            intensities[ i::len(uexa) ] = look_up_cosine( self, uexa[i], ema[i::len(uexa)], Ndigits )
+            # print ema[i::len(uexa)].size
+            # print ema[i::len(uexa)][-1]
+
+        Fint = np.fft.fft(intensities)
+        P    = Fint*np.conj(Fint)
+
+        import matplotlib.pyplot as plt
+        plt.plot( P )
+        plt.show()
+
+        return exa,ema,intensities

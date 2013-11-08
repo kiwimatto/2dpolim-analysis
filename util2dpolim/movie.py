@@ -35,6 +35,8 @@ class Movie:
         TargetNAngles = 90
         ExAngleGridSize = np.round( TargetNAngles/float(len(self.unique_exangles)) ) * len(self.unique_exangles)
         EmAngleGridSize = np.round( TargetNAngles/float(len(self.unique_emangles)) ) * len(self.unique_emangles)
+        # ExAngleGridSize = 6
+        # EmAngleGridSize = 4
         phase_offset_in_rad = self.motors.phase_offset_in_deg * np.pi/180.0
         self.excitation_angles_grid = np.linspace(0,np.pi,ExAngleGridSize, endpoint=False)
         self.emission_angles_grid   = np.linspace(0,np.pi,EmAngleGridSize, endpoint=False)
