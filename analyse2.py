@@ -18,26 +18,22 @@ nprocs = comm.Get_size()
 show_mem()
 tstart = stopwatch.time()
 
-prefix = '/home/rafael/Desktop/Win/Well01/'
-basename = 'S1-W1-Area02'
-prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM5/'
-basename = 'TDM5-488-OD1-01'
+prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM3/'
+basename = 'TDM3-488-OD1-02'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [120,190,180,400]
-fullbounds = [190,190,340,400]
-bgbounds   = [20,30,100,500]         #[110,405,400,450] 
-fullbounds = [130,230,400,500]        #[110, 80,400,360]
-resolution = 2
-Nsplit     = 3
-rafaSNR    = 7
+bgbounds   = [1,200,50,500]         #[110,405,400,450] 
+fullbounds = [150,200,450,500]        #[110, 80,400,360]
+fullbounds = [0,0,512,512]        #[110, 80,400,360]
+resolution = 1
+Nsplit     = 1
+rafaSNR    = 1
 VFRrafa    = .5
 testrun    = False   #False/True
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
-
 
 ### for single-molecule samples you can use this:
 
@@ -51,6 +47,9 @@ for iste,ste in enumerate(splittopedges):
 
     print "=== Now dealing with slice %d of %d ===" % (iste, Nsplit)
     m = Movie( prefix, basename )
+#    m.blank_data = m.sample_data
+    m.fit_blank_image( verbosity=0 )
+
     m.find_portraits( frameoffset=0 )
     m.find_lines()
 
@@ -77,19 +76,11 @@ for iste,ste in enumerate(splittopedges):
         if not testrun:
             m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
             m.find_modulation_depths_and_phases_selective( myspots[myrank] )
-            dat = []
-            for s in m.validspots:
-                r0 = s.portrait_residuals( iportrait=0 )
-                r1 = s.portrait_residuals( iportrait=1 )
-                mex= s.phase_ex
-                mem= s.phase_em
-                dat.append( [r0,r1,mex,mem] )
-                s.values_for_ETruler()
-                raise SystemExit
-            print np.array(dat)
-            np.save( 'yuarp.npy', np.array(dat) )
-            raise SystemExit
-            m.ETrulerFFT_selective( myspots[myrank] )
+            for s in m.validspots[:3]:
+                s.values_for_ETruler( newdatalength=1024 )
+                print s.ET_ruler
+            # m.ETrulerFFT_selective( myspots[myrank] )
+            # raise SystemExit
         #    m.ETmodel_selective( myspots[myrank] )
         
         # all processes save their contributions separately

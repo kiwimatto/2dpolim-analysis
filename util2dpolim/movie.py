@@ -33,10 +33,10 @@ class Movie:
 
         # fix the excitation and emission angle grids for now
         TargetNAngles = 90
-        ExAngleGridSize = np.round( TargetNAngles/float(len(self.unique_exangles)) ) * len(self.unique_exangles)
-        EmAngleGridSize = np.round( TargetNAngles/float(len(self.unique_emangles)) ) * len(self.unique_emangles)
-        # ExAngleGridSize = 6
-        # EmAngleGridSize = 4
+        # ExAngleGridSize = np.round( TargetNAngles/float(len(self.unique_exangles)) ) * len(self.unique_exangles)
+        # EmAngleGridSize = np.round( TargetNAngles/float(len(self.unique_emangles)) ) * len(self.unique_emangles)
+        ExAngleGridSize = 6
+        EmAngleGridSize = 4
         phase_offset_in_rad = self.motors.phase_offset_in_deg * np.pi/180.0
         self.excitation_angles_grid = np.linspace(0,np.pi,ExAngleGridSize, endpoint=False)
         self.emission_angles_grid   = np.linspace(0,np.pi,EmAngleGridSize, endpoint=False)
@@ -55,8 +55,8 @@ class Movie:
             assert np.any(np.abs(uema-self.emission_angles_grid) < 10*np.finfo(np.float).eps)
             self.uema_portrait_indices.append( np.argmin( np.abs(uema-self.emission_angles_grid) ) )
 
-        self.Nexphases_for_cos_fitter = ExAngleGridSize
-        self.Nemphases_for_cos_fitter = EmAngleGridSize
+        self.Nexphases_for_cos_fitter = 181
+        self.Nemphases_for_cos_fitter = 181
         # self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
         #                                  for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
@@ -243,6 +243,88 @@ class Movie:
         self.store_property_in_image( s, 'spot_coverage_image', 'value_for_coverage_image' )
 
         return s
+
+    def fit_blank_image( self, verbosity=0 ):
+        # The idea here is to fit the blank image to the sample image, but, of course,
+        # only in region(s) where there's no interference from the actual sample.
+        # For this we'll need a function which can return the list of pixel occupied by 
+        # a rectangular shape, or, occupied by the border of a rectangular shape:
+        def pixel_list(shape, boolimage):
+            """ what follows below is mostly copypasta from the function spot.create_pixel_list """
+            left  = shape['left']
+            right = shape['right']
+            lower = shape['lower']
+            upper = shape['upper']
+            # validate coords:
+            assert lower >= upper   # lower in the image means larger row number!
+            assert (left >= 0) and (upper >= 0)
+            assert (right<self.blank_data.datasize[2]) and (lower<self.blank_data.datasize[1])
+
+            for col in range(left,right+1):
+                for row in range(upper,lower+1):
+                    if shape['op']=='include':
+                        boolimage[ row, col ] = True
+                    elif shape['op']=='exclude':
+                        boolimage[ row, col ] = False
+                    else:
+                        raise ValueError("fit_blank_image(): can't comprehend op '%s'" % shape['op'])
+
+            return boolimage
+
+
+        collapsed_blank_data = np.mean( self.blank_data.rawdata, axis=0 )
+
+        boolimage = np.ones_like( collapsed_blank_data, dtype=np.bool )*True
+        rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
+        boolimage = pixel_list( rect, boolimage )
+
+        blankint  = collapsed_blank_data[boolimage]
+        fitmatrix = np.vstack( [np.ones_like(blankint), blankint] ).T        
+        fitblankimg = np.zeros_like( self.sample_data.rawdata )
+
+        if verbosity>0:
+            import time, os
+            import matplotlib.pyplot as plt
+            plt.interactive(True)
+            fig = plt.figure( figsize=(16,8) )
+            ax1 = fig.add_subplot(1,2,1)
+            ax2 = fig.add_subplot(1,2,2)
+
+#        print self.sample_data.datasize
+#        print self.blank_data.datasize
+
+        for fi,frame in enumerate(self.sample_data.rawdata):
+            sampleint = frame[boolimage]
+            res = np.linalg.lstsq( fitmatrix, sampleint.reshape((sampleint.size,1)) )
+            fitblankimg[fi,:,:] = res[0][0] + res[0][1]*collapsed_blank_data
+            if verbosity>0:
+                print res[0]
+                ax1.imshow( frame-fitblankimg[fi,:,:], interpolation='nearest', vmin=-20, vmax=100 )
+                n,b = np.histogram( (frame-fitblankimg[fi,:,:]).flatten(), bins=np.linspace(-20,100,121) )
+                ax2.bar( (b[:-1]+b[1:])/2.0, np.log10(n), width=np.diff(b)[0], alpha=.6 )
+                ax2.set_xlim(-20,100)
+                plt.draw()
+                plt.savefig( 'blaaa_%03d.png' % fi )
+                ax1.cla()
+                ax2.cla()
+
+        self.blank_data.rawdata = fitblankimg
+
+        if verbosity>0:
+            os.system('convert blaaa_*.png blaaa.gif')
+            abc = np.sum( np.abs( self.sample_data.rawdata-fitblankimg ), axis=0 )
+            plt.figure( figsize=(12,12) )
+            plt.imshow( abc, interpolation='nearest' )
+            plt.colorbar()
+
+        # plt.figure( figsize=(12,12) )
+        # plt.imshow( np.sum( self.sample_data.rawdata, axis=0 ), interpolation='nearest' )
+        # plt.colorbar()
+
+
+
+#        blankint = [ self.blank_data.rawdata[ p[0], p[1] ] for p in pixel ]
+        
 
 
     def correct_excitation_intensities( self ):
@@ -808,12 +890,12 @@ class Movie:
             
             ruler = 1-(crossdiff/MYcrossdiff)
 
-#            if (ruler < -.1) or (ruler > 1.1):
-#                print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
-#                print "Will continue anyways and set ruler to zero or one (whichever is closer)."
-#                print "You can thank me later."
-#                cet+=1
-#                print cet
+            if (ruler < -.1) or (ruler > 1.1):
+               print "Shit, ruler has gone bonkers (ruler=%f). Spot #%d" % (ruler,si)
+               print "Will continue anyways and set ruler to zero or one (whichever is closer)."
+               print "You can thank me later."
+               cet+=1
+               print cet
 
             if ruler < 0:
                 ruler = 0
@@ -825,6 +907,18 @@ class Movie:
             
 
     def ETmodel_selective( self, myspots, fac=1e4, pg=1e-9, epsi=1e-11 ):
+
+        def look_up_cosine( self, spot, exa, emas ):
+            mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+
+            which_portrait = 0
+            iexa = np.argmin( np.abs(exa-self.excitation_angles_grid) )
+            assert np.abs(exa-self.excitation_angles_grid[iexa]) < 1e-5
+
+            return mycos( emas, \
+                              spot.verticalfitparams[which_portrait,iexa,0], \
+                              spot.verticalfitparams[which_portrait,iexa,1], \
+                              spot.verticalfitparams[which_portrait,iexa,2] )
 
         from fitting import fit_portrait_single_funnel_symmetric
 
@@ -838,6 +932,11 @@ class Movie:
             a0 = [mex, 0, 1]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
             funargs = (EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, 'fitting')
+            # EX = self.excitation_angles_grid
+            # EM = np.linspace( 0, 180, 20, endpoint=False )/180*np.pi
+            # spotint = np.array([look_up_cosine(self, self.validspots[si], exa, EM) for exa in EX]).T
+            # EX, EM = np.meshgrid( EX, EM )
+            # funargs = (EX, EM, spotint, mex, self.validspots[si].phase_ex, 'fitting')
 
             LB = [0.001,   -np.pi/2, 0]
             UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
@@ -856,18 +955,22 @@ class Movie:
 
             et,A = fit_portrait_single_funnel_symmetric( fitresult[0], EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, \
                                                              mode='show_et_and_A', use_least_sq=True)
+            # et,A = fit_portrait_single_funnel_symmetric( fitresult[0], \
+            #                                                  EX, EM, spotint, mex, \
+            #                                                  self.validspots[si].phase_ex, \
+            #                                                  mode='show_et_and_A', use_least_sq=True )
             self.validspots[si].ETmodel_md_fu = fitresult[0][0]
             self.validspots[si].ETmodel_th_fu = fitresult[0][1]
             self.validspots[si].ETmodel_gr    = fitresult[0][2]
             self.validspots[si].ETmodel_et    = et            
-            a = self.validspots[si].coords[1]
-            b = self.validspots[si].coords[3]+1
-            c = self.validspots[si].coords[0]
-            d = self.validspots[si].coords[2]+1
-            self.ET_model_md_fu_image[ a:b, c:d ] = fitresult[0][0]
-            self.ET_model_th_fu_image[ a:b, c:d ] = fitresult[0][1]
-            self.ET_model_gr_image[ a:b, c:d ]    = fitresult[0][2]
-            self.ET_model_et_image[ a:b, c:d ]    = et
+            # a = self.validspots[si].coords[1]
+            # b = self.validspots[si].coords[3]+1
+            # c = self.validspots[si].coords[0]
+            # d = self.validspots[si].coords[2]+1
+            # self.ET_model_md_fu_image[ a:b, c:d ] = fitresult[0][0]
+            # self.ET_model_th_fu_image[ a:b, c:d ] = fitresult[0][1]
+            # self.ET_model_gr_image[ a:b, c:d ]    = fitresult[0][2]
+            # self.ET_model_et_image[ a:b, c:d ]    = et
 
             print 'fit done\t',fitresult[0],
             print ' et=',et,

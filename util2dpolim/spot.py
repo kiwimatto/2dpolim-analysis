@@ -564,7 +564,7 @@ class Spot:
         return self.intensity[ pstart:pstop ][ self.parent.line_indices[iportrait][iline] ]
 
 
-    def values_for_ETruler( self, newdatalength=2048, emainc=10*np.exp(1) ):
+    def values_for_ETruler( self, newdatalength=2048, emainc=10*np.exp(1), showfft=False ):
 
         def look_up_cosine( self, exa, emas, Ndigits ):
             mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
@@ -583,7 +583,7 @@ class Spot:
         uexa   = self.parent.unique_exangles
         exdiff = np.pi/len(uexa)
 
-        slope = emainc/180.0        # go up one degree in emission for 180 deg in excitation
+        slope = emainc/180.0        # go up emainc degree in emission for 180 deg in excitation
         exa = np.linspace(0, newdatalength-1, newdatalength)*exdiff
         ema = slope * exa
 
@@ -596,8 +596,8 @@ class Spot:
         # plt.plot( exa, ema, '.', alpha=.5 )
         # plt.show()
 
-        print np.unique( exa ).size
-        print np.unique( ema ).size
+#        print np.unique( exa ).size
+#        print np.unique( ema ).size
 
         intensities = np.zeros_like(ema)
         for i in range(len(uexa)):
@@ -605,11 +605,103 @@ class Spot:
             # print ema[i::len(uexa)].size
             # print ema[i::len(uexa)][-1]
 
-        Fint = np.fft.fft(intensities)
-        P    = Fint*np.conj(Fint)
+        Fint  = np.fft.fft(intensities)
+        Pint  = np.real( Fint*np.conj(Fint) )/float(exa.size)
+        nPint = Pint[1:newdatalength/2]/np.sum(Pint[1:newdatalength/2])
 
-        import matplotlib.pyplot as plt
-        plt.plot( P )
-        plt.show()
+        kappa = .5 * np.arccos( .5*(3*self.M_ex-1) )
+        alpha = np.array( [-kappa, 0, kappa] )
+
+        modelNoET = np.zeros_like( exa )
+        for n in range(3):
+            modelNoET[:] += np.cos(exa-alpha[n])**2 * np.cos(ema-alpha[n])**2
+        modelNoET /= 3.0
+        FmodelNoET  = np.fft.fft( modelNoET )
+        PmodelNoET  = np.real( FmodelNoET*np.conj(FmodelNoET) )/float(exa.size)
+        nPmodelNoET = PmodelNoET[1:newdatalength/2]/np.sum(PmodelNoET[1:newdatalength/2])
+
+        # We are still awesome, and this time we think we know why:
+        #
+        # Both frequencies depend on the data length (because we never translate into actual fft freqs).
+        # How many steps per 180deg do we do? --> That is our sampling frequency in excitation and emission.
+        # The number of steps can be calculated from:
+        #  - the number of angles in excitation (which goes from 0..180, excluding 180), 
+        #    represented by the grid size
+        #  - the slope, as given by emainc/180, which defines the 'vertical' sampling frequency in the portrait
+
+        # horizontal freq (that is, sampling in excitation):
+        number_of_samples_in_ex = float(uexa.size)
+        hf = np.round( newdatalength/number_of_samples_in_ex )
+#        print newdatalength
+#        print number_of_samples_in_ex
+#        print hf
+        # vertical freq (in emission)
+        exstep_deg = 180/number_of_samples_in_ex
+        emstep_deg = slope*exstep_deg
+        number_of_samples_in_em = 180/emstep_deg
+        vf = np.round( newdatalength/number_of_samples_in_em )
+
+        # satellites
+        satdiff = np.abs( hf-vf )
+        satsum  = np.abs( hf+vf )
+
+
+        # everything has been shifted by one because we excluded the first element when normalizing
+        hf -= 1
+        vf -= 1
+        satdiff -= 1
+        satsum  -= 1
+
+        # freq-difference for the summation over peaks: 1/3rd of the difference between the largest two
+        # frequencies. We sort the frequencies first because we do not know if hf>vf (depends on chosen
+        # slope (emainc)). 
+        sortedfreqs = np.sort(np.array([hf,vf,satdiff,satsum]))
+        df = np.diff( sortedfreqs )[-1]
+        df = np.round( df/3.0 )
+
+        # summation bounds:
+        sb = np.array( [[f-df,f+df] for f in sortedfreqs] )
+        sb[sb<0] = 0
+
+        # peak intensities:
+        peakints = np.array( [ np.sum( nPint[sb[i,0]:sb[i,1]] ) for i in range(sortedfreqs.size) ] )
+
+        # peak intensities for the no-ET model:
+        modelNoETpeakints = np.array( [ np.sum( nPmodelNoET[sb[i,0]:sb[i,1]] ) \
+                                            for i in range(sortedfreqs.size) ] )
+
+        # if peak sums make no sense, then say something and set result to NaN
+        if (np.abs(np.sum(peakints)-1) > 0.08) or (np.abs(np.sum(modelNoETpeakints)-1) > 0.08):
+            print "ET ruler: peak sum is bad..."
+            self.ET_ruler = np.nan
+            return
+
+        crossdiff      = np.abs( peakints[1]-peakints[3] )
+        modelcrossdiff = np.abs( modelNoETpeakints[1]-modelNoETpeakints[3] )
+
+        ruler = 1-(crossdiff/modelcrossdiff)
+
+        if (ruler < -.2) or (ruler > 1.2):
+            print "\t\tShit, ruler has gone bonkers (ruler=%f)." % (ruler)
+            print "\t\tWill continue anyways and set ruler to zero or one (whichever is closer)."
+            print "\t\tYou can thank me later."
+            ruler = np.nan
+        # else:
+        #     if ruler < 0:
+        #         ruler = 0
+        #     if ruler > 1:
+        #         ruler = 1
+            
+        self.ET_ruler = ruler
+
+#        print 'ruler= ',ruler
+
+        # Here we've reached our peaks in life. Only downhill from here...
+
+        if showfft:
+            import matplotlib.pyplot as plt
+            plt.plot( nPint )
+            plt.plot( nPmodelNoET, 'r' )
+            plt.show()
 
         return exa,ema,intensities

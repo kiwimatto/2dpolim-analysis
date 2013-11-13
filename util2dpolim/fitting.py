@@ -203,11 +203,11 @@ def CosineFitter_new( angles, data, Nphases=91 ):
         try:
             assert np.all(fit[:,i]>=0)   # is it non-negative everywhere?
         except AssertionError:
-            print "############### ---------------- HOUSTON, WE HAVE A PROBLEM ---------------- ###############"
-            print ' residual   : ', rm[mm[i],i] 
-            print ' parameters : ', cm[mm[i],:,i]
-            print ' Setting everything to zero here. '
-            print "!!!!!!!!!!!!!!!!!!!!!!!"
+            # print "############### ---------------- HOUSTON, WE HAVE A PROBLEM ---------------- ###############"
+            # print ' residual   : ', rm[mm[i],i] 
+            # print ' parameters : ', cm[mm[i],:,i]
+            # print ' Setting everything to zero here. '
+            # print "!!!!!!!!!!!!!!!!!!!!!!!"
             I_0[i] = 0
             M_0[i] = 0
 #            raise AssertionError("The fit should be positive everywhere, but isn't. Something wrong?")
