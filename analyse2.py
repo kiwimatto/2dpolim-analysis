@@ -18,6 +18,7 @@ nprocs = comm.Get_size()
 show_mem()
 tstart = stopwatch.time()
 
+
 prefix = '/home/rafael/Desktop/Win/Well01/'
 basename = 'S1-W1-Area10b'
 
@@ -33,7 +34,6 @@ testrun    = False   #False/True
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
-#print splittopedges
 
 ### for single-molecule samples you can use this:
 
@@ -42,13 +42,17 @@ splittopedges = np.array_split( topedges, Nsplit )
 # m.define_background_spot( bgbounds )
 # import_spot_positions( m, 'coords.txt', boxedgelength=5 )
 
-
 #for r in np.arange(fullbounds[1], fullbounds[3]-Nrowsatatime, Nrowsatatime):
 for iste,ste in enumerate(splittopedges):
 
     print "=== Now dealing with slice %d of %d ===" % (iste, Nsplit)
     m = Movie( prefix, basename )
-    m.startstop()
+#    m.blank_data = m.sample_data
+    m.fit_blank_image( verbosity=0 )
+
+    m.find_portraits( frameoffset=0 )
+    m.find_lines()
+
     m.define_background_spot( bgbounds )
     
     for line in ste:
@@ -72,9 +76,13 @@ for iste,ste in enumerate(splittopedges):
         if not testrun:
             m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
             m.find_modulation_depths_and_phases_selective( myspots[myrank] )
-            m.ETrulerFFT_selective( myspots[myrank] )
+            for s in m.validspots[:3]:
+                s.values_for_ETruler( newdatalength=1024 )
+                print s.ET_ruler
+            # m.ETrulerFFT_selective( myspots[myrank] )
+            # raise SystemExit
         #    m.ETmodel_selective( myspots[myrank] )
-
+        
         # all processes save their contributions separately
         save_hdf5( m, myspots[myrank], myrank )
 

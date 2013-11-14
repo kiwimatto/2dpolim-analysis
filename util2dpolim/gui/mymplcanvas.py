@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import sys, os
 from PyQt4 import QtGui, QtCore
 
@@ -11,8 +13,20 @@ import numpy as np
 
 import spot_picker
 
+# def format_coord(x, y):
+#     col = int(x)
+#     row = int(y)
+#     if not self.image==None:
+#         numrows, numcols = self.image.shape
+#         if col>=0 and col<numcols and row>=0 and row<numrows:
+#             z = self.image[row,col]
+#             return 'x=%1.4f, y=%1.4f, z=%1.4f' % (x, y, z)
+#         else:
+#             return 'x=%1.4f, y=%1.4f' % (x, y)
+
 class MyMplCanvas(FigureCanvas):
     """Simple canvas with a sine plot."""
+
     def __init__(self, parent=None, width=5, height=4, dpi=100):
 
 #        self.use_blit = False
@@ -32,6 +46,9 @@ class MyMplCanvas(FigureCanvas):
 
         # We want the axes cleared every time plot() is called
 #        self.myaxes.hold(False)
+
+        # self.image = None    # needed in format_coord
+        # self.myaxes.format_coord = format_coord
 
         #
         FigureCanvas.__init__(self, self.fig)
@@ -77,7 +94,7 @@ class MyMplCanvas(FigureCanvas):
         self.myaxes.figure.canvas.mpl_connect('button_press_event', self.on_press)
         self.myaxes.figure.canvas.mpl_connect('button_release_event', self.on_release)
         self.myaxes.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-#        self.myaxes.figure.canvas.mpl_connect('key_press_event', self.on_key)
+        self.myaxes.figure.canvas.mpl_connect('key_press_event', self.on_key)
         self.draw()
 
     def on_key(self, event):
@@ -141,14 +158,17 @@ class MyMplCanvas(FigureCanvas):
                 self.parent().parent().crosshair_pick()
 
 
-    def show_image(self,image, origin='upper', zorder=1, cmap=cm.gray):
+    def show_image(self, image, origin='upper', zorder=1, cmap=cm.gray):
         self.myaxes.cla()
+        self.image = image
+        # self.im = self.myaxes.imshow( image, origin=origin, \
+        #                          zorder=zorder, cmap=cmap, \
+        #                          interpolation='nearest', alpha=1 )
+        self.im = new_imshow( self.myaxes, range(image.shape[1]), range(image.shape[0]), image, \
+                                  origin=origin, zorder=zorder, cmap=cmap, \
+                                  interpolation='nearest', alpha=1 )
 
-        im = self.myaxes.imshow( image, origin=origin, \
-                                 zorder=zorder, cmap=cmap, \
-                                 interpolation='nearest', alpha=1 )
-
-        self.cbar = self.fig.colorbar(im, cax=self.fig.axes[1] )
+        self.cbar = self.fig.colorbar(self.im, cax=self.fig.axes[1] )
         self.fig.axes[0].set_position( [.05, .1, .8, .8] )
         self.fig.axes[1].set_position( [.9,.1,.05,.8] )
         self.figure.canvas.draw()
@@ -160,11 +180,12 @@ class MyMplCanvas(FigureCanvas):
         #     print a," --> ",a.get_gid()
 
     def show_stuff(self, what='spots' ):        
+        
+        print self.myaxes.artists
 
         for g in self.spot_gfxrepr:
-
             if not g.get_axes()==None:
-                g.remove()
+                g.remove()                
 
         self.myaxes.add_artist( self.hline )
         self.myaxes.add_artist( self.vline )
@@ -211,3 +232,63 @@ class MyMplCanvas(FigureCanvas):
 
 #         self.myaxes.draw_artist(self.hline)
 #         self.myaxes.draw_artist(self.vline)
+
+
+
+
+
+class imshow_show_z:
+
+    def __init__(self, ax, z, x, y):
+        self.ax = ax
+        self.x  = x
+        self.y  = y
+        self.z  = z
+        self.dx = self.x[1] - self.x[0]
+        self.dy = self.y[1] - self.y[0]
+        self.numrows, self.numcols = self.z.shape
+        self.ax.format_coord = self.format_coord
+    def format_coord(self, x, y):
+        col = int(x/self.dx+0.5)
+        row = int(y/self.dy+0.5)
+        #print "Nx, Nf = ", len(self.x), len(self.y), "    x, y =", x, y, "    dx, dy =", self.dx, self.dy, "    col, row =", col, row
+        xyz_str = ''
+        if ((col>=0) and (col<self.numcols) and (row>=0) and (row<self.numrows)):
+            zij = self.z[row,col]
+            #print "zij =", zij, '  |zij| =', abs(zij)
+            if (np.iscomplex(zij)):
+                amp = abs(zij)
+                phs = np.angle(zij) / np.pi
+                if (zij.imag >= 0.0):
+                    signz = '+'
+                else:
+                    signz = '-'
+                xyz_str = 'x=' + str('%.4g' % x) + ', y=' + str('%.4g' % y) + ',' \
+                            + ' z=(' + str('%.4g' % zij.real) + signz + str('%.4g' % abs(zij.imag)) + 'j)' \
+                            + '=' + str('%.4g' % amp) + r'*exp{' + str('%.4g' % phs) + u' π j})'
+            else:
+                xyz_str = 'r=' + str('%.4g' % y) + '  c=' + str('%.4g' % x) + ', z=' + str('%.4g' % zij)
+        else:
+            xyz_str = 'x=%1.4f, y=%1.4f'%(x, y)
+#        print xyz_str
+        return xyz_str
+
+def new_imshow(ax, x, y, z, *args, **kwargs):
+    assert(len(x) == z.shape[1])
+    assert(len(y) == z.shape[0])
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+    if (np.iscomplex(z).any()):
+        zabs = abs(z)
+    else:
+        zabs = z
+    # Use this to center pixel around (x,y) values
+#    extent = (x[0]-dx/2.0, x[-1]+dx/2.0, y[-1]-dy/2.0, y[0]+dy/2.0)
+    # Use this to let (x,y) be the lower-left pixel location (upper-left when origin = 'lower' is not used)
+    #extent = (x[0]-dx/2.0, x[-1]+dx/2.0, y[0]-dy/2.0, y[-1]+dy/2.0)
+#    im = ax.imshow(zabs, extent = extent, *args, **kwargs)
+    im = ax.imshow(zabs, *args, **kwargs)
+    imshow_show_z(ax, z, x, y)
+#    ax.set_xlim((x[0], x[-1]))
+#    ax.set_ylim((y[0], y[-1]))
+    return im

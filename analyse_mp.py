@@ -41,7 +41,7 @@ for ste in splittopedges:
 
     if not len(m.validspots)==0:
         tstart = stopwatch.time()
-        m.test_mp( Nprocs=Nprocs )
+        m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True )
         print stopwatch.time()-tstart
 
         save_hdf5( m, myspots=np.arange(len(m.validspots)) )

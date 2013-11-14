@@ -146,9 +146,28 @@ def CosineFitter_new( angles, data, Nphases=91 ):
     for pi,phase in enumerate( phases ):
         # perform linear fit
         f = np.linalg.lstsq( er[:,2*pi:2*pi+2], data )
+
+        # We will mess with the residuals now, because there are some nonsensical solutions
+        # which we would like to discard before we pick (from the remaining solutions) the one 
+        # with the best residual.
+        # If the first coefficient is less than zero, then we have a problem: the fit becomes
+        # negative (when the cosine hits its low). 
+        firstcoeffislessthanzero = (f[0][0,:] < 0)
+        # Additionally, if the absolute of the second coefficient is larger than the first 
+        # coefficient, then, again, the fit becomes negative somewhere.
+        badsecondcoeff = (np.abs(f[0][1,:]) > f[0][0,:])
+        # Then all these fits are nonsensical to us: 
+        nonsensical = np.logical_or( firstcoeffislessthanzero, badsecondcoeff )
+
+        # We simply discard these (and hope that the next best fit is still decent) by setting 
+        # their residual to infinity.
+        f[1][ nonsensical ] = np.inf
+
         rm[pi,:] = f[1]
         cm[pi,:,:] = f[0][:]
 
+#        print f[1]
+        
     mm = np.argmin( rm, axis=0 )         # indices of minima (for each spot) w.r.t. tested phase
     rp = phases[mm]                      # resulting phases
 
@@ -161,7 +180,6 @@ def CosineFitter_new( angles, data, Nphases=91 ):
 
     for i in range(Nspots):
 
-        fit[:,i]     = np.dot( er[:,2*mm[i]:2*mm[i]+2], cm[mm[i],:,i] )
         rawfitpars[:,i] = cm[mm[i],:,i]
 
         # phases are given by the minimum index, but
@@ -179,6 +197,21 @@ def CosineFitter_new( angles, data, Nphases=91 ):
 
         # also collect residuals of these minima
         resi[i] = rm[mm[i],i]
+
+        # take a look at the fit directly
+        fit[:,i]     = np.dot( er[:,2*mm[i]:2*mm[i]+2], cm[mm[i],:,i] )
+        try:
+            assert np.all(fit[:,i]>=0)   # is it non-negative everywhere?
+        except AssertionError:
+            # print "############### ---------------- HOUSTON, WE HAVE A PROBLEM ---------------- ###############"
+            # print ' residual   : ', rm[mm[i],i] 
+            # print ' parameters : ', cm[mm[i],:,i]
+            # print ' Setting everything to zero here. '
+            # print "!!!!!!!!!!!!!!!!!!!!!!!"
+            I_0[i] = 0
+            M_0[i] = 0
+#            raise AssertionError("The fit should be positive everywhere, but isn't. Something wrong?")
+
 
     return rp, I_0, M_0, resi, fit, rawfitpars, mm
 

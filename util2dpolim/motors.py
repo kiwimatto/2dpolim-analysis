@@ -77,8 +77,7 @@ class BothMotorsWithHeader:
 
         self.excitation_angles     = np.mod( self.excitation_angles, np.pi ) 
         self.emission_angles       = np.mod( self.emission_angles, np.pi )
-
-
+        self.phase_offset_in_deg   = phase_offset_in_deg
 
 class BothMotors:
     def __init__( self, filename, phase_offset_in_deg=0 ):

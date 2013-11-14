@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '2dgui.ui'
 #
-# Created: Tue Oct 15 22:34:22 2013
+# Created: Mon Oct 28 13:26:58 2013
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,7 +17,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(1309, 953)
+        MainWindow.resize(1309, 973)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(2)
         sizePolicy.setVerticalStretch(2)
@@ -278,14 +278,14 @@ class Ui_MainWindow(object):
         self.showWhatComboBox.addItem(_fromUtf8(""))
         self.showWhatComboBox.addItem(_fromUtf8(""))
         self.imageview_navbar = QtGui.QWidget(self.centralwidget)
-        self.imageview_navbar.setGeometry(QtCore.QRect(10, 880, 641, 41))
+        self.imageview_navbar.setGeometry(QtCore.QRect(10, 880, 641, 61))
         font = QtGui.QFont()
         font.setPointSize(9)
         self.imageview_navbar.setFont(font)
         self.imageview_navbar.setFocusPolicy(QtCore.Qt.NoFocus)
         self.imageview_navbar.setObjectName(_fromUtf8("imageview_navbar"))
         self.dataview_navbar = QtGui.QWidget(self.centralwidget)
-        self.dataview_navbar.setGeometry(QtCore.QRect(660, 880, 641, 41))
+        self.dataview_navbar.setGeometry(QtCore.QRect(660, 880, 641, 61))
         font = QtGui.QFont()
         font.setPointSize(9)
         self.dataview_navbar.setFont(font)
