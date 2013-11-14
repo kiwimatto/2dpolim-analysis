@@ -16,7 +16,7 @@ class CameraData:
 
         else:                                     # we got real data 
             self.rawdata_fileobject = MyPrincetonSPEFile( self.filename )
-            self.rawdata            = self.rawdata_fileobject.return_Array()#.astype(np.float64)
+            self.rawdata            = self.rawdata_fileobject.return_Array().astype(np.float64)
             self.datasize           = self.rawdata_fileobject.getSize()
             self.exposuretime       = self.rawdata_fileobject.Exposure   # in seconds
             self.timeaxis           = self.exposuretime*np.arange(self.datasize[0])

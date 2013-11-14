@@ -19,21 +19,21 @@ show_mem()
 tstart = stopwatch.time()
 
 prefix = '/home/rafael/Desktop/Win/Well01/'
-basename = 'S1-W1-Area02'
+basename = 'S1-W1-Area10b'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [120,190,180,400]
-fullbounds = [190,190,340,400]
+bgbounds   = [126,140,367,160]
+fullbounds = [126,161,367,362]
 resolution = 1
-Nsplit     = 10
-rafaSNR    = 7
-VFRrafa    = .5
+Nsplit     = 5
+rafaSNR    = 4
+VFRrafa    = .7
 testrun    = False   #False/True
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
-
+#print splittopedges
 
 ### for single-molecule samples you can use this:
 
@@ -77,6 +77,7 @@ for iste,ste in enumerate(splittopedges):
 
         # all processes save their contributions separately
         save_hdf5( m, myspots[myrank], myrank )
+
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 
