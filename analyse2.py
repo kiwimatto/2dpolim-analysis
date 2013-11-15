@@ -1,12 +1,8 @@
 import sys
 import numpy as np
-from util2dpolim.movie import Movie
-from util2dpolim.misc import grid_image_section_into_squares_and_define_spots, \
-    save_hdf5, \
-    combine_outputs, \
-    show_mem, \
-    import_spot_positions
 import time as stopwatch
+from util2dpolim.movie import Movie
+from util2dpolim.misc import save_hdf5, combine_outputs
 
 #import_spot_positions( movie, coords_filename, boxedgelength=5 ):
 
@@ -15,7 +11,6 @@ comm = MPI.COMM_WORLD
 myrank = comm.Get_rank()
 nprocs = comm.Get_size()
 
-show_mem()
 tstart = stopwatch.time()
 
 prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM3/'
@@ -25,8 +20,8 @@ basename = 'TDM3-488-OD1-02'
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
 bgbounds   = [1,200,50,500]         #[110,405,400,450] 
 fullbounds = [150,200,450,500]        #[110, 80,400,360]
-fullbounds = [0,0,512,512]        #[110, 80,400,360]
-resolution = 1
+#fullbounds = [0,0,512,512]        #[110, 80,400,360]
+resolution = 8
 Nsplit     = 1
 rafaSNR    = 1
 VFRrafa    = .5
@@ -76,15 +71,16 @@ for iste,ste in enumerate(splittopedges):
         if not testrun:
             m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
             m.find_modulation_depths_and_phases_selective( myspots[myrank] )
-            for s in m.validspots[:3]:
+            for s in m.validspots:
                 s.values_for_ETruler( newdatalength=1024 )
                 print s.ET_ruler
             # m.ETrulerFFT_selective( myspots[myrank] )
             # raise SystemExit
         #    m.ETmodel_selective( myspots[myrank] )
         
-        # all processes save their contributions separately
-        save_hdf5( m, myspots[myrank], myrank )
+    # all processes save their contributions separately
+    save_hdf5( m, myspots[myrank], myrank )
+
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)
 

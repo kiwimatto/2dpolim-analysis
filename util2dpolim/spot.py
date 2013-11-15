@@ -645,7 +645,6 @@ class Spot:
         satdiff = np.abs( hf-vf )
         satsum  = np.abs( hf+vf )
 
-
         # everything has been shifted by one because we excluded the first element when normalizing
         hf -= 1
         vf -= 1
@@ -683,7 +682,7 @@ class Spot:
 
         if (ruler < -.2) or (ruler > 1.2):
             print "\t\tShit, ruler has gone bonkers (ruler=%f)." % (ruler)
-            print "\t\tWill continue anyways and set ruler to zero or one (whichever is closer)."
+            print "\t\tWill continue anyways and set ruler to nan."
             print "\t\tYou can thank me later."
             ruler = np.nan
         # else:
@@ -693,6 +692,7 @@ class Spot:
         #         ruler = 1
             
         self.ET_ruler = ruler
+        self.parent.store_property_in_image( self, 'ET_ruler_image', 'ET_ruler' )
 
 #        print 'ruler= ',ruler
 

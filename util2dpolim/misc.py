@@ -221,7 +221,7 @@ def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
             for item in imagedict.items():
                 #print item[0]
                 new_value_indices = ~np.isnan( imagedict[item[0]] )
-                #print np.shape(new_value_indices)
+                print np.shape(new_value_indices)
                 readimagedict[item[0]][new_value_indices] = imagedict[item[0]][new_value_indices]
                 # now readimagedict has the latest values
 
