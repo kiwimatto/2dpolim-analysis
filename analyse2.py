@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import time as stopwatch
 from util2dpolim.movie import Movie
-from util2dpolim.misc import save_hdf5, combine_outputs
+from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
 
 #import_spot_positions( movie, coords_filename, boxedgelength=5 ):
 
@@ -42,8 +42,15 @@ for iste,ste in enumerate(splittopedges):
 
     print "=== Now dealing with slice %d of %d ===" % (iste, Nsplit)
     m = Movie( prefix, basename )
-#    m.blank_data = m.sample_data
+
+
+    #### blank fitting ####
+    # m.blank_data = m.sample_data
+    boolimage = np.ones( (m.sample_data.shape[1],m.sample_data.shape[2]), dtype=np.bool )*True
+    rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
+    boolimage = pixel_list( rect, boolimage )
     m.fit_blank_image( verbosity=0 )
+
 
     m.find_portraits( frameoffset=0 )
     m.find_lines()

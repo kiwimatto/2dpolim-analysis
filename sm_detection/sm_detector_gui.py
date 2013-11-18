@@ -52,6 +52,57 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.createLineAveragePushButton.clicked.connect( self.createLineAverages )
         self.toolBox.currentChanged.connect( self.toolBoxPageChanged )
         self.applyCorrelatorPushButton.clicked.connect( self.correlateFrames )
+        self.addFitExclusionZonePushButton.clicked.connect( self.addFitExclusionZone )
+        self.resetFitExclusionZonePushButton.clicked.connect( self.resetFitExclusionZone )
+        self.blankFitPushButton.clicked.connect( self.blankFit )
+        self.showBoolimageCheckBox.stateChanged.connect( self.drawFrame )
+
+    def addFitExclusionZone(self):
+        rect = {'left':np.int( np.round(self.imageview.c0) ), \
+                    'right':np.int( np.round(self.imageview.c1) ), \
+                    'upper':np.int( np.round(self.imageview.r0) ), \
+                    'lower':np.int( np.round(self.imageview.r1) ), \
+                    'op':'exclude'}
+        self.pixel_list( rect )        
+        self.drawFrame()
+
+    def resetFitExclusionZone(self):
+        self.boolimage = np.ones((self.blankfile.shape[1],self.blankfile.shape[2]), dtype=np.bool)*True        
+        self.drawFrame()
+
+    def blankFit(self):
+        collapsed_blank_data = np.mean( self.blankfile, axis=0 )
+        blankint  = collapsed_blank_data[self.boolimage]
+        fitmatrix = np.vstack( [np.ones_like(blankint), blankint] ).T        
+        fitblankimg = np.zeros_like( self.spefile )
+        for fi,frame in enumerate(self.spefile):
+            sampleint = frame[self.boolimage]
+            res = np.linalg.lstsq( fitmatrix, sampleint.reshape((sampleint.size,1)) )
+            fitblankimg[fi,:,:] = res[0][0] + res[0][1]*collapsed_blank_data
+
+        self.spefile -= fitblankimg
+        self.drawFrame()
+
+    def pixel_list(self, shape):
+        """ what follows below is mostly copypasta from the function spot.create_pixel_list """
+        left  = shape['left']
+        right = shape['right']
+        lower = shape['lower']
+        upper = shape['upper']
+        # validate coords:
+        assert lower >= upper   # lower in the image means larger row number!
+        assert (left >= 0) and (upper >= 0)
+        assert (right<self.spefile.shape[2]) and (lower<self.spefile.shape[1])
+
+        for col in range(left,right+1):
+            for row in range(upper,lower+1):
+                if shape['op']=='include':
+                    self.boolimage[ row, col ] = True
+                elif shape['op']=='exclude':
+                    self.boolimage[ row, col ] = False
+                else:
+                    raise ValueError("fit_blank_image(): can't comprehend op '%s'" % shape['op'])
+
 
     def toolBoxPageChanged(self):
         i = self.toolBox.currentIndex()
@@ -64,8 +115,12 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
                 self.toolBox.setItemText(j, 'vv'+text[2:])
 
     def loadDefault(self):
-        self.defaultfile = "/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM5/TDM5-488-OD1-01.SPE"
-        print "parent: ",self.parent()
+        f = open('lastdir.txt','r')
+        self.defaultfile = f.readline()
+        f.close()
+
+#        self.defaultfile = "/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM5/TDM5-488-OD1-01.SPE"
+#        print "parent: ",self.parent()
         self.loadFile()
 
     def loadFile(self):
@@ -81,9 +136,25 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             self.SPEFileLabel.setText(fname)
             self.SPEFileName = fname
             self.filedir = os.path.split( os.path.normpath(fname) )[0]
-        
+        else:
+            return
+
+        data_directory = os.path.normpath( str(fname) ) 
+
+        # save in lastdir
+        f = open('lastdir.txt','w')
+        f.writelines( [data_directory] )
+        f.close()
+
         self.spefile = MyPrincetonSPEFile(fname).return_Array()
         self.spefile = self.spefile.astype(np.float)
+
+        # is there a blank file around?
+        blankname = os.path.split(fname)[0]+os.path.sep+'blank-'+os.path.split(fname)[1]
+        if os.path.isfile(blankname):
+            self.blankfile = MyPrincetonSPEFile(blankname).return_Array()
+            self.blankfile = self.blankfile.astype(np.float)
+            self.boolimage = np.ones((self.blankfile.shape[1],self.blankfile.shape[2]), dtype=np.bool)*True
 
         self.filtered = np.ones_like( self.spefile ) * np.nan
         self.clusters = np.ones_like( self.spefile ) * np.nan
@@ -139,6 +210,12 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest' )
         else:
             raise hell
+
+        if self.showBoolimageCheckBox.isChecked():
+            if hasattr( self, 'boolimage' ):
+                print 'yup'
+                self.imageview.myaxes.imshow( self.boolimage.astype(np.float)*np.max(self.spefile[frame]), \
+                                                  interpolation='nearest', alpha=.6, cmap=cm.gray, zorder=9 )
 
         if self.highlightClusterPositionsCheckBox.isChecked():
             if not self.cluster_positions[frame]==None:                

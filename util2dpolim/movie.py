@@ -1,7 +1,8 @@
 from cameradata import CameraData
 from fitting import CosineFitter_new
 from spot import Spot
-from portrait import Portrait
+#from portrait import Portrait
+#from misc import pixel_list
 from motors import *
 import os, os.path, time, sys
 import scipy.optimize as so
@@ -59,6 +60,7 @@ class Movie:
         self.Nemphases_for_cos_fitter = 181
         # self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
         #                                  for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
+
 
     def run_mp(self, Nprocs, fits=True, mods=True, ETruler=True):
 
@@ -280,39 +282,17 @@ class Movie:
 
         return s
 
-    def fit_blank_image( self, verbosity=0 ):
+    def fit_blank_image( self, boolimage, verbosity=0 ):
         # The idea here is to fit the blank image to the sample image, but, of course,
         # only in region(s) where there's no interference from the actual sample.
         # For this we'll need a function which can return the list of pixel occupied by 
         # a rectangular shape, or, occupied by the border of a rectangular shape:
-        def pixel_list(shape, boolimage):
-            """ what follows below is mostly copypasta from the function spot.create_pixel_list """
-            left  = shape['left']
-            right = shape['right']
-            lower = shape['lower']
-            upper = shape['upper']
-            # validate coords:
-            assert lower >= upper   # lower in the image means larger row number!
-            assert (left >= 0) and (upper >= 0)
-            assert (right<self.blank_data.datasize[2]) and (lower<self.blank_data.datasize[1])
-
-            for col in range(left,right+1):
-                for row in range(upper,lower+1):
-                    if shape['op']=='include':
-                        boolimage[ row, col ] = True
-                    elif shape['op']=='exclude':
-                        boolimage[ row, col ] = False
-                    else:
-                        raise ValueError("fit_blank_image(): can't comprehend op '%s'" % shape['op'])
-
-            return boolimage
-
 
         collapsed_blank_data = np.mean( self.blank_data.rawdata, axis=0 )
 
-        boolimage = np.ones_like( collapsed_blank_data, dtype=np.bool )*True
-        rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
-        boolimage = pixel_list( rect, boolimage )
+        # boolimage = np.ones_like( collapsed_blank_data, dtype=np.bool )*True
+        # rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
+        # boolimage = pixel_list( rect, boolimage )
 
         blankint  = collapsed_blank_data[boolimage]
         fitmatrix = np.vstack( [np.ones_like(blankint), blankint] ).T        

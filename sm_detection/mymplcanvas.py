@@ -38,10 +38,10 @@ class MyMplCanvas(FigureCanvas):
 
         self.myrect = Rectangle((0,0), 1, 1, facecolor='red', edgecolor='red', alpha=.2, zorder=8 )
         self.myaxes.add_patch(self.myrect)
-        self.x0 = None
-        self.y0 = None
-        self.x1 = None
-        self.y1 = None
+        self.c0 = None
+        self.r0 = None
+        self.c1 = None
+        self.r1 = None
         self.is_pressed = False
 
         self.myaxes.figure.canvas.mpl_connect('button_press_event', self.on_press)
@@ -61,38 +61,42 @@ class MyMplCanvas(FigureCanvas):
     def on_press(self, event):
         self.is_pressed = True
         print 'press'
-        self.x0 = event.xdata
-        self.y0 = event.ydata    
-        self.x1 = event.xdata
-        self.y1 = event.ydata
-        if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):
-            self.myrect.set_width(self.x1 - self.x0)
-            self.myrect.set_height(self.y1 - self.y0)
-            self.myrect.set_xy((self.x0, self.y0))
+        self.c0 = event.xdata
+        self.r0 = event.ydata    
+        self.c1 = event.xdata
+        self.r1 = event.ydata
+        if not np.any( [c==None for c in [self.c0,self.r0,self.c1,self.r1]] ):
+            self.myrect.set_width(self.c1 - self.c0)
+            self.myrect.set_height(self.r1 - self.r0)
+            self.myrect.set_xy((self.c0, self.r0))
             self.myrect.set_linestyle('dashed')
         self.myaxes.figure.canvas.draw()
 
     def on_motion(self,event):
         if self.is_pressed is True:
-            self.x1 = event.xdata
-            self.y1 = event.ydata
-            if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):
-                self.myrect.set_width(self.x1 - self.x0)
-                self.myrect.set_height(self.y1 - self.y0)
-                self.myrect.set_xy((self.x0, self.y0))
+            self.c1 = event.xdata
+            self.r1 = event.ydata
+            if not np.any( [c==None for c in [self.c0,self.r0,self.c1,self.r1]] ):
+                self.myrect.set_width(self.c1 - self.c0)
+                self.myrect.set_height(self.r1 - self.r0)
+                self.myrect.set_xy((self.c0, self.r0))
                 self.myrect.set_linestyle('dashed')
             self.myaxes.figure.canvas.draw()
 
     def on_release(self, event):
         self.is_pressed = False
         print 'release'
-        self.x1 = event.xdata
-        self.y1 = event.ydata
-        if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):
-            self.myrect.set_width(self.x1 - self.x0)
-            self.myrect.set_height(self.y1 - self.y0)
-            self.myrect.set_xy((self.x0, self.y0))
+        self.c1 = event.xdata
+        self.r1 = event.ydata
+        if self.c0 > self.c1:
+            self.c0,self.c1=self.c1,self.c0
+        if self.r0 > self.r1:
+            self.r0,self.r1=self.r1,self.r0
+        if not np.any( [c==None for c in [self.c0,self.r0,self.c1,self.r1]] ):
+            self.myrect.set_width(self.c1 - self.c0)
+            self.myrect.set_height(self.r1 - self.r0)
+            self.myrect.set_xy((self.c0, self.r0))
             self.myrect.set_linestyle('solid')
         self.myaxes.figure.canvas.draw()
-        print self.x0,self.y0,self.x1,self.y1
+        print self.c0,self.r0,self.c1,self.r1
 
