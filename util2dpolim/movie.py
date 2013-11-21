@@ -211,6 +211,7 @@ class Movie:
     def initContrastImages(self):
         self.spot_coverage_image  = np.ones( (self.sample_data.datasize[1],self.sample_data.datasize[2]) )*np.nan
         self.original_mean_intensity_image = np.mean( self.sample_data.rawdata, axis=0 )
+        self.blankfitted_mean_intensity_image = self.spot_coverage_image.copy()
         self.mean_intensity_image = self.spot_coverage_image.copy()
         self.meanSNR_image        = self.spot_coverage_image.copy()
         self.framecountSNR_image  = self.spot_coverage_image.copy()
@@ -325,6 +326,8 @@ class Movie:
                 ax2.cla()
 
         self.blank_data.rawdata = fitblankimg    # modifying blank here!!!  spot class will take of a subtracting it from the data
+
+        self.blankfitted_mean_intensity_image = np.mean( self.sample_data.rawdata-self.blank_data.rawdata, axis=0 )
 
         if verbosity>0:
             os.system('convert blaaa_*.png blaaa.gif')

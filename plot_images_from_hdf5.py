@@ -13,9 +13,9 @@ print 'Requested file is: %s' % prefix+basename+'_output.hdf5'
 f = h5py.File( prefix+basename+'_output.hdf5' )
 os.chdir( prefix )
 
-images     = ['mean_intensity','M_ex','M_em','phase_ex','phase_em','ET_ruler']
-multiplier = [1, 1, 1, 180.0/np.pi, 180.0/np.pi, 1 ]
-colormap   = [cm.jet, cm.jet, cm.jet, cm.hsv, cm.hsv, cm.jet]
+images     = ['blankfitted_mean_intensity','mean_intensity','M_ex','M_em','phase_ex','phase_em','ET_ruler']
+multiplier = [1, 1, 1, 1, 180.0/np.pi, 180.0/np.pi, 1 ]
+colormap   = [cm.jet, cm.jet, cm.jet, cm.jet, cm.hsv, cm.hsv, cm.jet]
 
 bounds = [0,511,0,511]
 if bounds==None:
