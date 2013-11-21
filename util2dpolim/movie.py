@@ -1,9 +1,10 @@
 from cameradata import CameraData
 from fitting import CosineFitter_new
 from spot import Spot
-from portrait import Portrait
+#from portrait import Portrait
+#from misc import pixel_list
 from motors import *
-import os, os.path, time
+import os, os.path, time, sys
 import scipy.optimize as so
 import multiprocessing
 
@@ -60,26 +61,60 @@ class Movie:
         # self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
         #                                  for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
+
     def run_mp(self, Nprocs, fits=True, mods=True, ETruler=True):
 
         assert fits >= mods >= ETruler
 
-        def worker( thesespots, whichproc ):
-#            print thesespots , '----->' , whichproc            
+        def worker( resultqueue, thesespots, whichproc ):
             if fits:
                 self.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
             if mods:
                 self.find_modulation_depths_and_phases_selective( myspots=thesespots )
-            if ETruler:
-                self.ETrulerFFT_selective( myspots=thesespots )
-            return self.validspots
+            if ETruler:                
+                for si in thesespots:
+                    self.validspots[si].values_for_ETruler( newdatalength=1024 )
+            for si in thesespots:
+                a = {'spot':si}
+                if fits:
+                    a['linefitparams']     = self.validspots[si].linefitparams
+                    a['residual']          = self.validspots[si].residual
+                    a['verticalfitparams'] = self.validspots[si].verticalfitparams
+                if mods:
+                    a['M_ex']       = self.validspots[si].M_ex
+                    a['M_em']       = self.validspots[si].M_em
+                    a['phase_ex']   = self.validspots[si].phase_ex
+                    a['phase_em']   = self.validspots[si].phase_em
+                    a['LS']         = self.validspots[si].LS
+                    a['anisotropy'] = self.validspots[si].anisotropy
+                if ETruler:
+                    a['ET_ruler'] = self.validspots[si].ET_ruler
+
+                resultqueue.put( a )
+
+            return
 
         myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
-        jobs = []
-        for i in range(Nprocs):
-            p = multiprocessing.Process(target=worker, args=(myspots[i],i))
-            jobs.append(p)
-            p.start()
+        resultqueue = multiprocessing.Queue()
+        jobs = [multiprocessing.Process(target=worker, args=(resultqueue, myspots[i], i)) for i in range(Nprocs)]
+        for job in jobs: job.start()
+
+        myspots = list(np.concatenate(myspots))
+        while len(myspots)>0:
+            a = resultqueue.get()   # this will block until it gets something
+            si = a.pop('spot')
+            # print si
+            # print myspots
+            for key in a.keys():
+                setattr( self.validspots[si], key, a[key] )
+            i = myspots.index(si)
+            myspots.pop(i)
+
+        for job in jobs: job.join()
+
+        assert resultqueue.empty()
+
+        self.update_images()
 
         # while p.is_alive()==True:
         #     for i in range(Nprocs):
@@ -88,15 +123,18 @@ class Movie:
 
         # this should block until all processes have finished
         
-        for job in jobs:
-            job.join()
-
-        si=0
-        print self.validspots[si].M_ex
-        print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
-        print '.',self.M_ex_image[ self.validspots[si].pixel[0][0], self.validspots[si].pixel[0][1] ]
+        # print self.validspots[si].M_ex
+        # print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
+        # print '.',self.M_ex_image[ self.validspots[si].pixel[0][0], self.validspots[si].pixel[0][1] ]
         
         print 'all done i guess'
+
+    def update_images(self):
+        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler']
+        for s in self.validspots:
+            for prop in allprops:
+                if hasattr(s,prop):
+                    self.store_property_in_image( s, prop+'_image', prop )
 
 
     def read_in_EVERYTHING(self):
@@ -244,39 +282,17 @@ class Movie:
 
         return s
 
-    def fit_blank_image( self, verbosity=0 ):
+    def fit_blank_image( self, boolimage, verbosity=0 ):
         # The idea here is to fit the blank image to the sample image, but, of course,
         # only in region(s) where there's no interference from the actual sample.
         # For this we'll need a function which can return the list of pixel occupied by 
         # a rectangular shape, or, occupied by the border of a rectangular shape:
-        def pixel_list(shape, boolimage):
-            """ what follows below is mostly copypasta from the function spot.create_pixel_list """
-            left  = shape['left']
-            right = shape['right']
-            lower = shape['lower']
-            upper = shape['upper']
-            # validate coords:
-            assert lower >= upper   # lower in the image means larger row number!
-            assert (left >= 0) and (upper >= 0)
-            assert (right<self.blank_data.datasize[2]) and (lower<self.blank_data.datasize[1])
-
-            for col in range(left,right+1):
-                for row in range(upper,lower+1):
-                    if shape['op']=='include':
-                        boolimage[ row, col ] = True
-                    elif shape['op']=='exclude':
-                        boolimage[ row, col ] = False
-                    else:
-                        raise ValueError("fit_blank_image(): can't comprehend op '%s'" % shape['op'])
-
-            return boolimage
-
 
         collapsed_blank_data = np.mean( self.blank_data.rawdata, axis=0 )
 
-        boolimage = np.ones_like( collapsed_blank_data, dtype=np.bool )*True
-        rect = {'left':120, 'right':460, 'upper':160, 'lower':500, 'op':'exclude'}
-        boolimage = pixel_list( rect, boolimage )
+        # boolimage = np.ones_like( collapsed_blank_data, dtype=np.bool )*True
+        # rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
+        # boolimage = pixel_list( rect, boolimage )
 
         blankint  = collapsed_blank_data[boolimage]
         fitmatrix = np.vstack( [np.ones_like(blankint), blankint] ).T        
@@ -604,90 +620,6 @@ class Movie:
                 # print 'line fit params:'
                 # print self.validspots[si].linefitparams[pi,:,:]
 
-
-    def fit_all_portraits_spot_parallel_selective_mp( self, myspots=None ):
-
-        if myspots==None:
-            myspots = range(len(self.validspots))
-
-        for si in myspots:
-            self.validspots[si].residual = 0
-
-        # for each portrait ---- outermost loop, we do portraits in series
-        for pi in range(self.Nportraits):
-
-            # start and stop indices for this portrait
-            pstart = self.portrait_indices[ pi ]
-            pstop  = self.portrait_indices[ pi+1 ]
-            
-            # part I, 'horizontal fitting' of the lines of constant emission angles
-
-            # for each line ---- we do lines in series, __but all spots in parallel__:
-            for li in range(self.Nlines):
-
-                # start and stop indices for this line
-                lstart = self.line_edges[ li ]
-                lstop  = self.line_edges[ li+1 ]
-
-                # get excitation angle array (same for all spots!)
-                exangles = self.exangles[ pstart:pstop ][ lstart:lstop ]
-
-                # create list of intensity arrays (one array for each spot)
-                intensities = [self.validspots[si].retrieve_intensity(iportrait=pi, iline=li) for si in myspots]
-
-                # turn into numpy array and transpose
-                intensities = np.array( intensities ).T
-
-                exa = exangles.copy()
-
-                phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( exa, intensities, \
-                                                                               self.Nexphases_for_cos_fitter ) 
-
-                # write cosine parameters into line object
-                for sii,si in enumerate(myspots):
-                    self.validspots[si].linefitparams[pi,li,0] = phase[sii]
-                    self.validspots[si].linefitparams[pi,li,1] = I0[sii]
-                    self.validspots[si].linefitparams[pi,li,2] = M[sii]
-                    self.validspots[si].linefitparams[pi,li,3] = resi[sii]
-
-            # gather residuals for this protrait
-            for si in myspots:
-                self.validspots[si].residual = np.sum( self.validspots[si].linefitparams[:,:,3] )
-
-            # part II, 'vertical fitting' --- we do each spot by itself, but 
-            # fit all verticals in parallel
-
-            # collect list of unique emission angles (same for all spots!)                    
-            emangles = self.emangles[pstart:pstop][self.line_edges[:-1]]
-#            emangles = [l.emangle for l in self.validspots[0].portraits[pi].lines]
-            # turn into array, transpose and squeeze
-            emangles = np.squeeze(np.array( emangles ).T)
-
-            # evaluate cosine-fit at these em_angles, on a grid of ex_angles:
-            fitintensities = np.hstack( [ np.array( [ \
-                            self.validspots[si].retrieve_line_fit( pi, li, self.excitation_angles_grid ) \
-                                for li in range(self.Nlines) ] ) \
-                                              for si in myspots ] )
-            # fitintensities = [ np.array( \
-            #         [ l.cosValue( self.excitation_angles_grid ) \
-            #               for l in self.validspots[si].portraits[pi].lines ]) \
-            #                        for si in myspots ]
-            # fitintensities = np.hstack( fitintensities )
-
-            phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( emangles, fitintensities, \
-                                                                           self.Nemphases_for_cos_fitter ) 
-                
-            # store vertical fit params
-            phase = np.hsplit(phase, len(myspots))
-            I0    = np.hsplit(I0, len(myspots))
-            M     = np.hsplit(M, len(myspots))
-            resi  = np.hsplit(resi, len(myspots))            
-            for sii,si in enumerate(myspots):
-                self.validspots[si].verticalfitparams[pi,:,0] = phase[sii]
-                self.validspots[si].verticalfitparams[pi,:,1] = I0[sii]
-                self.validspots[si].verticalfitparams[pi,:,2] = M[sii]
-                self.validspots[si].verticalfitparams[pi,:,3] = resi[sii]
-
         return self.validspots
 
 
@@ -792,7 +724,7 @@ class Movie:
 #        print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
 #        print '.',self.M_ex_image[ self.validspots[si].pixel[0][0], self.validspots[si].pixel[0][1] ]
 
-        return self.validspots
+#        return self.validspots
 
 
     def ETrulerFFT_selective( self, myspots, slope=7, newdatalength=2048 ):

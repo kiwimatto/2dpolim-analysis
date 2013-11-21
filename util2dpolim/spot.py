@@ -645,7 +645,6 @@ class Spot:
         satdiff = np.abs( hf-vf )
         satsum  = np.abs( hf+vf )
 
-
         # everything has been shifted by one because we excluded the first element when normalizing
         hf -= 1
         vf -= 1
@@ -698,7 +697,7 @@ class Spot:
             
         self.ET_ruler = ruler
         self.parent.store_property_in_image( self, 'ET_ruler_image', 'ET_ruler' )
-        # print 'ruler= ',ruler  
+#        print 'ruler= ',ruler
 
         # Here we've reached our peaks in life. Only downhill from here...
 

@@ -32,6 +32,28 @@ def deal_with_date_time_string( motorobj, datetimestring ):
     # return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 1e6 
 
 
+def pixel_list(shape, boolimage):
+    """ what follows below is mostly copypasta from the function spot.create_pixel_list """
+    left  = shape['left']
+    right = shape['right']
+    lower = shape['lower']
+    upper = shape['upper']
+    # validate coords:
+    assert lower >= upper   # lower in the image means larger row number!
+    assert (left >= 0) and (upper >= 0)
+    assert (right<self.blank_data.datasize[2]) and (lower<self.blank_data.datasize[1])
+
+    for col in range(left,right+1):
+        for row in range(upper,lower+1):
+            if shape['op']=='include':
+                boolimage[ row, col ] = True
+            elif shape['op']=='exclude':
+                boolimage[ row, col ] = False
+            else:
+                raise ValueError("fit_blank_image(): can't comprehend op '%s'" % shape['op'])
+
+    return boolimage
+
 
 def find_measurement_files_in_directory( directory ):
 

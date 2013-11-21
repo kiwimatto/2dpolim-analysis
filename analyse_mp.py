@@ -6,17 +6,19 @@ import time as stopwatch
 
 
 
-prefix = '/home/rafael/Desktop/Win/Well01/'
-basename = 'S1-W1-Area01'
+prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM3/'
+basename = 'TDM3-488-OD1-02'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [125,185,175,415]
-fullbounds = [180,185,340,415]
-resolution = 1
-Nsplit     = 10
-rafaSNR    = 6
-Nprocs     = 4
+bgbounds   = [1,200,50,500]         #[110,405,400,450] 
+fullbounds = [150,200,450,500]        #[110, 80,400,360]
+resolution = 2
+Nsplit     = 1
+SNR    = 1
+VFR    = .5
+Nprocs = 4
+
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
@@ -24,7 +26,9 @@ splittopedges = np.array_split( topedges, Nsplit )
 for ste in splittopedges:
 
     m = Movie( prefix, basename )
-    m.startstop()
+    m.fit_blank_image( verbosity=0 )
+    m.find_portraits( frameoffset=0 )
+    m.find_lines()
 
     m.define_background_spot( bgbounds )
     
@@ -37,7 +41,7 @@ for ste in splittopedges:
     m.correct_excitation_intensities()
     m.correct_emission_intensities()
 
-    m.are_spots_valid( SNR=rafaSNR )
+    m.are_spots_valid( SNR=SNR, validframesratio=VFR )
 
     if not len(m.validspots)==0:
         tstart = stopwatch.time()
