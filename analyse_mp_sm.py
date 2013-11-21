@@ -18,14 +18,16 @@ blankfitexclusion = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'ex
 
 
 m = Movie( prefix, basename )
-m.find_portraits( frameoffset=0 )
+m.find_portraits( frameoffset=1 )
 m.find_lines()
-m.define_background_spot( bgbounds )
 
 #### blank fitting ####
-boolimage = np.ones( (m.sample_data.shape[1],m.sample_data.shape[2]), dtype=np.bool )*True
-boolimage = pixel_list( blankfitexclusion, boolimage )
-m.fit_blank_image( verbosity=0 )
+boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
+boolimage = pixel_list( m, blankfitexclusion, boolimage )
+print m.portrait_indices
+m.fit_blank_image( boolimage, verbosity=0 )
+
+m.define_background_spot( bgbounds )
 
 import_spot_positions( m, 'coords.txt', 4, 'circle' )
 

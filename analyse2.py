@@ -43,10 +43,9 @@ for iste,ste in enumerate(splittopedges):
     print "=== Now dealing with slice %d of %d ===" % (iste, Nsplit)
     m = Movie( prefix, basename )
 
-
     #### blank fitting ####
     # m.blank_data = m.sample_data
-    boolimage = np.ones( (m.sample_data.shape[1],m.sample_data.shape[2]), dtype=np.bool )*True
+    boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
     rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
     boolimage = pixel_list( rect, boolimage )
     m.fit_blank_image( verbosity=0 )
