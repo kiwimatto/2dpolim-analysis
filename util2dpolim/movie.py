@@ -324,7 +324,7 @@ class Movie:
                 ax1.cla()
                 ax2.cla()
 
-        self.blank_data.rawdata = fitblankimg
+        self.blank_data.rawdata = fitblankimg    # modifying blank here!!!  spot class will take of a subtracting it from the data
 
         if verbosity>0:
             os.system('convert blaaa_*.png blaaa.gif')

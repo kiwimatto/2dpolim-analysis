@@ -228,10 +228,14 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
         # is there a blank file around?
         blankname = os.path.split(fname)[0]+os.path.sep+'blank-'+os.path.split(fname)[1]
+        print 'Looking for blank file with name: %s ...' % blankname, 
         if os.path.isfile(blankname):
+            print 'found it.'
             self.blankfile = MyPrincetonSPEFile(blankname).return_Array()
             self.blankfile = self.blankfile.astype(np.float)
             self.boolimage = np.ones((self.blankfile.shape[1],self.blankfile.shape[2]), dtype=np.bool)*True
+        else:
+            print 'nothing with that exact name'
 
         self.filtered = np.ones_like( self.spefile ) * np.nan
         self.clusters = np.ones_like( self.spefile ) * np.nan

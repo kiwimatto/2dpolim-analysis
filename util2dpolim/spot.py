@@ -97,7 +97,6 @@ class Spot:
             # print self.std
             
         else:
-
             # here is all the normal stuff (when this spot is _not_ a bg spot)
 
             # spot knows its own background!
