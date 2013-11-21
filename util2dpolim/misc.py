@@ -184,10 +184,11 @@ def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
     Nrows      = movie.sample_data.datasize[1]
     Ncols      = movie.sample_data.datasize[2]
     # the image has dimensions [Nrows x Ncols x Nportraits x Nlines x 3]    
-    fits_image = np.zeros( (Nrows, Ncols, movie.Nportraits, movie.Nlines, 4) )
-    for si in myspots:
-        for p in movie.validspots[si].pixel:
-            fits_image[ p[0], p[1], :, :, : ] = movie.validspots[si].linefitparams
+    
+    # fits_image = np.zeros( (Nrows, Ncols, movie.Nportraits, movie.Nlines, 4) )
+    # for si in myspots:
+    #     for p in movie.validspots[si].pixel:
+    #         fits_image[ p[0], p[1], :, :, : ] = movie.validspots[si].linefitparams
    
     # for si in myspots:
     #     a = movie.validspots[si].coords[1]
@@ -196,7 +197,8 @@ def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
     #     d = movie.validspots[si].coords[2]+1
     #     fits_image[ a:b, c:d, :, :, : ] = movie.validspots[si].linefitparams
     # append that to the imagedict
-    imagedict['fits_image'] = fits_image
+    
+    # imagedict['fits_image'] = fits_image 
 
 
     ###### now let's see if there's an existing file ######
@@ -221,7 +223,7 @@ def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
             for item in imagedict.items():
                 #print item[0]
                 new_value_indices = ~np.isnan( imagedict[item[0]] )
-                #print np.shape(new_value_indices)
+                # print np.shape(new_value_indices) 
                 readimagedict[item[0]][new_value_indices] = imagedict[item[0]][new_value_indices]
                 # now readimagedict has the latest values
 

@@ -19,18 +19,18 @@ show_mem()
 tstart = stopwatch.time()
 
 
-prefix = '/home/rafael/Desktop/Win/Well01/'
-basename = 'S1-W1-Area10b'
+prefix = '/home/rafael/Desktop/Win/TDM5/'
+basename = 'TDM5-488-OD106-03'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [126,140,367,160]
-fullbounds = [126,161,367,362]
+bgbounds   = [10,154,60,502]
+fullbounds = [115,154,466,502]
 resolution = 1
 Nsplit     = 5
-rafaSNR    = 4
-VFRrafa    = .7
-testrun    = False   #False/True
+rafaSNR    = 3
+VFRrafa    = .5
+testrun    = False  #False/True
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
@@ -68,23 +68,25 @@ for iste,ste in enumerate(splittopedges):
 
     # the rest is done only if we actually have any valid spots here
     if not len(m.validspots)==0:
-        # m.fit_all_portraits_spot_parallel()
-        # m.find_modulation_depths_and_phases()
-
         myspots = np.array_split( np.arange(len(m.validspots)), nprocs )
 
         if not testrun:
             m.fit_all_portraits_spot_parallel_selective( myspots[myrank] )
             m.find_modulation_depths_and_phases_selective( myspots[myrank] )
-            for s in m.validspots[:3]:
+            for s in m.validspots: 
                 s.values_for_ETruler( newdatalength=1024 )
-                print s.ET_ruler
+    print 'Im going to save now ============= '
+    save_hdf5( m, myspots[myrank], myrank )
+           
+            # print s.ET_ruler
             # m.ETrulerFFT_selective( myspots[myrank] )
             # raise SystemExit
-        #    m.ETmodel_selective( myspots[myrank] )
+           
+            # m.ETmodel_selective( myspots[myrank] )
         
         # all processes save their contributions separately
-        save_hdf5( m, myspots[myrank], myrank )
+                
+                
 
 
 print 'p=',myrank,': done. ',(stopwatch.time()-tstart)

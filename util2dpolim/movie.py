@@ -275,7 +275,7 @@ class Movie:
         collapsed_blank_data = np.mean( self.blank_data.rawdata, axis=0 )
 
         boolimage = np.ones_like( collapsed_blank_data, dtype=np.bool )*True
-        rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
+        rect = {'left':120, 'right':460, 'upper':160, 'lower':500, 'op':'exclude'}
         boolimage = pixel_list( rect, boolimage )
 
         blankint  = collapsed_blank_data[boolimage]
