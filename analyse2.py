@@ -33,10 +33,10 @@ splittopedges = np.array_split( topedges, Nsplit )
 
 ### for single-molecule samples you can use this:
 
-m = Movie( prefix, basename )
-m.startstop()
-m.define_background_spot( bgbounds )
-import_spot_positions( m, 'coords-02.txt', 4, 'circle' )
+#m = Movie( prefix, basename )
+#m.startstop()
+#m.define_background_spot( bgbounds )
+#import_spot_positions( m, 'coords-02.txt', 4, 'circle' )
 
 #for r in np.arange(fullbounds[1], fullbounds[3]-Nrowsatatime, Nrowsatatime):
 for iste,ste in enumerate(splittopedges):
@@ -47,7 +47,7 @@ for iste,ste in enumerate(splittopedges):
 
     #### blank fitting ####
     # m.blank_data = m.sample_data
-    boolimage = np.ones( (m.sample_data.shape[1],m.sample_data.shape[2]), dtype=np.bool )*True
+    boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
     rect = {'left':150, 'right':450, 'upper':200, 'lower':500, 'op':'exclude'}
     boolimage = pixel_list( rect, boolimage )
     m.fit_blank_image( verbosity=0 )
