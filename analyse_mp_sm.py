@@ -18,24 +18,24 @@ VFR        = .5
 Nprocs = 2
 
 m = Movie( prefix, basename )
-m.find_portraits( frameoffset=0 )
+m.find_portraits( frameoffset=1 )
 m.find_lines()
-m.define_background_spot( bgbounds )
 
 #### blank fitting ####
-print m.sample_data.rawdata.shape
 boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
 blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':450, 'op':'exclude'}
-boolimage = pixel_list( blankfitexclusion, boolimage )
-m.fit_blank_image( verbosity=0 )
+boolimage = pixel_list( m, blankfitexclusion, boolimage )
+m.fit_blank_image( boolimage, verbosity=0 )
+m.define_background_spot( bgbounds )
 
-import_spot_positions( m, 'coords.txt', 4, 'circle' )
+import_spot_positions( m, 'coords-02.txt', 4, 'circle' )
 
 m.correct_excitation_intensities()
 m.correct_emission_intensities()
 m.are_spots_valid( SNR=SNR, validframesratio=VFR )
 
 if not len(m.validspots)==0:
+    print len(m.validspots)
     tstart = stopwatch.time()
     m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True )
     print stopwatch.time()-tstart

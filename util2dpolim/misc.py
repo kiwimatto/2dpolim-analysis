@@ -32,7 +32,7 @@ def deal_with_date_time_string( motorobj, datetimestring ):
     # return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 1e6 
 
 
-def pixel_list(shape, boolimage):
+def pixel_list( movie, shape, boolimage):
     """ what follows below is mostly copypasta from the function spot.create_pixel_list """
     left  = shape['left']
     right = shape['right']
@@ -41,7 +41,7 @@ def pixel_list(shape, boolimage):
     # validate coords:
     assert lower >= upper   # lower in the image means larger row number!
     assert (left >= 0) and (upper >= 0)
-    assert (right<self.blank_data.datasize[2]) and (lower<self.blank_data.datasize[1])
+    assert (right<movie.blank_data.datasize[2]) and (lower<movie.blank_data.datasize[1])
 
     for col in range(left,right+1):
         for row in range(upper,lower+1):
