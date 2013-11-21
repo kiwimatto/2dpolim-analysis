@@ -43,7 +43,6 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.frameAverageToggleButton.clicked.connect( self.frameAverageToggle )
         self.showWhatComboBox.activated.connect( self.drawFrame )
         self.highlightClusterPositionsCheckBox.stateChanged.connect( self.drawFrame )
-        self.filterAndClusterAllFramesPushButton.clicked.connect( self.filter_and_cluster_all_frames )
         self.cropPushButton.clicked.connect( self.crop )
         self.resetPushButton.clicked.connect( self.reset )
         self.loadDefaultPushButton.clicked.connect( self.loadDefault )
@@ -56,6 +55,68 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.resetFitExclusionZonePushButton.clicked.connect( self.resetFitExclusionZone )
         self.blankFitPushButton.clicked.connect( self.blankFit )
         self.showBoolimageCheckBox.stateChanged.connect( self.drawFrame )
+        self.histogramToggleButton.clicked.connect( self.drawFrame )
+        self.useOriginalDataToggleButton.clicked.connect( self.useOriginalDataForClusters )
+        self.useFourierdDataToggleButton.clicked.connect( self.useFourierdDataForClusters )
+        self.clusterDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+        self.clusterCrossFrameDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+        self.clusterFrameThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+
+        self.clusterWithinFrameMinDistanceCheckBox.stateChanged.connect( self.clusterValidationStateChanged )
+        self.clusterMergeAcrossFramesCheckBox.stateChanged.connect( self.clusterValidationStateChanged )
+
+        self.writeCoordsPushButton.clicked.connect( self.writeCoordinates )
+
+
+    def clusterValidationStateChanged(self):
+        if self.clusterWithinFrameMinDistanceCheckBox.isChecked():
+            self.clusterMergeAcrossFramesCheckBox.setEnabled(True)
+            self.clusterCrossFrameDistanceThresholdSlider.setEnabled(True)
+            self.clusterDistanceThresholdSlider.setEnabled(True)
+
+            if self.clusterMergeAcrossFramesCheckBox.isChecked():
+                self.clustersMustAppearInAtLeastNFramesCheckBox.setEnabled(True)
+                self.clusterFrameThresholdSlider.setEnabled(True)
+                self.clusterCrossFrameDistanceThresholdSlider.setEnabled(True)
+
+                if self.clustersMustAppearInAtLeastNFramesCheckBox.isChecked():
+                    self.clusterFrameThresholdSlider.setEnabled(True)
+                else:
+                    self.clusterFrameThresholdSlider.setEnabled(False)
+
+            else:
+                self.clustersMustAppearInAtLeastNFramesCheckBox.setEnabled(False)
+                self.clusterFrameThresholdSlider.setEnabled(False)
+                self.clusterCrossFrameDistanceThresholdSlider.setEnabled(False)
+
+        else:
+            self.clusterMergeAcrossFramesCheckBox.setEnabled(False)
+            self.clusterCrossFrameDistanceThresholdSlider.setEnabled(False)
+            self.clusterDistanceThresholdSlider.setEnabled(False)
+
+
+    def clusterValidationSlidersChanged(self):
+        a = self.clusterDistanceThresholdSlider.value() 
+        b = self.clusterCrossFrameDistanceThresholdSlider.value()
+        c = self.clusterFrameThresholdSlider.value()
+        self.clusterDistanceWithinFrameThresholdLabel.setText( str(a) + ' pixel' )
+        self.clusterDistanceAcrossFramesThresholdLabel.setText( str(b) + ' pixel' )
+        if c==1:
+            self.clusterFrameThresholdLabel.setText( str(c) + ' frame' )
+        else:
+            self.clusterFrameThresholdLabel.setText( str(c) + ' frames' )
+        
+    def useOriginalDataForClusters( self ):
+        if self.useOriginalDataToggleButton.isChecked():
+            self.useFourierdDataToggleButton.setChecked(False)
+        else:
+            self.useFourierdDataToggleButton.setChecked(True)
+
+    def useFourierdDataForClusters( self ):
+        if self.useFourierdDataToggleButton.isChecked():
+            self.useOriginalDataToggleButton.setChecked(False)
+        else:
+            self.useOriginalDataToggleButton.setChecked(True)
 
     def addFitExclusionZone(self):
         rect = {'left':np.int( np.round(self.imageview.c0) ), \
@@ -106,6 +167,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
     def toolBoxPageChanged(self):
         i = self.toolBox.currentIndex()
+        print "current toolbox index: %d" % i
         for j in range(self.toolBox.count()):
             if not i==j:
                 text = self.toolBox.itemText(j)
@@ -113,6 +175,21 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             else:
                 text = self.toolBox.itemText(j)
                 self.toolBox.setItemText(j, 'vv'+text[2:])
+
+        if i==0:          # correlator tab
+            self.showWhatComboBox.setCurrentIndex(0)
+            self.drawFrame()
+        elif i==1:        # fourier tab
+            if not np.isnan(self.filtered[0,0,0]):
+                self.showWhatComboBox.setCurrentIndex(1)
+            else:
+                self.showWhatComboBox.setCurrentIndex(0)
+            self.drawFrame()
+        elif i==2:        # cluster tab
+            self.clusterIntensityThresholdChanged()
+        else:
+            raise thefuckisthis
+
 
     def loadDefault(self):
         f = open('lastdir.txt','r')
@@ -178,9 +255,15 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.spefile = MyPrincetonSPEFile(self.SPEFileName).return_Array()
         self.spefile = self.spefile.astype(np.float)
 
+        if hasattr( self, 'boolimage' ):
+            self.boolimage = np.ones((self.blankfile.shape[1],self.blankfile.shape[2]), dtype=np.bool)*True
+
         self.filtered = np.ones_like( self.spefile ) * np.nan
         self.clusters = np.ones_like( self.spefile ) * np.nan
         self.cluster_positions = [None] * self.spefile.shape[0]
+
+        if hasattr( self, 'clusterindices' ): delattr( self, 'clusterindices' )
+        if hasattr( self, 'validclusters' ): delattr( self, 'validclusters' )
 
         self.frameaverage = np.mean( self.spefile, axis=0 )
 
@@ -190,24 +273,47 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.frameSlider.setPageStep(10)
         self.frameSlider.setValue(0)
 
-        self.imageview.myaxes.imshow( self.spefile[0], interpolation='nearest' )
-        self.imageview.figure.canvas.draw()
+        # self.imageview.myaxes.imshow( self.spefile[0], interpolation='nearest' )
+        # self.imageview.figure.canvas.draw()        
+        self.drawFrame()
 
 #        self.frameAverageToggleButton.setEnabled(True)
         self.statusbar.showMessage("Back to square one.")
-
+        
 
     def drawFrame(self):
         frame = self.frameSlider.value()
+        bins = 200
         self.imageview.clear()
         if self.showWhatComboBox.currentIndex()==0:
-            self.imageview.myaxes.imshow( self.spefile[frame], interpolation='nearest', cmap=cm.jet )
+            if self.histogramToggleButton.isChecked():
+                # a = np.min( self.spefile[frame] )
+                # b = np.max( self.spefile[frame] )
+                # bins = np.linspace( a, b, b-a+1 )                
+                self.imageview.myaxes.hist( self.spefile[frame].flatten(), bins=bins )
+            else:
+                self.imageview.myaxes.imshow( self.spefile[frame], interpolation='nearest', cmap=cm.jet )
 
         elif self.showWhatComboBox.currentIndex()==1:
-            self.imageview.myaxes.imshow( self.filtered[frame], interpolation='nearest'  )
+            if self.histogramToggleButton.isChecked():
+                # a = np.min( self.filtered[frame] )
+                # b = np.max( self.filtered[frame] )
+                # bins = np.linspace( a, b, b-a+1 )
+                self.imageview.myaxes.hist( self.filtered[frame].flatten(), 500 )
+            else:
+                self.imageview.myaxes.imshow( self.filtered[frame], interpolation='nearest'  )
 
         elif self.showWhatComboBox.currentIndex()==2:
-            self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest' )
+            if self.histogramToggleButton.isChecked():
+                # a = np.min( self.clusters[frame] )
+                # b = np.max( self.clusters[frame] )
+                # bins = np.linspace( a, b, b-a+1 )
+                self.imageview.myaxes.hist( self.clusters[frame].flatten(), 500 )
+            else:
+                if np.max(self.clusters[frame])==1:   # most likely got the boolean image
+                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', vmax=2 )
+                else:
+                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest' )
         else:
             raise hell
 
@@ -220,7 +326,8 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         if self.highlightClusterPositionsCheckBox.isChecked():
             if not self.cluster_positions[frame]==None:                
                 self.imageview.myaxes.plot( self.cluster_positions[frame][:,1], \
-                                     self.cluster_positions[frame][:,0], 'ro', alpha=.5, markersize=5 )
+                                                self.cluster_positions[frame][:,0], 'ro', \
+                                                alpha=.6, markersize=6, zorder=5 )
                 self.imageview.myaxes.set_xlim( [0, self.spefile.shape[2]] )
                 self.imageview.myaxes.set_ylim( [self.spefile.shape[1], 0] )
 
@@ -236,13 +343,17 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
                     self.imageview.myaxes.text( self.allclusters[ci,1], \
                                                     self.allclusters[ci,0], \
                                                     '%d' % ci )
+            if hasattr(self,'validclusters'):
+                self.imageview.myaxes.plot( self.validclusters[:,1], \
+                                                self.validclusters[:,0], 'ko', \
+                                                markersize=8, markerfacecolor='none', zorder=4 )
 
         self.imageview.figure.canvas.draw()
         self.statusbar.showMessage("frame %d/%d" % (frame+1,self.spefile.shape[0]))
 
 
     def frameAverageToggle(self):
-        if self.frameAverageToggleButton.isChecked():            
+        if self.frameAverageToggleButton.isChecked():
             self.imageview.clear()
             self.imageview.myaxes.imshow( self.frameaverage, interpolation='nearest' )
             self.imageview.figure.canvas.draw()
@@ -285,145 +396,188 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
     #     self.showWhatComboBox.setCurrentIndex(1)
     #     self.drawFrame()
 
+
     def applyFourierFilter(self):
-        doWhat = self.filterOperationComboBox.currentText()
-        #     image = self.frameaverage
-        # else:
-        frame = self.frameSlider.value()
-        image = self.spefile[frame]
+        for iframe in range(self.spefile.shape[0]):
+            self.frameSlider.setValue(iframe)
+        
+            doWhat = self.filterOperationComboBox.currentText()
+            #     image = self.frameaverage
+            # else:
+            image = self.spefile[iframe]
 
-        cutfreq1 = self.lowFreqLineEdit.text().toDouble()[0]
-        cutfreq2 = self.highFreqLineEdit.text().toDouble()[0]
-        # if self.invertedCheckBox.isChecked():
-        #     operation = 'inverted'
-        # else:
-        #     operation = 'normal'
+            cutfreq1 = self.lowFreqLineEdit.text().toDouble()[0]
+            cutfreq2 = self.highFreqLineEdit.text().toDouble()[0]
+            # if self.invertedCheckBox.isChecked():
+            #     operation = 'inverted'
+            # else:
+            #     operation = 'normal'
 
-        newimage, self.mask = smdetect.fourier_filter(image, cutfreq1, cutfreq2, operation=doWhat)
-        frame = self.frameSlider.value()
-        self.filtered[frame] = newimage
-        self.showWhatComboBox.setCurrentIndex(1)
-        self.drawFrame()
+            newimage, self.mask = smdetect.fourier_filter(image, cutfreq1, cutfreq2, operation=doWhat)
+            self.filtered[iframe] = newimage
+            self.showWhatComboBox.setCurrentIndex(1)
+            self.drawFrame()
 
-        # draw mask
-        self.maskview.myaxes.cla()
-        self.maskview.myaxes.imshow( self.mask, interpolation='nearest' )
-        self.maskview.figure.canvas.draw()
+            # draw mask
+            self.maskview.myaxes.cla()
+            self.maskview.myaxes.imshow( self.mask, interpolation='nearest' )
+            self.maskview.figure.canvas.draw()
 
 
     def findClusters(self):
         threshold = float( self.clusterIntensityThresholdSlider.value() )
 
         frame = self.frameSlider.value()
+        for frame in range( self.spefile.shape[0] ):
 
-        clusterimage = self.filtered[frame] > np.std(self.filtered[frame].flatten())*threshold
-        clusterimage = -clusterimage.astype(np.int)
+            if self.useOriginalDataToggleButton.isChecked():
+                image = self.spefile[frame]
+            else:
+                image = self.filtered[frame]
 
-        cimage = clusterimage.copy()
-        # clean up boundaries (got Fourier spills there)
-        bskip=10
-        cimage[:bskip,:]  = 0   # top edge
-        cimage[:,:bskip]  = 0   # left edge
-        cimage[-bskip:,:] = 0   # bottom edge
-        cimage[:,-bskip:] = 0   # right edge
+            clusterimage = image > np.std(image.flatten())*threshold
+            clusterimage = -clusterimage.astype(np.int)
+
+            cimage = clusterimage.copy()
+            # clean up boundaries (got Fourier spills there)
+            bskip=10
+            cimage[:bskip,:]  = 0   # top edge
+            cimage[:,:bskip]  = 0   # left edge
+            cimage[-bskip:,:] = 0   # bottom edge
+            cimage[:,-bskip:] = 0   # right edge
     
-        cimage, nclusters = smdetect.mark_all_clusters(cimage)
+            cimage, nclusters = smdetect.mark_all_clusters(cimage)
 
-        self.clusters[frame] = cimage
-        self.statusbar.showMessage("Found %d clusters." % nclusters)
+            self.clusters[frame] = cimage
+            self.statusbar.showMessage("Found %d clusters." % nclusters)
 
-        sizeThreshold = float( self.clusterSizeThresholdSlider.value() )
-        pos = smdetect.find_cluster_positions( cimage, size_threshold=sizeThreshold )
-        self.cluster_positions[frame] = pos
+            sizeThreshold = float( self.clusterSizeThresholdSlider.value() )
+            pos = smdetect.find_cluster_positions( cimage, size_threshold=sizeThreshold )
+            self.cluster_positions[frame] = pos
 
-        self.showWhatComboBox.setCurrentIndex(0)
+        self.validclusters = np.vstack( self.cluster_positions )
+
+        if self.useOriginalDataToggleButton.isChecked():
+            self.showWhatComboBox.setCurrentIndex(0)
+        else:
+            self.showWhatComboBox.setCurrentIndex(1)
+
         self.highlightClusterPositionsCheckBox.setChecked(True)
+
+        self.validateClusters()
+
         self.drawFrame()
 
 
     def validateClusters(self):
 
-        distance_threshold = self.clusterDistanceThresholdSlider.value()
-
         ### WITHIN-FRAME DISTANCE THRESHOLD ###
-        # first, we need to clean up clusters _within_ each frame
-        for frame,cp in enumerate(self.cluster_positions):
-            print '=== %d =====================================' % frame
-            print cp.shape
+        print "### WITHIN-FRAME DISTANCE THRESHOLD ###"
+        if self.clusterWithinFrameMinDistanceCheckBox.isChecked():
 
-            valid = np.arange( cp.shape[0] )
-            for i,c in enumerate(cp):
-                for j in range(i+1,cp.shape[0]):
-                    d = np.sqrt(np.sum((c-cp[j,:])**2))
-                    if d < 2*distance_threshold:
-                        valid[j] == i
-            print "frame %d, valid: %d/%d" % (frame, np.unique(valid).size, cp.shape[0])
-            # retain only valid ones
-            self.cluster_positions[frame] = cp[ np.unique(valid) ]
+            distance_threshold = self.clusterDistanceThresholdSlider.value()
+
+            # first, we need to clean up clusters _within_ each frame
+            for frame,cp in enumerate(self.cluster_positions):
+                print '=== %d =====================================' % frame
+                print cp.shape
+
+                valid = np.arange( cp.shape[0] )
+                for i,c in enumerate(cp):
+                    for j in range(i+1,cp.shape[0]):
+                        d = np.sqrt(np.sum((c-cp[j,:])**2))
+                        if d < 2*distance_threshold:
+                            valid[j] == i
+                print "frame %d, valid: %d/%d" % (frame, np.unique(valid).size, cp.shape[0])
+                # retain only valid ones
+                self.cluster_positions[frame] = cp[ np.unique(valid) ]
+
+            self.validclusters = np.vstack( self.cluster_positions )
+                
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            print self.validclusters.shape
+
 
         # next we check for multiple occurences of the same cluster across frames
         
         ### ACROSS-FRAMES DISTANCE THRESHOLD ###
-        # first make a list of all clusters
-        allclusters = np.vstack( self.cluster_positions )
-        # and an indexing array 
-        clusterindices = np.arange( allclusters.shape[0] )
+        print "### ACROSS-FRAMES DISTANCE THRESHOLD ###"
+        if self.clusterMergeAcrossFramesCheckBox.isChecked():
 
-        for i in range(clusterindices.size):
-            for j in range(i+1, clusterindices.size):
-                d = np.sqrt( np.sum((allclusters[ clusterindices[i] ] - allclusters[ clusterindices[j] ])**2) )
-                if d < distance_threshold:
-                    clusterindices[j] = clusterindices[i]
+            # first make a list of all clusters
+            allclusters = np.vstack( self.cluster_positions )
+            # and an indexing array 
+            clusterindices = np.arange( allclusters.shape[0] )
 
-        Nuniqueclusters = np.unique( clusterindices ).size
-        self.uniqueclusters = np.unique( clusterindices )
-        self.allclusters = allclusters[ self.uniqueclusters ]
-        ucsorted = np.sort( self.uniqueclusters )        
-        for i,ci in enumerate(ucsorted):
-            np.place( self.uniqueclusters, self.uniqueclusters==ci, i )
-            np.place( clusterindices, clusterindices==ci, i )
+            for i in range(clusterindices.size):
+                for j in range(i+1, clusterindices.size):
+                    d = np.sqrt( np.sum((allclusters[ clusterindices[i] ]-allclusters[ clusterindices[j] ])**2) )
+                    if d < distance_threshold:
+                        clusterindices[j] = clusterindices[i]
 
-        # self.uniqueclusters = np.unique( clusterindices )
-        # self.allclusters = allclusters
+            Nuniqueclusters = np.unique( clusterindices ).size
+            self.uniqueclusters = np.unique( clusterindices )
+            self.allclusters = allclusters[ self.uniqueclusters ]
+            ucsorted = np.sort( self.uniqueclusters )        
+            for i,ci in enumerate(ucsorted):
+                np.place( self.uniqueclusters, self.uniqueclusters==ci, i )
+                np.place( clusterindices, clusterindices==ci, i )
 
-        # split clusterindices into frames
-        frameends = np.cumsum( [ cp.shape[0] for cp in self.cluster_positions[:-1] ] )
-        cis = np.split(clusterindices, frameends)
+            # self.uniqueclusters = np.unique( clusterindices )
+            # self.allclusters = allclusters
 
-        # clean up each frame
-        self.clusterindices = []
-        for i,f in enumerate(cis):
-            self.clusterindices.append( np.unique(f) )
+            # split clusterindices into frames
+            frameends = np.cumsum( [ cp.shape[0] for cp in self.cluster_positions[:-1] ] )
+            cis = np.split(clusterindices, frameends)
+
+            # clean up each frame
+            self.clusterindices = []
+            self.cluster_positions = []
+            for i,f in enumerate(cis):
+                self.clusterindices.append( np.unique(f) )
+                self.cluster_positions.append( self.allclusters[ np.unique(f) ] )
+
+            self.validclusters = np.vstack( self.cluster_positions )
+
+            print "@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+            print self.validclusters.shape
+            
 
         ### FRAME THRESHOLD ###
-        # now go through all unique clusters and count the frames they appear in
-        uccount = np.zeros( (self.uniqueclusters.size,) )
-        for i,uc in enumerate(self.uniqueclusters):
-            for ci in self.clusterindices:
-                if np.any( uc==ci ): uccount[i] += 1 
+        print "### FRAME THRESHOLD ###"
+        if self.clustersMustAppearInAtLeastNFramesCheckBox.isChecked():
+        
+            # now go through all unique clusters and count the frames they appear in
+            uccount = np.zeros( (self.uniqueclusters.size,) )
+            for i,uc in enumerate(self.uniqueclusters):
+                for ci in self.clusterindices:
+                    if np.any( uc==ci ): uccount[i] += 1 
 
-        # clean up again
-        frameThreshold = self.clusterFrameThresholdSlider.value()
+            # clean up again
+            frameThreshold = self.clusterFrameThresholdSlider.value()
 
-        #self.allclusters = self.allclusters[ uccount >= frameThreshold ]
-        #self.uniqueclusters = self.uniqueclusters[ uccount >= frameThreshold ]
+            # self.allclusters = self.allclusters[ uccount >= frameThreshold ]
+            # self.uniqueclusters = self.uniqueclusters[ uccount >= frameThreshold ]
 
-        for i,ci in enumerate(self.clusterindices):
-            newci = []
-            for j in ci:
-                if uccount[j] >= frameThreshold:
-                    newci.append( j )
-            self.clusterindices[i] = np.array( newci )
+            for i,ci in enumerate(self.clusterindices):
+                newci = []
+                for j in ci:
+                    if uccount[j] >= frameThreshold:
+                        newci.append( j )
+                self.clusterindices[i] = np.array( newci )
 
-        self.validclusters = self.allclusters[ uccount >= frameThreshold ]
-        print 'number of validclusters: %d' % self.validclusters.shape[0]
+            self.validclusters = self.allclusters[ uccount >= frameThreshold ]
+            print 'number of validclusters: %d' % self.validclusters.shape[0]
 
+            print '###############################'
+            print self.validclusters
+            print self.validclusters.shape
         self.drawFrame()
  
 
     def writeCoordinates(self):
-        fname = 'coords.txt'
-        f = open(fname,'w')
+        fname = QtGui.QFileDialog.getSaveFileName( self, 'Specific save file name', directory='' )
+        f = open( str(fname),'w')
         f.writelines( ['%f\t%f\n' % (vc[0],vc[1]) for vc in self.validclusters] )
         f.close()
 
@@ -431,34 +585,50 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
     def correlateFrames(self):
 #        averageFrame = np.sum( np.log(self.spefile), axis=0 )
         
-        if self.showWhatComboBox.currentIndex() == 0:
-            what = self.spefile
-        elif self.showWhatComboBox.currentIndex() == 1:
-            what = self.filtered
+        # if self.showWhatComboBox.currentIndex() == 0:
+        #     what = self.spefile
+        # elif self.showWhatComboBox.currentIndex() == 1:
+        #     what = self.filtered
+        # else:
+        #     raise hell
+
+        # Nrows = self.correlateNRowsSpinBox.value()
+        # Ncols = self.correlateNColumnsSpinBox.value()
+
+        if np.min(self.spefile) < 0:
+            offset = -2*np.min(self.spefile)
         else:
-            raise hell
+            offset = 0
+        self.spefile += offset
 
-        Nrows = self.correlateNRowsSpinBox.value()
-        Ncols = self.correlateNColumnsSpinBox.value()
+#         a = np.ones( (self.spefile.shape[0], self.spefile.shape[1]-Nrows+1, self.spefile.shape[2]) )
+#         for i in range(Nrows):
+#             # print i
+#             # print self.spefile.shape[1]-(Nrows-i)+1
+#             a += np.log(self.spefile[ :, i:self.spefile.shape[1]-(Nrows-i)+1, : ])
+# #            a *= self.spefile[ :, i:self.spefile.shape[1]-(Nrows-i)+1, : ]
 
-        a = np.zeros( (self.spefile.shape[0], self.spefile.shape[1]-Nrows+1, self.spefile.shape[2]) )
-        for i in range(Nrows):
-            # print i
-            # print self.spefile.shape[1]-(Nrows-i)+1
-            a += np.log(self.spefile[ :, i:self.spefile.shape[1]-(Nrows-i)+1, : ])
+#         b = np.ones( (self.spefile.shape[0], self.spefile.shape[1], self.spefile.shape[2]-Ncols+1) )
+#         for i in range(Ncols):
+#             # print i
+#             # print self.spefile.shape[2]-(Ncols-i)+1
+#             b += np.log(self.spefile[ :, :, i:self.spefile.shape[2]-(Ncols-i)+1 ])
+# #            b *= self.spefile[ :, :, i:self.spefile.shape[2]-(Ncols-i)+1 ]
 
-        b = np.zeros( (self.spefile.shape[0], self.spefile.shape[1], self.spefile.shape[2]-Ncols+1) )
-        for i in range(Ncols):
-            # print i
-            # print self.spefile.shape[2]-(Ncols-i)+1
-            b += np.log(self.spefile[ :, :, i:self.spefile.shape[2]-(Ncols-i)+1 ])
+#         c = a[:,:,:self.spefile.shape[2]-Ncols+1] + b[:,:self.spefile.shape[1]-Nrows+1,:]
 
-        c = a[:,:,:self.spefile.shape[2]-Ncols+1] + b[:,:self.spefile.shape[1]-Nrows+1,:]
+        a = np.log(self.spefile)+np.log( np.roll(self.spefile, 1, axis=1) )
+        b = np.log(self.spefile)+np.log( np.roll(self.spefile, 1, axis=2) )
+        c = a+b
+        if self.fourthRootInCorrelatorCheckBox.isChecked():
+            self.spefile = np.power( np.exp(c), .25 ) - offset
+        else:
+            self.spefile = np.exp(c) - offset
+#        self.spefile = c
 
-        # a = np.log(self.spefile[:,0:-1,:])+np.log(self.spefile[:,1:,:])
-        # b = np.log(self.spefile[:,:,0:-1])+np.log(self.spefile[:,:,1:])
-        # c = a[:,:,:-1]+b[:,:-1,:]
-        self.spefile = np.exp(c)
+        print np.sum( np.isnan( self.spefile ) )
+        print np.sum( np.isinf( self.spefile ) )
+#        print np.histogram(self.spefile.flatten(), 100)# bins=np.linspace(-100,1000))
 
         self.filtered = np.ones_like( self.spefile ) * np.nan
         self.clusters = np.ones_like( self.spefile ) * np.nan
@@ -466,25 +636,9 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         # frame = self.frameSlider.value()
         # self.spefile[frame] = (self.spefile[frame] > 6000)
 
-
         self.drawFrame()
+        print 'done'
 
-
-    def filter_and_cluster_all_frames(self):
-        starttime = time.time()
-
-        if self.useCorrelatorCheckBox.isChecked(): 
-            self.correlateFrames()
-
-        for f in range(self.spefile.shape[0]):
-            self.frameSlider.setValue(f)
-            self.applyFourierFilter()
-            self.findClusters()
-
-        self.validateClusters()
-        self.writeCoordinates()
-        
-        self.statusbar.showMessage("Done. Took %f seconds." % (time.time()-starttime) )
 
     def createLineAverages(self):
         lineAverageImages = [np.mean(line,axis=0) for line in np.array_split( self.spefile, 8 )]
@@ -500,21 +654,26 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
 
     def clusterIntensityThresholdChanged(self):
-        t = self.clusterIntensityThresholdSlider.value()
-        self.clusterIntensityThresholdLabel.setText( "%d std" % t )
-
         threshold = float( self.clusterIntensityThresholdSlider.value() )
-        frame = self.frameSlider.value()
-        clusterimage = self.filtered[frame] > np.std(self.filtered[frame].flatten())*threshold
-        self.clusters[frame] = clusterimage
-        self.showWhatComboBox.setCurrentIndex(2)
-        self.drawFrame()
+        self.clusterIntensityThresholdLabel.setText( "%d std" % threshold )
+
+        for frame in range( self.spefile.shape[0] ):
+#        frame = self.frameSlider.value()
+            if self.useOriginalDataToggleButton.isChecked():
+                image = self.spefile[frame]
+            else:
+                image = self.filtered[frame]
+
+            clusterimage = image > np.std(image.flatten())*threshold
+            self.clusters[frame] = clusterimage
+            self.showWhatComboBox.setCurrentIndex(2)
+            self.drawFrame()
 
 #        self.findClusters()
 
     def clusterSizeThresholdChanged(self):
         t = self.clusterSizeThresholdSlider.value()
-        self.clusterSizeThresholdLabel.setText( "%d std" % t )
+        self.clusterSizeThresholdLabel.setText( "%d pixel" % t )
 #        self.findClusters()
 
     def crop(self):

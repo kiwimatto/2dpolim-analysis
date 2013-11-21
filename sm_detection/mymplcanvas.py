@@ -51,6 +51,8 @@ class MyMplCanvas(FigureCanvas):
 
 
     def clear(self):
+        self.fig.clf()
+        self.myaxes = self.fig.add_subplot(111)
         self.myaxes.cla()
         self.cbaraxes.cla()
 #        self.myaxes = self.fig.add_subplot(111)
