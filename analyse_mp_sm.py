@@ -37,7 +37,7 @@ m.are_spots_valid( SNR=SNR, validframesratio=VFR )
 if not len(m.validspots)==0:
     print len(m.validspots)
     tstart = stopwatch.time()
-    m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True )
+    m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True, ETmodel=True )
     print stopwatch.time()-tstart
 
 save_hdf5( m, myspots=np.arange(len(m.validspots)) )

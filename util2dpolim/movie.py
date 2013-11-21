@@ -62,9 +62,9 @@ class Movie:
         #                                  for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
 
-    def run_mp(self, Nprocs, fits=True, mods=True, ETruler=True):
+    def run_mp(self, Nprocs, fits=True, mods=True, ETruler=True, ETmodel=False):
 
-        assert fits >= mods >= ETruler
+        assert fits >= mods >= ETruler >= ETmodel
 
         def worker( resultqueue, thesespots, whichproc ):
             if fits:
@@ -74,6 +74,9 @@ class Movie:
             if ETruler:                
                 for si in thesespots:
                     self.validspots[si].values_for_ETruler( newdatalength=1024 )
+            if ETmodel:
+                self.ETmodel_selective( myspots=thesespots )
+                
             for si in thesespots:
                 a = {'spot':si}
                 if fits:
@@ -89,7 +92,11 @@ class Movie:
                     a['anisotropy'] = self.validspots[si].anisotropy
                 if ETruler:
                     a['ET_ruler'] = self.validspots[si].ET_ruler
-
+                if ETmodel:
+                    a['ETmodel_md_fu'] = self.validspots[si].ETmodel_md_fu
+                    a['ETmodel_th_fu'] = self.validspots[si].ETmodel_th_fu
+                    a['ETmodel_gr']    = self.validspots[si].ETmodel_gr
+                    a['ETmodel_et']    = self.validspots[si].ETmodel_et
                 resultqueue.put( a )
 
             return
