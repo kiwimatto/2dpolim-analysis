@@ -500,7 +500,8 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             maxSizeThreshold = float( self.maxClusterSizeThresholdSlider.value() )
             pos = smdetect.find_cluster_positions( cimage, \
                                                        min_size_threshold=minSizeThreshold, \
-                                                       max_size_threshold=maxSizeThreshold )
+                                                       max_size_threshold=maxSizeThreshold, \
+                                                       originalimage=image )
             self.cluster_positions[frame] = pos
 
         self.validclusters = np.vstack( self.cluster_positions )
