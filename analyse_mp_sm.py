@@ -5,14 +5,14 @@ from util2dpolim.misc import save_hdf5, pixel_list, import_spot_positions
 import time as stopwatch
 
 
-prefix = '/home/rafael/Desktop/Win/TDM5/'
-basename = 'TDM5-488-OD106-02'
+prefix = '/home/rafael/Desktop/Win/TDM4/'
+basename = 'TDM4-488-OD106-03'
 
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
 
-bgbounds   = [10,154,60,502]
+bgbounds   = [10,154,90,500]
 SNR        = 3
 VFR        = .5
 Nprocs = 2
@@ -23,12 +23,12 @@ m.find_lines()
 
 #### blank fitting ####
 boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
-blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':450, 'op':'exclude'}
+blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
 boolimage = pixel_list( m, blankfitexclusion, boolimage )
 m.fit_blank_image( boolimage, verbosity=0 )
 m.define_background_spot( bgbounds )
 
-import_spot_positions( m, 'coords-02.txt', 4, 'circle' )
+import_spot_positions( m, 'coords-03.txt', 4, 'circle' )
 
 m.correct_excitation_intensities()
 m.correct_emission_intensities()
