@@ -39,15 +39,19 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.loadFilePushButton.clicked.connect( self.loadFile )
         self.applyFilterPushButton.clicked.connect( self.applyFourierFilter )
         self.findClustersPushButton.clicked.connect( self.findClusters )
+        self.findClustersNewPushButton.clicked.connect( self.findClusters2 )
         self.frameSlider.valueChanged.connect( self.drawFrame )
         self.frameAverageToggleButton.clicked.connect( self.frameAverageToggle )
         self.showWhatComboBox.activated.connect( self.drawFrame )
+        self.logScaleComboBox.activated.connect( self.drawFrame )
+        self.cmapComboBox.activated.connect( self.drawFrame )
         self.highlightClusterPositionsCheckBox.stateChanged.connect( self.drawFrame )
         self.cropPushButton.clicked.connect( self.crop )
         self.resetPushButton.clicked.connect( self.reset )
         self.loadDefaultPushButton.clicked.connect( self.loadDefault )
         self.clusterIntensityThresholdSlider.valueChanged.connect( self.clusterIntensityThresholdChanged )
-        self.clusterSizeThresholdSlider.valueChanged.connect( self.clusterSizeThresholdChanged )
+        self.minClusterSizeThresholdSlider.valueChanged.connect( self.minClusterSizeThresholdChanged )
+        self.maxClusterSizeThresholdSlider.valueChanged.connect( self.maxClusterSizeThresholdChanged )
         self.createLineAveragePushButton.clicked.connect( self.createLineAverages )
         self.toolBox.currentChanged.connect( self.toolBoxPageChanged )
         self.applyCorrelatorPushButton.clicked.connect( self.correlateFrames )
@@ -249,8 +253,9 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.frameSlider.setPageStep(10)
         self.frameSlider.setValue(0)
 
-        self.imageview.myaxes.imshow( self.spefile[0], interpolation='nearest' )
-        self.imageview.figure.canvas.draw()
+        self.drawFrame()
+#        self.imageview.myaxes.imshow( self.spefile[0], interpolation='nearest' )
+#        self.imageview.figure.canvas.draw()
 
 #        self.frameAverageToggleButton.setEnabled(True)
         self.statusbar.showMessage("SPE file loaded. %d frames" % self.spefile.shape[0])
@@ -287,37 +292,35 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
     def drawFrame(self):
         frame = self.frameSlider.value()
+        cmap = getattr( cm, str(self.cmapComboBox.currentText()) )
         bins = 200
         self.imageview.clear()
+
+        if str(self.logScaleComboBox.currentText())=='normal scale':
+            modfun = lambda x: x
+        elif str(self.logScaleComboBox.currentText())=='log scale':
+            modfun = np.log
+
         if self.showWhatComboBox.currentIndex()==0:
             if self.histogramToggleButton.isChecked():
-                # a = np.min( self.spefile[frame] )
-                # b = np.max( self.spefile[frame] )
-                # bins = np.linspace( a, b, b-a+1 )                
-                self.imageview.myaxes.hist( self.spefile[frame].flatten(), bins=bins )
+                self.imageview.myaxes.hist( modfun(self.spefile[frame]).flatten(), bins=bins )
             else:
-                self.imageview.myaxes.imshow( self.spefile[frame], interpolation='nearest', cmap=cm.jet )
+                self.imageview.myaxes.imshow( modfun( self.spefile[frame] ), interpolation='nearest', cmap=cmap )
 
         elif self.showWhatComboBox.currentIndex()==1:
             if self.histogramToggleButton.isChecked():
-                # a = np.min( self.filtered[frame] )
-                # b = np.max( self.filtered[frame] )
-                # bins = np.linspace( a, b, b-a+1 )
-                self.imageview.myaxes.hist( self.filtered[frame].flatten(), 500 )
+                self.imageview.myaxes.hist( modfun(self.filtered[frame]).flatten(), 500 )
             else:
-                self.imageview.myaxes.imshow( self.filtered[frame], interpolation='nearest'  )
+                self.imageview.myaxes.imshow( modfun( self.filtered[frame] ), interpolation='nearest', cmap=cmap  )
 
         elif self.showWhatComboBox.currentIndex()==2:
             if self.histogramToggleButton.isChecked():
-                # a = np.min( self.clusters[frame] )
-                # b = np.max( self.clusters[frame] )
-                # bins = np.linspace( a, b, b-a+1 )
                 self.imageview.myaxes.hist( self.clusters[frame].flatten(), 500 )
             else:
                 if np.max(self.clusters[frame])==1:   # most likely got the boolean image
-                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', vmax=2 )
+                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', vmax=2, cmap=cmap )
                 else:
-                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest' )
+                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', cmap=cmap )
         else:
             raise hell
 
@@ -428,6 +431,44 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             self.maskview.figure.canvas.draw()
 
 
+    def findClusters2(self):
+        threshold = float( self.clusterIntensityThresholdSlider.value() )
+        # we'll work with the average image 
+        if self.useOriginalDataToggleButton.isChecked():
+            image = np.mean( self.spefile, axis=0 )
+        else:
+            image = np.mean( self.filtered, axis=0 )
+        # true/false array showing where pixel are above threshold
+        clusterimage = image > np.std(image.flatten())*threshold
+        # turn each True element into -1, False into 0 (in preparation for the next line)
+        clusterimage = -clusterimage.astype(np.int)
+        # mark clusters
+        clusterimage, nclusters = smdetect.mark_all_clusters(clusterimage)
+        self.statusbar.showMessage("Found %d clusters." % nclusters)
+        # determine cluster centers and apply size criteria
+        minSizeThreshold = float( self.minClusterSizeThresholdSlider.value() )
+        maxSizeThreshold = float( self.maxClusterSizeThresholdSlider.value() )
+        pos = smdetect.find_cluster_positions( clusterimage, \
+                                                   min_size_threshold=minSizeThreshold, \
+                                                   max_size_threshold=maxSizeThreshold, \
+                                                   originalimage=image )
+        for frame in range(self.spefile.shape[0]):
+            self.cluster_positions[frame] = pos
+
+        self.validclusters = np.vstack( self.cluster_positions )
+
+        if self.useOriginalDataToggleButton.isChecked():
+            self.showWhatComboBox.setCurrentIndex(0)
+        else:
+            self.showWhatComboBox.setCurrentIndex(1)
+
+        self.highlightClusterPositionsCheckBox.setChecked(True)
+
+        self.validateClusters()
+
+        self.drawFrame()
+
+
     def findClusters(self):
         threshold = float( self.clusterIntensityThresholdSlider.value() )
 
@@ -455,8 +496,11 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             self.clusters[frame] = cimage
             self.statusbar.showMessage("Found %d clusters." % nclusters)
 
-            sizeThreshold = float( self.clusterSizeThresholdSlider.value() )
-            pos = smdetect.find_cluster_positions( cimage, size_threshold=sizeThreshold )
+            minSizeThreshold = float( self.minClusterSizeThresholdSlider.value() )
+            maxSizeThreshold = float( self.maxClusterSizeThresholdSlider.value() )
+            pos = smdetect.find_cluster_positions( cimage, \
+                                                       min_size_threshold=minSizeThreshold, \
+                                                       max_size_threshold=maxSizeThreshold )
             self.cluster_positions[frame] = pos
 
         self.validclusters = np.vstack( self.cluster_positions )
@@ -675,9 +719,13 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
 #        self.findClusters()
 
-    def clusterSizeThresholdChanged(self):
-        t = self.clusterSizeThresholdSlider.value()
-        self.clusterSizeThresholdLabel.setText( "%d pixel" % t )
+    def minClusterSizeThresholdChanged(self):
+        t = self.minClusterSizeThresholdSlider.value()
+        self.minClusterSizeThresholdLabel.setText( "%d pixel" % t )
+
+    def maxClusterSizeThresholdChanged(self):
+        t = self.maxClusterSizeThresholdSlider.value()
+        self.maxClusterSizeThresholdLabel.setText( "%d pixel" % t )
 #        self.findClusters()
 
     def crop(self):
