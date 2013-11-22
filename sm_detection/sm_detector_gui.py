@@ -299,7 +299,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         if str(self.logScaleComboBox.currentText())=='normal scale':
             modfun = lambda x: x
         elif str(self.logScaleComboBox.currentText())=='log scale':
-            modfun = np.log
+            modfun = lambda x: np.log( x+2*np.abs(np.min(x)) )
 
         if self.showWhatComboBox.currentIndex()==0:
             if self.histogramToggleButton.isChecked():
@@ -430,20 +430,41 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             self.maskview.myaxes.imshow( self.mask, interpolation='nearest' )
             self.maskview.figure.canvas.draw()
 
-
     def findClusters2(self):
         threshold = float( self.clusterIntensityThresholdSlider.value() )
         # we'll work with the average image 
         if self.useOriginalDataToggleButton.isChecked():
-            image = np.mean( self.spefile, axis=0 )
+            data  = self.spefile
         else:
-            image = np.mean( self.filtered, axis=0 )
+            data = self.filtered
+        image = np.mean( data, axis=0 )
         # true/false array showing where pixel are above threshold
         clusterimage = image > np.std(image.flatten())*threshold
         # turn each True element into -1, False into 0 (in preparation for the next line)
         clusterimage = -clusterimage.astype(np.int)
         # mark clusters
         clusterimage, nclusters = smdetect.mark_all_clusters(clusterimage)
+
+        Ngoodframesrequired = 2
+
+        #### now check if clusters are in each image
+        fpix = .8     # fraction of pixel which must be above level to declare a frame 'good' 
+        # for each cluster
+        for ni in range(1,nclusters+1):
+            # find out where in the image it is,
+            clusterbools = clusterimage==ni
+            # and how many pixel it has
+            clusterNpix = np.sum(clusterbools)
+            # go through all frames and find where it is about level
+            goodframes = 0
+            for frame in range( data.shape[0] ):
+                # we trust that self.clusters was set by clusterIntensityThresholdChanged()
+                if np.sum( self.clusters[frame][clusterbools] ) >= fpix*clusterNpix:
+                    goodframes += 1
+            # did we have enough good frames? No? Then remove this cluster from the image:
+            if goodframes < Ngoodframesrequired:
+                clusterimage[clusterbools] = 0
+
         self.statusbar.showMessage("Found %d clusters." % nclusters)
         # determine cluster centers and apply size criteria
         minSizeThreshold = float( self.minClusterSizeThresholdSlider.value() )
