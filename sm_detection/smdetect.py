@@ -122,13 +122,13 @@ def mark_all_clusters( clusterimage ):
     # -1 means that the pixel hasn't been assigned to a cluster yet,
     # 1...n means that the pixel belongs to the cluster with this number
 
-    icluster = 1
+    icluster = 0
 
     for ix in range(clusterimage.shape[1]):
         for iy in range(clusterimage.shape[0]):
             if clusterimage[iy,ix]==-1:
-                clusterimage = mark_this_cluster_recursively(clusterimage,iy,ix,icluster)
                 icluster += 1
+                clusterimage = mark_this_cluster_recursively(clusterimage,iy,ix,icluster)
 
     return clusterimage, icluster
     
