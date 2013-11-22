@@ -163,7 +163,7 @@ def mark_this_cluster_recursively( clusterimage, iy, ix, icluster ):
     return clusterimage
 
 
-def find_cluster_positions( clusterimage, size_threshold=4 ):
+def find_cluster_positions( clusterimage, min_size_threshold=4, max_size_threshold=20, originalimage=None ):
     # go through the image and add clusters to list (accumulating pixel positions and number) 
     c = []
     for yi in range(clusterimage.shape[0]):
@@ -173,24 +173,30 @@ def find_cluster_positions( clusterimage, size_threshold=4 ):
     c = np.array(c)
     Nclusters = np.max(c[:,0])
 
-    # go through all clusters and add up coordinates,
-    # and keep track of how many have been added (for each cluster)
-    clusterpos = np.zeros( (Nclusters,3) )
+    if originalimage==None:
+        originalimage = np.ones_like(clusterimage)
+
+    # go through all clusters and:
+    # add up pixel-value-weighted coordinates (rows and columns), 
+    # also add up the pixel-values, and, lastly, keep track of the number of pixel we've added up.
+    clusterpos = np.zeros( (Nclusters,4) )
     for ci in range(Nclusters):
         for a in c:
             if a[0]==ci+1:
-                clusterpos[ci,0] += a[1]
-                clusterpos[ci,1] += a[2]
-                clusterpos[ci,2] += 1
+                clusterpos[ci,0] += a[1] * originalimage[a[1],a[2]]   # weighted rows
+                clusterpos[ci,1] += a[2] * originalimage[a[1],a[2]]   # weighted columns
+                clusterpos[ci,2] += originalimage[a[1],a[2]]          # weights
+                clusterpos[ci,3] += 1                                 # number of pixel
 
     # now get the positions by dividing the accumulated 
-    # positions with the cluster sizes
+    # positions with the accumulated pixel values 
     pos = []
     for cp in clusterpos:
-        if cp[2] > size_threshold:
+        # accept cluster only if it meets pixel-size criteria:
+        if (cp[3] >= min_size_threshold) and (cp[3] <= max_size_threshold):
             pos.append( [cp[0]/cp[2], cp[1]/cp[2]] )
     pos = np.array(pos)
-        
+
     return pos
 
 

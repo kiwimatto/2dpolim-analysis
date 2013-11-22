@@ -137,7 +137,7 @@ class Movie:
         print 'all done i guess'
 
     def update_images(self):
-        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler']
+        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et']
         for s in self.validspots:
             for prop in allprops:
                 if hasattr(s,prop):
