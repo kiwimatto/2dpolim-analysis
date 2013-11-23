@@ -31,6 +31,8 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.defaultfile = None
         self.hi_my_name_is = "the sm detector gui logic class!"
 
+        self.header = {}
+
     def main(self):
         self.show()
 
@@ -648,6 +650,10 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
     def writeCoordinates(self):
         fname = QtGui.QFileDialog.getSaveFileName( self, 'Specific save file name', directory='' )
         f = open( str(fname),'w')
+        header = {'SPEFileName': self.SPEFileName,
+                  'WaterLevelInSigmas': }
+
+
         f.writelines( ['%f\t%f\n' % (vc[0],vc[1]) for vc in self.validclusters] )
         f.close()
 
