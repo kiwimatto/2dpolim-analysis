@@ -669,8 +669,12 @@ class Spot:
                                             for i in range(sortedfreqs.size) ] )
 
         # if peak sums make no sense, then say something and set result to NaN
-        if (np.abs(np.sum(peakints)-1) > 0.08) or (np.abs(np.sum(modelNoETpeakints)-1) > 0.08):
-            print "ET ruler: peak sum is bad..."
+        if (np.abs(np.sum(peakints)-1) > 0.08):
+            print "ET ruler: peakints sum is bad..."
+            self.ET_ruler = np.nan
+            return
+        if (np.abs(np.sum(modelNoETpeakints)-1) > 0.08):
+            print "ET ruler: MODELpeakints sum is bad..."
             self.ET_ruler = np.nan
             return
 
@@ -681,7 +685,7 @@ class Spot:
 
         if (ruler < -.2) or (ruler > 1.2):
             print "\t\tShit, ruler has gone bonkers (ruler=%f)." % (ruler)
-            print "\t\tWill continue anyways and set ruler to nan."
+            print "\t\tWill continue anyways and set ruler to NaN."
             print "\t\tYou can thank me later."
             ruler = np.nan
         # else:
@@ -692,7 +696,6 @@ class Spot:
             
         self.ET_ruler = ruler
         self.parent.store_property_in_image( self, 'ET_ruler_image', 'ET_ruler' )
-
 #        print 'ruler= ',ruler
 
         # Here we've reached our peaks in life. Only downhill from here...

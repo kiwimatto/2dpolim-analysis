@@ -461,7 +461,8 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             goodframes = 0
             for frame in range( data.shape[0] ):
                 # we trust that self.clusters was set by clusterIntensityThresholdChanged()
-                if np.sum( self.clusters[frame][clusterbools] ) >= fpix*clusterNpix:
+#                if np.sum( self.clusters[frame][clusterbools] ) >= fpix*clusterNpix:
+                if np.sum( self.clusters[frame][clusterbools] ) >= self.minClusterSizeThresholdSlider.value():
                     goodframes += 1
             # did we have enough good frames? No? Then remove this cluster from the image:
             if goodframes < Ngoodframesrequired:
@@ -487,7 +488,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
         self.highlightClusterPositionsCheckBox.setChecked(True)
 
-        self.validateClusters()
+#        self.validateClusters()
 
         self.drawFrame()
 
