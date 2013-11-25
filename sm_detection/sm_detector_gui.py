@@ -52,6 +52,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.resetPushButton.clicked.connect( self.reset )
         self.loadDefaultPushButton.clicked.connect( self.loadDefault )
         self.clusterIntensityThresholdSlider.valueChanged.connect( self.clusterIntensityThresholdChanged )
+        self.clusterBGIntensityThresholdSlider.valueChanged.connect( self.clusterBGIntensityThresholdChanged )
         self.minClusterSizeThresholdSlider.valueChanged.connect( self.minClusterSizeThresholdChanged )
         self.maxClusterSizeThresholdSlider.valueChanged.connect( self.maxClusterSizeThresholdChanged )
         self.createLineAveragePushButton.clicked.connect( self.createLineAverages )
@@ -64,9 +65,10 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.histogramToggleButton.clicked.connect( self.drawFrame )
         self.useOriginalDataToggleButton.clicked.connect( self.useOriginalDataForClusters )
         self.useFourierdDataToggleButton.clicked.connect( self.useFourierdDataForClusters )
-        self.clusterDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
-        self.clusterCrossFrameDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
-        self.clusterFrameThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+#        self.clusterDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+#        self.clusterCrossFrameDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+#        self.clusterFrameThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
+
 
         self.clusterWithinFrameMinDistanceCheckBox.stateChanged.connect( self.clusterValidationStateChanged )
         self.clusterMergeAcrossFramesCheckBox.stateChanged.connect( self.clusterValidationStateChanged )
@@ -217,8 +219,8 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
         if not fname=='':
             self.SPEFileLabel.setText(fname)
-            self.SPEFileName = fname
-            self.filedir = os.path.split( os.path.normpath(fname) )[0]
+            self.filename = os.path.split( os.path.normpath(fname) )[1]
+            self.filedir  = os.path.split( os.path.normpath(fname) )[0] + os.path.sep
         else:
             return
 
@@ -263,7 +265,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.statusbar.showMessage("SPE file loaded. %d frames" % self.spefile.shape[0])
 
     def reset(self):
-        self.spefile = MyPrincetonSPEFile(self.SPEFileName).return_Array()
+        self.spefile = MyPrincetonSPEFile(self.filedir+self.filename).return_Array()
         self.spefile = self.spefile.astype(np.float)
 
         if hasattr( self, 'boolimage' ):
@@ -433,10 +435,10 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             self.maskview.figure.canvas.draw()
 
     def findClusters2(self):
-        threshold = float( self.clusterIntensityThresholdSlider.value() )
+        threshold = float( self.clusterIntensityThresholdSlider.value()/10.0 )
         # we'll work with the average image 
         if self.useOriginalDataToggleButton.isChecked():
-            data  = self.spefile
+            data = self.spefile
         else:
             data = self.filtered
         image = np.mean( data, axis=0 )
@@ -447,7 +449,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         # mark clusters
         clusterimage, nclusters = smdetect.mark_all_clusters(clusterimage)
 
-        Ngoodframesrequired = 2
+        Ngoodframesrequired = self.clusterFrameThresholdSlider.value()
 
         #### now check if clusters are in each image
         fpix = .8     # fraction of pixel which must be above level to declare a frame 'good' 
@@ -490,11 +492,21 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
 #        self.validateClusters()
 
-        self.drawFrame()
+        if self.clustersMustAppearInAtLeastNFramesCheckBox.isChecked():
+            bgthreshold = float( self.clusterBGIntensityThresholdSlider.value() )/10.0
+            self.bgexclusionmap = np.zeros( data[0,:,:].shape, dtype=np.bool )*False
+            for frame in range(data.shape[0]):
+                self.bgexclusionmap = np.logical_or( self.bgexclusionmap, data[frame] > np.std(data[frame].flatten())*bgthreshold )
+
+            self.imageview.clear()
+            self.imageview.myaxes.imshow( self.bgexclusionmap )
+            self.imageview.myaxes.figure.canvas.draw()
+
+#        self.drawFrame()
 
 
     def findClusters(self):
-        threshold = float( self.clusterIntensityThresholdSlider.value() )
+        threshold = float( self.clusterIntensityThresholdSlider.value()/10.0 )
 
         frame = self.frameSlider.value()
         for frame in range( self.spefile.shape[0] ):
@@ -649,14 +661,19 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
  
 
     def writeCoordinates(self):
-        fname = QtGui.QFileDialog.getSaveFileName( self, 'Specific save file name', directory='' )
+#        fname = QtGui.QFileDialog.getSaveFileName( self, 'Specific save file name', directory='' )
+        fname = 'spotcoordinates_'+self.filename[:-4]+'.txt'
+        fname = self.filedir + fname
+
         f = open( str(fname),'w')
-        header = {'SPEFileName': self.SPEFileName,
-                  'WaterLevelInSigmas': }
-
-
+        # header = {'SPEFileName': self.SPEFileName,
+        #           'WaterLevelInSigmas': float(self.bgwaterlevelmap}
         f.writelines( ['%f\t%f\n' % (vc[0],vc[1]) for vc in self.validclusters] )
         f.close()
+
+        fname = 'bgexclusionmap_'+self.filename[:-4]+'.txt'
+        fname = self.filedir + fname
+        np.savetxt(fname, self.bgexclusionmap)
 
 
     def correlateFrames(self):
@@ -730,9 +747,15 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.drawFrame()
 
 
+    def clusterBGIntensityThresholdChanged(self):
+        bgthreshold = float( self.clusterBGIntensityThresholdSlider.value() )/10.0
+        print bgthreshold
+        self.clusterBGIntensityThresholdLabel.setText( "%.1f std" % bgthreshold )
+
     def clusterIntensityThresholdChanged(self):
-        threshold = float( self.clusterIntensityThresholdSlider.value() )
-        self.clusterIntensityThresholdLabel.setText( "%d std" % threshold )
+        threshold = float( self.clusterIntensityThresholdSlider.value() )/10.0
+        print threshold
+        self.clusterIntensityThresholdLabel.setText( "%.1f std" % threshold )
 
         for frame in range( self.spefile.shape[0] ):
 #        frame = self.frameSlider.value()

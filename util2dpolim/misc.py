@@ -79,11 +79,20 @@ def find_measurement_files_in_directory( directory ):
     return basenames, spefiles, motorfiles
 
 
-def import_spot_positions( movie, coords_filename, boxedgelength=5, spot_type='square', \
+def import_spot_positions( movie, basename, boxedgelength=5, spot_type='square', \
                                use_exspot=False, use_borderbg=False ):
+
+    coords_filename = 'spotcoordinates_'+basename+'.txt'
     f  = open(coords_filename, 'r')
     cs = f.readlines()
     f.close()
+
+    bgexclusionmapfilename = 'bgexclusionmap_'+basename+'.txt'
+    if os.path.isfile(coords_filename):
+        movie.bgexclusionmap = np.loadtxt( bgexclusionmapfilename )
+        havebgexclusionmap = True
+    else:
+        havebgexclusionmap = False
 
     cs = np.array( [ [float(n) for n in c.split('\t')] for c in cs] )
     print 'Read the following coordinates from file:'
@@ -109,7 +118,7 @@ def import_spot_positions( movie, coords_filename, boxedgelength=5, spot_type='s
         else:
             raise testosterone_levels
 
-        movie.define_spot( shape, intensity_type='mean', use_exspot=use_borderbg, use_borderbg=use_borderbg )
+        movie.define_spot( shape, intensity_type='mean', use_exspot=use_exspot, use_borderbg=use_borderbg )
     print 'defined %d spots (shape: %s)' % (cs.shape[0], spot_type)
 
 
