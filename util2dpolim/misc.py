@@ -6,7 +6,6 @@ plt.interactive(True)
 from datetime import datetime, timedelta
 from mpl_toolkits.axes_grid1 import AxesGrid
 import memory
-import h5py
 
 def show_mem():
     print "memory usage:"
@@ -199,6 +198,7 @@ def update_image_files( movie, what, fileprefix ):
 
 
 def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
+    import h5py
 
     ###### first we grab all the data we have now #########
     #######################################################
@@ -276,6 +276,8 @@ def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
 
 
 def combine_outputs( movie ):
+    import h5py
+
     # make sure we're in the right directory
     os.chdir( movie.data_directory )
     # collect list of files    

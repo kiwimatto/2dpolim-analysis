@@ -1,12 +1,12 @@
 import sys
 import numpy as np
 from util2dpolim.movie import Movie
-from util2dpolim.misc import save_hdf5, combine_outputs
+from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
 import time as stopwatch
 
 
 
-prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM3/'
+prefix = 'x:\TDM3'
 basename = 'TDM3-488-OD1-02'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
@@ -15,10 +15,9 @@ bgbounds   = [1,200,50,500]         #[110,405,400,450]
 fullbounds = [150,200,450,500]        #[110, 80,400,360]
 resolution = 2
 Nsplit     = 1
-SNR    = 1
+SNR    = 0
 VFR    = .5
-Nprocs = 4
-
+Nprocs = 2
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
@@ -26,7 +25,12 @@ splittopedges = np.array_split( topedges, Nsplit )
 for ste in splittopedges:
 
     m = Movie( prefix, basename )
-    m.fit_blank_image( verbosity=0 )
+
+    boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
+    blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
+    boolimage = pixel_list( m, blankfitexclusion, boolimage )
+    m.fit_blank_image( boolimage, verbosity=0 )
+
     m.find_portraits( frameoffset=0 )
     m.find_lines()
 
@@ -42,11 +46,12 @@ for ste in splittopedges:
     m.correct_emission_intensities()
 
     m.are_spots_valid( SNR=SNR, validframesratio=VFR )
+    #m.validspots = range(len(m.spots))
 
     if not len(m.validspots)==0:
         tstart = stopwatch.time()
         m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True )
         print stopwatch.time()-tstart
 
-        save_hdf5( m, myspots=np.arange(len(m.validspots)) )
+#        save_hdf5( m, myspots=np.arange(len(m.validspots)) )
 
