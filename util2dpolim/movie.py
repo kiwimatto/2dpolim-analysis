@@ -10,14 +10,17 @@ import multiprocessing as mproc
 
 
 def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, ETmodel ):
+#    print thesespots
     if fits:
         movie.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
     if mods:
         movie.find_modulation_depths_and_phases_selective( myspots=thesespots )
     if ETruler:                
+        print "oh fuck ruler"
         for si in thesespots:
             movie.validspots[si].values_for_ETruler( newdatalength=1024 )
     if ETmodel:
+        print "jeeezus, model"
         movie.ETmodel_selective( myspots=thesespots )
                 
     for si in thesespots:
@@ -41,7 +44,6 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
             a['ETmodel_gr']    = movie.validspots[si].ETmodel_gr
             a['ETmodel_et']    = movie.validspots[si].ETmodel_et
         resultqueue.put( a )
-
     return
 
 
@@ -745,86 +747,35 @@ class Movie:
             # self.phase_em_image[ a:b, c:d ] = self.validspots[si].phase_em
             # self.LS_image[ a:b, c:d ]       = self.validspots[si].LS        
 
-            #### anisotropy ####
+
+        #### anisotropy ####
         
-            # if (self.validspots[si].M_ex < .015):
-            #     print "DUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUDE"
-            #     iex = np.argmin( np.abs( self.excitation_angles_grid - np.pi/2 ) )
-            #     iem = np.argmin( np.abs( self.emission_angles_grid - np.pi/2 ) )
-            #     # Ipara = self.validspots[si].sam[ iex, iem ]
-            #     # Iperp = self.validspots[si].sam[ iex, 0 ] ## assumes that the first index is close to 0deg in emission angle grid
-            #     Ipara = self.validspots[si].sam[ iem, iex ]
-            #     Iperp = self.validspots[si].sam[ 0, iex ] ## assumes that the first index is close to 0deg in emission angle grid
-            # else:
+        #### get the values of the horizontal fits at phase_ex  ####
+        v   = np.zeros((len(self.validspots),self.Nportraits,self.Nlines))
+        ema = np.zeros((self.Nlines,))
 
-            #### get the values of the horizontal fits at phase_ex  ####
-            # pex = self.validspots[si].phase_ex
-            # v   = np.zeros((self.Nlines,))
-            # ema = np.zeros((self.Nlines,))
-                
-            # por = 0  # <-- only first portrait is considered here
-            # pstart = self.portrait_indices[ por ]
-            # pstop  = self.portrait_indices[ por+1 ]
-                
-            # for i in range(self.Nlines):
-            #     v[i] = self.validspots[si].retrieve_line_fit( 0, i, pex )  
-            #     ema[i]   = self.emangles[ pstart:pstop ][ self.line_indices[por][i] ][0]
+        for por in range(self.Nportraits):
+            pstart = self.portrait_indices[ por ]
+            pstop  = self.portrait_indices[ por+1 ]
 
-                
-            pex = self.validspots[si].phase_ex
-            v   = np.zeros((self.Nportraits,self.Nlines))
-            ema = np.zeros((self.Nlines,))
-                
-            for por in range(self.Nportraits):
-                #por = 0  # <-- only first portrait is considered here
-                pstart = self.portrait_indices[ por ]
-                pstop  = self.portrait_indices[ por+1 ]
-                
+            for sii,si in enumerate(myspots):
                 for i in range(self.Nlines):
-                    v[por,i] = self.validspots[si].retrieve_line_fit( por, i, pex )  
-                    ema[i]   = self.emangles[ pstart:pstop ][ self.line_indices[por][i] ][0]
-            v = np.mean( v, axis=0 )
+                    v[si,por,i] = self.validspots[si].retrieve_line_fit( por, i, self.validspots[si].phase_ex )  
 
-            # now perform a vertical fit
-            fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter( ema, v, self.Nemphases_for_cos_fitter )
-            mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+        v = np.mean( v, axis=1 )
 
-            # import matplotlib.pyplot as plt
-            # plt.plot( ema, v )
-            # plt.plot( ema, mycos( ema, fp, fi, fm ) )
-            # plt.show()
-            # raise SystemExit
-                
+        for i in range(self.Nlines):
+            ema[i]      = self.emangles[ pstart:pstop ][ self.line_indices[por][i] ][0]
+            
+        #now perform a vertical fit
+        fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter( ema, v.T, self.Nemphases_for_cos_fitter )
+        mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+
+        for sii,si in enumerate(myspots):
             # value at parallel configuration:
-            Ipara = mycos( pex, fp, fi, fm )
+            Ipara = mycos( self.validspots[si].phase_ex, fp[si], fi[si], fm[si] )
             # value at perpendicular configuration:
-            Iperp = mycos( pex-np.pi/2, fp, fi, fm )
-#            print Ipara
-#            print Iperp
-                # # find where the found phase matches the phase in the portrait matrix
-                # # portrait matrices are constructed from the angle grid, so look up which 
-                # # index corresponds to the found phase
-                # if self.validspots[si].phase_ex < 0:                    
-                #     iphex = np.argmin( np.abs(self.excitation_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
-                #     iphempara = np.argmin( np.abs(self.emission_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
-                # else:
-                #     iphex = np.argmin( np.abs(self.excitation_angles_grid - self.validspots[si].phase_ex) )
-                #     # for parallel detection, the phase is the same
-                #     iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
-
-                # # for perpendicular detection, we need to find the phase+90deg
-                # iphemperp = np.argmin( np.abs(self.emission_angles_grid - (self.validspots[si].phase_ex+np.pi/2)) )
-                # Ipara = self.validspots[si].sam[ iphempara, iphex ]
-                # Iperp = self.validspots[si].sam[ iphemperp, iphex ]
-                
-                # self.validspots[si].sam[ iex, iem ] = 10000
-                # self.validspots[si].sam[ iex, 0 ] = 10000
-                # self.validspots[si].sam[ iphex, iphempara ] = 7000
-                # self.validspots[si].sam[ iphex, iphemperp ] = 4000
-                # import matplotlib.pyplot as plt
-                # plt.imshow( self.validspots[si].sam, origin='lower', interpolation='nearest' )
-                # plt.show()
-                # raise SystemExit
+            Iperp = mycos( self.validspots[si].phase_ex-np.pi/2, fp[si], fi[si], fm[si] )
 
             if not float(Ipara+2*Iperp)==0:
                 self.validspots[si].anisotropy = float(Ipara-Iperp)/float(Ipara+2*Iperp)
@@ -833,8 +784,7 @@ class Movie:
 
             # store in contrast image
             self.store_property_in_image( self.validspots[si], 'anisotropy_image', 'anisotropy' )
-#            self.r_image[ a:b, c:d ] = self.validspots[si].r
-#            del(self.validspots[si].sam)  # don't need that anymore
+
         si=myspots[0]
 #        print self.validspots[si].M_ex
 #        print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
@@ -1045,7 +995,7 @@ class Movie:
 
         if not self.bg_spot_sample==None:         # yes we do have a bg spot
             bgstd = self.bg_spot_sample.std
- #           print 'BG std from bg spot = ', bgstd
+#            print 'BG std from bg spot = ', bgstd
 
         # create a new list containing valid spots only
         validspots = []   
