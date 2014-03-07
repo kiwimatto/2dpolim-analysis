@@ -22,6 +22,11 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     md_fu = params[0]
     th_fu = params[1]
     gr    = params[2]
+
+    if np.isnan(gr):
+        print 'carefull with gr'
+        gr = 1
+#        raise ValueError ( "we have a problem with gr, it is NaN")
     if not use_least_sq:
         et    = params[3]
 
@@ -35,8 +40,13 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
 
     # calculate angle between off-axis dipoles in symmetric model
     alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
+
+    checkthis = .5*(((gr+2)*md_ex)-gr)
+#    if np.absolute ([checkthis]) > 1:
+#        raise ValueError( "check=%2.20e" % (checkthis) )
     if np.isnan(alpha):
-        raise ValueError( "alpha is nan. gr=%2.20e, md_ex=%2.20e" % (gr, md_ex) )
+#        raise ValueError( "alpha is nan. gr=%2.20e, md_ex=%2.20e, check=%2.20e" % (gr, md_ex, checkthis) )
+        print 'carefull with alpha'
 
     ph_ii_minus = ph_ex -alpha
     ph_ii_plus  = ph_ex +alpha

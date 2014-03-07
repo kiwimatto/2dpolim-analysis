@@ -229,10 +229,10 @@ class Movie:
         self.LS_image             = self.spot_coverage_image.copy()
         self.anisotropy_image     = self.spot_coverage_image.copy()
         self.ET_ruler_image       = self.spot_coverage_image.copy()
-        self.ET_model_md_fu_image = self.spot_coverage_image.copy()
-        self.ET_model_th_fu_image = self.spot_coverage_image.copy()
-        self.ET_model_gr_image    = self.spot_coverage_image.copy()
-        self.ET_model_et_image    = self.spot_coverage_image.copy()
+        self.ETmodel_md_fu_image = self.spot_coverage_image.copy()
+        self.ETmodel_th_fu_image = self.spot_coverage_image.copy()
+        self.ETmodel_gr_image    = self.spot_coverage_image.copy()
+        self.ETmodel_et_image    = self.spot_coverage_image.copy()
 
 
     def define_background_spot( self, shape, intensity_type='mean' ):
@@ -865,7 +865,7 @@ class Movie:
         from fitting import fit_portrait_single_funnel_symmetric
 
         for si in myspots:
-            print 'ETmodel fitting spot %d' % si
+#            print 'ETmodel fitting spot %d' % si
 
             # we 'correct' the modulation in excitation to be within 
             # limits of reason (and proper arccos functionality)
@@ -882,8 +882,8 @@ class Movie:
 
             LB = [0.001,   -np.pi/2, 0]
             UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
-            print "upper limit: ", 2*(1+self.validspots[si].M_ex)/(1-self.validspots[si].M_ex)
-            print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
+#            print "upper limit: ", 2*(1+self.validspots[si].M_ex)/(1-self.validspots[si].M_ex)
+#            print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
 
             fitresult = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
                                       x0=a0, \
@@ -914,9 +914,9 @@ class Movie:
             # self.ET_model_gr_image[ a:b, c:d ]    = fitresult[0][2]
             # self.ET_model_et_image[ a:b, c:d ]    = et
 
-            print 'fit done\t',fitresult[0],
-            print ' et=',et,
-            print ' A=',A
+#            print 'fit done\t',fitresult[0],
+#            print ' et=',et,
+#            print ' A=',A
 
 
     def chew_AM( self, quiet=False, loud=False, SNR=10 ):
