@@ -8,6 +8,8 @@ import os, os.path, time, sys
 import scipy.optimize as so
 import multiprocessing as mproc
 
+import warnings
+warnings.filterwarnings('error')
 
 def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, ETmodel ):
 #    print thesespots
@@ -751,7 +753,7 @@ class Movie:
         #### anisotropy ####
         
         #### get the values of the horizontal fits at phase_ex  ####
-        v   = np.zeros((len(self.validspots),self.Nportraits,self.Nlines))
+        v   = np.zeros((len(myspots),self.Nportraits,self.Nlines))
         ema = np.zeros((self.Nlines,))
 
         for por in range(self.Nportraits):
@@ -760,7 +762,7 @@ class Movie:
 
             for sii,si in enumerate(myspots):
                 for i in range(self.Nlines):
-                    v[si,por,i] = self.validspots[si].retrieve_line_fit( por, i, self.validspots[si].phase_ex )  
+                    v[sii,por,i] = self.validspots[si].retrieve_line_fit( por, i, self.validspots[si].phase_ex )
 
         v = np.mean( v, axis=1 )
 
@@ -768,14 +770,19 @@ class Movie:
             ema[i]      = self.emangles[ pstart:pstop ][ self.line_indices[por][i] ][0]
             
         #now perform a vertical fit
-        fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter( ema, v.T, self.Nemphases_for_cos_fitter )
+        try:
+            fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter( ema, v.T, self.Nemphases_for_cos_fitter )
+        except Warning:
+            np.savetxt('vt.txt', v.T)
+            print v.T
+            raise Warning
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
         for sii,si in enumerate(myspots):
             # value at parallel configuration:
-            Ipara = mycos( self.validspots[si].phase_ex, fp[si], fi[si], fm[si] )
+            Ipara = mycos( self.validspots[si].phase_ex, fp[sii], fi[sii], fm[sii] )
             # value at perpendicular configuration:
-            Iperp = mycos( self.validspots[si].phase_ex-np.pi/2, fp[si], fi[si], fm[si] )
+            Iperp = mycos( self.validspots[si].phase_ex-np.pi/2, fp[sii], fi[sii], fm[sii] )
 
             if not float(Ipara+2*Iperp)==0:
                 self.validspots[si].anisotropy = float(Ipara-Iperp)/float(Ipara+2*Iperp)
