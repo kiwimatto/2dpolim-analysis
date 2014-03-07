@@ -5,8 +5,6 @@ from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
 import time as stopwatch
 
 
-
-
 prefix = '/home/rafael/Desktop/Win/Filter_Red'
 basename = 'S3-04-Ori-Red-OD3-gain1'
 
@@ -15,7 +13,7 @@ basename = 'S3-04-Ori-Red-OD3-gain1'
 bgbounds   = [361,74,440,425]         #[110,405,400,450] 
 fullbounds = [53,74,350,425]        #[110, 80,400,360]
 resolution = 1
-Nsplit     = 3
+Nsplit     = 4
 SNR    = 5
 VFR    = .6
 Nprocs = 4

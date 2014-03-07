@@ -1045,7 +1045,7 @@ class Movie:
 
         if not self.bg_spot_sample==None:         # yes we do have a bg spot
             bgstd = self.bg_spot_sample.std
-            print 'BG std from bg spot = ', bgstd
+ #           print 'BG std from bg spot = ', bgstd
 
         # create a new list containing valid spots only
         validspots = []   
@@ -1067,8 +1067,8 @@ class Movie:
             s.meanSNR = np.mean(s.SNR)
 
 #            print np.vstack([bgstd,s.intensity,s.SNR, s.SNR>SNR]).T
-            print 'mean bg std=%f, VFR=%f, meanSNR=%f' \
-                % (np.mean(bgstd), s.framecountSNR/float(len(s.SNR)), s.meanSNR)
+#            print 'mean bg std=%f, VFR=%f, meanSNR=%f' \
+#                % (np.mean(bgstd), s.framecountSNR/float(len(s.SNR)), s.meanSNR)
 
             # if si==3:
             #     print s.borderbg
