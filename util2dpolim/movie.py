@@ -8,6 +8,43 @@ import os, os.path, time, sys
 import scipy.optimize as so
 import multiprocessing
 
+
+def mp_worker( movie, resultqueue, thesespots, whichproc ):
+    if fits:
+        movie.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
+    if mods:
+        movie.find_modulation_depths_and_phases_selective( myspots=thesespots )
+    if ETruler:                
+        for si in thesespots:
+            movie.validspots[si].values_for_ETruler( newdatalength=1024 )
+    if ETmodel:
+        movie.ETmodel_selective( myspots=thesespots )
+                
+    for si in thesespots:
+        a = {'spot':si}
+        if fits:
+            a['linefitparams']     = movie.validspots[si].linefitparams
+            a['residual']          = movie.validspots[si].residual
+            a['verticalfitparams'] = movie.validspots[si].verticalfitparams
+        if mods:
+            a['M_ex']       = movie.validspots[si].M_ex
+            a['M_em']       = movie.validspots[si].M_em
+            a['phase_ex']   = movie.validspots[si].phase_ex
+            a['phase_em']   = movie.validspots[si].phase_em
+            a['LS']         = movie.validspots[si].LS
+            a['anisotropy'] = movie.validspots[si].anisotropy
+        if ETruler:
+            a['ET_ruler'] = movie.validspots[si].ET_ruler
+        if ETmodel:
+            a['ETmodel_md_fu'] = movie.validspots[si].ETmodel_md_fu
+            a['ETmodel_th_fu'] = movie.validspots[si].ETmodel_th_fu
+            a['ETmodel_gr']    = movie.validspots[si].ETmodel_gr
+            a['ETmodel_et']    = movie.validspots[si].ETmodel_et
+        resultqueue.put( a )
+
+    return
+
+
 class Movie:
     def __init__( self, datadir, basename, phase_offset_in_deg=np.nan ):
 
@@ -36,8 +73,8 @@ class Movie:
         TargetNAngles = 90
         # ExAngleGridSize = np.round( TargetNAngles/float(len(self.unique_exangles)) ) * len(self.unique_exangles)
         # EmAngleGridSize = np.round( TargetNAngles/float(len(self.unique_emangles)) ) * len(self.unique_emangles)
-        ExAngleGridSize = 6
-        EmAngleGridSize = 4
+        ExAngleGridSize = 12
+        EmAngleGridSize = 8
         phase_offset_in_rad = self.motors.phase_offset_in_deg * np.pi/180.0
         self.excitation_angles_grid = np.linspace(0,np.pi,ExAngleGridSize, endpoint=False)
         self.emission_angles_grid   = np.linspace(0,np.pi,EmAngleGridSize, endpoint=False)
@@ -103,7 +140,7 @@ class Movie:
 
         myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
         resultqueue = multiprocessing.Queue()
-        jobs = [multiprocessing.Process(target=worker, args=(resultqueue, myspots[i], i)) for i in range(Nprocs)]
+        jobs = [multiprocessing.Process(target=mp_worker, args=(self, resultqueue, myspots[i], i)) for i in range(Nprocs)]
         for job in jobs: job.start()
 
         myspots = list(np.concatenate(myspots))
@@ -137,7 +174,7 @@ class Movie:
         print 'all done i guess'
 
     def update_images(self):
-        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et']
+        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ET_model_md_fu', 'ET_model_th_fu', 'ET_model_gr', 'ET_model_et']
         for s in self.validspots:
             for prop in allprops:
                 if hasattr(s,prop):
@@ -365,7 +402,7 @@ class Movie:
         corrphase = self.motors.header['em correction phase']/180.0*np.pi
 
         if np.isnan(corrM): corrM=0
-        if np.isnan(corrphase): corrM=phase
+        if np.isnan(corrphase): corrphase=0
         
         # correction function
         corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
@@ -689,6 +726,7 @@ class Movie:
             #### anisotropy ####
         
             if (self.validspots[si].M_ex < .015):
+                print "DUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUDE"
                 iex = np.argmin( np.abs( self.excitation_angles_grid - np.pi/2 ) )
                 iem = np.argmin( np.abs( self.emission_angles_grid - np.pi/2 ) )
                 # Ipara = self.validspots[si].sam[ iex, iem ]
@@ -696,21 +734,44 @@ class Movie:
                 Ipara = self.validspots[si].sam[ iem, iex ]
                 Iperp = self.validspots[si].sam[ 0, iex ] ## assumes that the first index is close to 0deg in emission angle grid
             else:
-                # find where the found phase matches the phase in the portrait matrix
-                # portrait matrices are constructed from the angle grid, so look up which 
-                # index corresponds to the found phase
-                if self.validspots[si].phase_ex < 0:
-                    iphex = np.argmin( np.abs(self.excitation_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
-                    iphempara = np.argmin( np.abs(self.emission_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
-                else:
-                    iphex = np.argmin( np.abs(self.excitation_angles_grid - self.validspots[si].phase_ex) )
-                    # for parallel detection, the phase is the same
-                    iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
 
-                # for perpendicular detection, we need to find the phase+90deg
-                iphemperp = np.argmin( np.abs(self.emission_angles_grid - (self.validspots[si].phase_ex+np.pi/2)) )
-                Ipara = self.validspots[si].sam[ iphempara, iphex ]
-                Iperp = self.validspots[si].sam[ iphemperp, iphex ]
+                #### get the values of the horizontal fits at phase_ex  ####
+                pex = self.validspots[si].phase_ex
+                v   = np.zeros((self.Nlines,))
+                ema = np.zeros((self.Nlines,))
+                
+                por = 0  # <-- only first portrait is considered here
+                pstart = self.portrait_indices[ por ]
+                pstop  = self.portrait_indices[ por+1 ]
+                
+                for i in range(self.Nlines):
+                    v[i]   = self.validspots[si].retrieve_line_fit( 0, i, pex )  
+                    ema[i] = self.emangles[ pstart:pstop ][ self.line_indices[por][i] ][0]
+                # now perform a vertical fit
+                fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter( ema, v, self.Nemphases_for_cos_fitter )
+                mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
+                
+                # value at parallel configuration:
+                Ipara = mycos( pex, fp, fi, fm )
+                # value at perpendicular configuration:
+                Iperp = mycos( pex-np.pi/2, fp, fi, fm )
+
+
+                # # find where the found phase matches the phase in the portrait matrix
+                # # portrait matrices are constructed from the angle grid, so look up which 
+                # # index corresponds to the found phase
+                # if self.validspots[si].phase_ex < 0:                    
+                #     iphex = np.argmin( np.abs(self.excitation_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
+                #     iphempara = np.argmin( np.abs(self.emission_angles_grid - (np.pi+self.validspots[si].phase_ex)) )
+                # else:
+                #     iphex = np.argmin( np.abs(self.excitation_angles_grid - self.validspots[si].phase_ex) )
+                #     # for parallel detection, the phase is the same
+                #     iphempara = np.argmin( np.abs(self.emission_angles_grid - self.validspots[si].phase_ex) )
+
+                # # for perpendicular detection, we need to find the phase+90deg
+                # iphemperp = np.argmin( np.abs(self.emission_angles_grid - (self.validspots[si].phase_ex+np.pi/2)) )
+                # Ipara = self.validspots[si].sam[ iphempara, iphex ]
+                # Iperp = self.validspots[si].sam[ iphemperp, iphex ]
                 
                 # self.validspots[si].sam[ iex, iem ] = 10000
                 # self.validspots[si].sam[ iex, 0 ] = 10000
@@ -941,6 +1002,7 @@ class Movie:
 
         if not self.bg_spot_sample==None:         # yes we do have a bg spot
             bgstd = self.bg_spot_sample.std
+            print 'BG std = ', bgstd
 
         # create a new list containing valid spots only
         validspots = []   

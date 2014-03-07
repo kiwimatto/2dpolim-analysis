@@ -5,8 +5,8 @@ from util2dpolim.misc import save_hdf5, pixel_list, import_spot_positions
 import time as stopwatch
 
 
-prefix = '/home/rafael/Desktop/Win/TDM4/'
-basename = 'TDM4-488-OD106-03'
+prefix = '/home/kiwimatto/Desktop/130925 - MEHPPV YUXI/TDM3/'
+basename = 'TDM3-488-OD1-02'
 
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
@@ -28,7 +28,7 @@ boolimage = pixel_list( m, blankfitexclusion, boolimage )
 m.fit_blank_image( boolimage, verbosity=0 )
 m.define_background_spot( bgbounds )
 
-import_spot_positions( m, 'coords-03.txt', 4, 'circle' )
+import_spot_positions( m, basename, 4, 'circle' )
 
 m.correct_excitation_intensities()
 m.correct_emission_intensities()

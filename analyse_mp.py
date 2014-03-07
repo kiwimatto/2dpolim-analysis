@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 from util2dpolim.movie import Movie
-from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list#, import_spot_positions
+from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
 import time as stopwatch
 
 
@@ -18,7 +18,6 @@ Nsplit     = 3
 SNR    = 5
 VFR    = .6
 Nprocs = 4
-
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
@@ -49,6 +48,7 @@ for ste in splittopedges:
     m.correct_emission_intensities()
 
     m.are_spots_valid( SNR=SNR, validframesratio=VFR )
+    #m.validspots = range(len(m.spots))
 
     if not len(m.validspots)==0:
         tstart = stopwatch.time()

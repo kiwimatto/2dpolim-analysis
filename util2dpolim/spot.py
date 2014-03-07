@@ -241,13 +241,18 @@ class Spot:
         # bg is difference between original and dilated spot
         bgbitmap = c-b
 
-        # find bg pixel positions
+        # find bg pixel positions, and add (unless we have bg exclusion map, 
+        # and that pixel is on it)
         bgpixel = []
         for ri in range(maxr-minr+1 +2*borderwidth):
             for ci in range(maxc-minc+1 +2*borderwidth):
                 if bgbitmap[ri,ci]:
-                    bgpixel.append( (ri+minr-1, ci+minc-1) )
-        
+                    if hasattr(self.parent,'bgexclusionmap'):
+                        if self.parent.bgexclusionmap[ri+minr-1, ci+minc-1]==False:
+                            bgpixel.append( (ri+minr-1, ci+minc-1) )
+                    else:
+                        bgpixel.append( (ri+minr-1, ci+minc-1) )
+
         self.bgpixel = bgpixel
 #        print 'Number of border pixel: %d' % len(bgpixel)
 
