@@ -6,6 +6,8 @@ plt.interactive(True)
 from datetime import datetime, timedelta
 from mpl_toolkits.axes_grid1 import AxesGrid
 import memory
+import h5py
+
 
 def show_mem():
     print "memory usage:"
@@ -86,16 +88,19 @@ def import_spot_positions( movie, basename, boxedgelength=5, spot_type='square',
     cs = f.readlines()
     f.close()
 
-    bgexclusionmapfilename = 'bgexclusionmap_'+basename+'.txt'
-    if os.path.isfile(coords_filename):
-        movie.bgexclusionmap = np.loadtxt( bgexclusionmapfilename )
-        havebgexclusionmap = True
-    else:
-        havebgexclusionmap = False
+    # bgexclusionmapfilename = 'bgexclusionmap_'+basename+'.txt'
+    # if os.path.isfile(coords_filename):
+    #     movie.bgexclusionmap = np.loadtxt( bgexclusionmapfilename )
+    #     havebgexclusionmap = True
+    # else:
+    #     havebgexclusionmap = False
 
-    cs = np.array( [ [float(n) for n in c.split('\t')] for c in cs] )
-    print 'Read the following coordinates from file:'
-    print cs
+    # grab coords
+    cs = [ tuple(float(n) for n in c.split('\t')) for c in cs ]
+    # clean up potential redundancies
+    cs = np.array([ p for p in set(cs) ])
+#    print 'Read the following coordinates from file:'
+#    print cs
 
     for c in cs:
         center_row = np.int( np.round(c[0]) )
@@ -197,8 +202,86 @@ def update_image_files( movie, what, fileprefix ):
         np.savetxt( filename, getattr(movie, what+'_image') )
 
 
-def save_hdf5( movie, myspots, proc=None, images=True, spots=True ):
-    import h5py
+def remove_hdf5_files( movie ):
+    filename = movie.data_directory + movie.data_basename + '_spot_output.hdf5'
+    if os.path.isfile(filename): os.remove( filename )
+    filename = movie.data_directory + movie.data_basename + '_output.hdf5'
+    if os.path.isfile(filename): os.remove( filename )
+
+def save_spot_hdf5( movie ):
+
+    filename = movie.data_directory + movie.data_basename + '_spot_output.hdf5'
+    fid = h5py.File(filename,'w')
+
+    for i,s in enumerate( movie.validspots ):
+        spotname = 'spot_%06d' % i
+        fid.create_group( spotname )
+
+        # we store intensity related data directly, and 
+        # everything else goes into subgroups (further below)
+        params = [ 'int_type', 'intensity_type', 'intensity' ]
+        for p in params:
+            fid.create_dataset( spotname+'/'+p, data=getattr(s,p) )
+
+        # spot setup params
+        fid.create_group( spotname+'/setup' )
+        params = ['have_bg_blank', \
+                      'have_bg_exspot', \
+                      'have_bg_sample', \
+                      'have_blank', \
+                      'have_exspot', \
+                      'use_blank', \
+                      'use_borderbg', \
+                      'use_exspot', \
+                      'is_bg_spot', \
+                      'which_bg', \
+                      'center', \
+                      'pixel', \
+                      'label' ]
+        for p in params:
+            if not getattr(s,p)==None:
+                fid.create_dataset( spotname+'/setup/'+p, data=getattr(s,p) )
+
+        # spot shape
+        fid.create_group( spotname+'/setup/shape' )
+        for p in s.shape.keys():
+            fid.create_dataset( spotname+'/setup/shape/'+p, data=s.shape[p] )
+        
+        # SNR related
+        fid.create_group( spotname+'/SNR' )
+        params = [ 'framecountSNR', 'SNR' ]
+        for p in params:
+            fid.create_dataset( spotname+'/SNR/'+p, data=getattr(s,p) )
+
+        # 2D POLIM contrasts
+        fid.create_group( spotname+'/contrasts' )
+        params = [ 'ET_ruler', \
+                       'ETmodel_et', \
+                       'ETmodel_gr', \
+                       'ETmodel_md_fu', \
+                       'ETmodel_th_fu', \
+                       'LS', \
+                       'M_em', \
+                       'M_ex', \
+                       'anisotropy', \
+                       'meanSNR', \
+                       'mean_intensity', \
+                       'phase_em', \
+                       'phase_ex' ]
+        for p in params:
+            fid.create_dataset( spotname+'/contrasts/'+p, data=getattr(s,p) )
+
+        # fits
+        fid.create_group( spotname+'/fits' )
+        params = [ 'linefitparams', 'verticalfitparams', 'residual' ]
+        for p in params:
+            fid.create_dataset( spotname+'/fits/'+p, data=getattr(s,p) )
+
+    fid.close()
+
+
+
+def save_hdf5( movie, proc=None, images=True, spots=True ):
 
     ###### first we grab all the data we have now #########
     #######################################################

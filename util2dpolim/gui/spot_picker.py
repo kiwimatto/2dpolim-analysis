@@ -22,7 +22,7 @@ class Annotate(object):
         self.ax.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
     def on_press(self, event):
         self.is_pressed = True
-        print 'press'
+#        print 'press'
         self.x0 = event.xdata
         self.y0 = event.ydata    
         self.x1 = event.xdata
@@ -45,7 +45,7 @@ class Annotate(object):
                 self.ax.figure.canvas.draw()
     def on_release(self, event):
         self.is_pressed = False
-        print 'release'
+#        print 'release'
         self.x1 = event.xdata
         self.y1 = event.ydata
         if not np.any( [c==None for c in [self.x0,self.y0,self.x1,self.y1]] ):

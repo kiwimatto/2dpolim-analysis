@@ -6,6 +6,7 @@ import time as stopwatch
 
 
 
+
 prefix = '/home/rafael/Desktop/Win/Filter_Red'
 basename = 'S3-04-Ori-Red-OD3-gain1'
 
@@ -55,5 +56,5 @@ for ste in splittopedges:
         m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=False, ETmodel=False )
         print stopwatch.time()-tstart
 
-        save_hdf5( m, myspots=np.arange(len(m.validspots)) )
+    save_hdf5( m ) #, myspots=np.arange(len(m.validspots)) )
 
