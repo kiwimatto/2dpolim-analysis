@@ -65,8 +65,15 @@ class Spot:
         self.use_exspot = use_exspot
         self.use_borderbg = use_borderbg
 
+        self.have_bg_sample  = None
+        self.have_bg_blank   = None
+        self.have_bg_exspot  = None
+        self.have_blank      = None
+        self.have_exspot     = None
+
         self.value_for_coverage_image = 1
         self.value_for_coverage_valid_image = 2
+        self.value_for_coverage_ownbg_image = 100
 
 #        self.width  = coords[2] -coords[0] +1
 #        self.height = coords[3] -coords[1] +1
@@ -99,6 +106,12 @@ class Spot:
         else:
             # here is all the normal stuff (when this spot is _not_ a bg spot)
 
+            self.have_bg_sample    = (not self.parent.bg_spot_sample==None)
+            self.have_bg_blank     = (not self.parent.bg_spot_blank==None)
+            self.have_bg_exspot    = (not self.parent.bg_spot_exspot==None)
+            self.have_blank  = (not self.parent.blank_data==None)
+            self.have_exspot = (not self.parent.exspot_data==None)
+
             # spot knows its own background!
             if use_borderbg:
                 Isample = self.calculate_spot_intensity( which_data='sample', int_type=int_type )
@@ -116,13 +129,6 @@ class Spot:
                 for p in self.pixel:
                     self.parent.mean_intensity_image[ p[0], p[1] ] = self.mean_intensity
                 return
-
-
-            self.have_bg_sample    = (not self.parent.bg_spot_sample==None)
-            self.have_bg_blank     = (not self.parent.bg_spot_blank==None)
-            self.have_bg_exspot    = (not self.parent.bg_spot_exspot==None)
-            self.have_blank  = (not self.parent.blank_data==None)
-            self.have_exspot = (not self.parent.exspot_data==None)
 
             # grab blank data
             if self.have_blank and use_blank: 
@@ -205,7 +211,7 @@ class Spot:
         conn[:,[0, 1]] = conn[:,[1, 0]]
 
         # create polygon and return
-        polygon = Polygon( conn, closed=True, facecolor='red', edgecolor='red', alpha=.4, zorder=7 )
+        polygon = Polygon( conn, closed=True, facecolor='red', edgecolor='red', alpha=.3, zorder=7 )
         return polygon
 
 
@@ -241,17 +247,19 @@ class Spot:
         # bg is difference between original and dilated spot
         bgbitmap = c-b
 
-        # find bg pixel positions, and add (unless we have bg exclusion map, 
-        # and that pixel is on it)
+        # find bg pixel positions, and add them to bgpixel list (unless 
+        # we have a bg exclusion map, and that pixel is on it)
         bgpixel = []
         for ri in range(maxr-minr+1 +2*borderwidth):
             for ci in range(maxc-minc+1 +2*borderwidth):
                 if bgbitmap[ri,ci]:
-                    if hasattr(self.parent,'bgexclusionmap'):
-                        if self.parent.bgexclusionmap[ri+minr-1, ci+minc-1]==False:
-                            bgpixel.append( (ri+minr-1, ci+minc-1) )
-                    else:
-                        bgpixel.append( (ri+minr-1, ci+minc-1) )
+                    # if hasattr(self.parent,'bgexclusionmap'):
+                    #     if self.parent.bgexclusionmap[ri+minr-1, ci+minc-1]==False:
+                    #         bgpixel.append( (ri+minr-1, ci+minc-1) )
+                    # else:
+                    bgpixel.append( (ri+minr-2, ci+minc-2) )
+
+
 
         self.bgpixel = bgpixel
 #        print 'Number of border pixel: %d' % len(bgpixel)
@@ -365,9 +373,10 @@ class Spot:
             radius = shape['radius']
             # through all pixel within radius and see if they are in the circle
             pixel = []
-            for row in range( center[0]-radius, center[0]+radius+3 ):
-                for col in range( center[1]-radius, center[1]+radius+3 ):
-                    if (row-center[0])**2+(col-center[1])**2 <= radius:
+            radceilint = np.int(np.ceil( radius ))
+            for row in range( center[0]-radceilint, center[0]+radceilint+3 ):
+                for col in range( center[1]-radceilint, center[1]+radceilint+3 ):
+                    if (row-center[0])**2+(col-center[1])**2 <= radius**2:
                         pixel.append( (row,col) )
 
         else:
@@ -689,9 +698,8 @@ class Spot:
         ruler = 1-(crossdiff/modelcrossdiff)
 
         if (ruler < -.2) or (ruler > 1.2):
-            print "\t\tShit, ruler has gone bonkers (ruler=%f)." % (ruler)
+            print "\t\tRuler has gone bonkers (ruler=%f)." % (ruler)
             print "\t\tWill continue anyways and set ruler to NaN."
-            print "\t\tYou can thank me later."
             ruler = np.nan
         # else:
         #     if ruler < 0:

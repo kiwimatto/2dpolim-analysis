@@ -353,7 +353,7 @@ class the2dlogic(QtGui.QMainWindow,the2dgui.Ui_MainWindow):
     def importSpotCoords(self):
         nspotsbefore  = len(self.m.spots)
         print "nspotsbefore: ",nspotsbefore
-        import_spot_positions( self.m, 'coords.txt', \
+        import_spot_positions( self.m, self.spefiles[self.selectSPEComboBox.currentIndex()][:-4], \
                                    boxedgelength=self.spotEdgeLengthSpinBox.value(), \
                                    spot_type=self.spotTypeComboBox.currentText(), \
                                    use_exspot=self.useExSpotCheckBox.isChecked(), \

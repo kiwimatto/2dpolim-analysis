@@ -34,6 +34,7 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
     EX, EM = ex_angles.flatten(), em_angles.flatten()
 
     # calculate angle between off-axis dipoles in symmetric model
+    if np.isnan(gr): gr=1.0
     alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
     if np.isnan(alpha):
         raise ValueError( "alpha is nan. gr=%2.20e, md_ex=%2.20e" % (gr, md_ex) )

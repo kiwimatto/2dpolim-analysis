@@ -6,18 +6,19 @@ import time as stopwatch
 
 
 
-prefix = 'x:\TDM3'
-basename = 'TDM3-488-OD1-02'
+#prefix = '/home/kiwimatto/Desktop/Lund/Aboma_Jaggs/Full 2D/exp1'
+prefix = '/home/kiwimatto/Desktop/rafa_anisotropy_debug'
+basename = 'S3-04-Ori-Red-OD3-gain1'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [1,200,50,500]         #[110,405,400,450] 
-fullbounds = [150,200,450,500]        #[110, 80,400,360]
-resolution = 2
-Nsplit     = 1
-SNR    = 0
-VFR    = .5
-Nprocs = 2
+bgbounds   = [361,74,440,425]         #[110,405,400,450] 
+fullbounds = [53,74,350,425]        #[110, 80,400,360]
+resolution = 1
+Nsplit     = 3
+SNR    = 5
+VFR    = .6
+Nprocs = 4
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
@@ -26,10 +27,10 @@ for ste in splittopedges:
 
     m = Movie( prefix, basename )
 
-    boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
-    blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
-    boolimage = pixel_list( m, blankfitexclusion, boolimage )
-    m.fit_blank_image( boolimage, verbosity=0 )
+    # boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
+    # blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
+    # boolimage = pixel_list( m, blankfitexclusion, boolimage )
+    # m.fit_blank_image( boolimage, verbosity=0 )
 
     m.find_portraits( frameoffset=0 )
     m.find_lines()
@@ -50,8 +51,8 @@ for ste in splittopedges:
 
     if not len(m.validspots)==0:
         tstart = stopwatch.time()
-        m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True )
+        m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=False )
         print stopwatch.time()-tstart
 
-#        save_hdf5( m, myspots=np.arange(len(m.validspots)) )
+    save_hdf5( m ) #, myspots=np.arange(len(m.validspots)) )
 

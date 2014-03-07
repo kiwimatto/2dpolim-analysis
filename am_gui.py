@@ -124,15 +124,15 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.globalPhaseOffsetEdit.editingFinished.connect( self.update_global_phase )
         self.update_global_phase()
 
-        self.SNREdit = QtGui.QLineEdit(self.main_widget)
-        self.SNREdit.setText( '10' )
+#        self.SNREdit = QtGui.QLineEdit(self.main_widget)
+#        self.SNREdit.setText( '10' )
 
         self.fileChanger = QtGui.QComboBox(self.main_widget)
         self.fileChanger.activated.connect( self.update_file_change )
 
-        self.lambdaOver2Checkbox = QtGui.QCheckBox('lambda/2 plate?',self.main_widget)
-        self.lambdaOver2Checkbox.stateChanged.connect(self.optical_element_change)
-        self.lambdaOver2Checkbox.setCheckState(False)
+#        self.lambdaOver2Checkbox = QtGui.QCheckBox('lambda/2 plate?',self.main_widget)
+#        self.lambdaOver2Checkbox.stateChanged.connect(self.optical_element_change)
+#        self.lambdaOver2Checkbox.setCheckState(False)
 
         self.setBGRegionButton     = QtGui.QPushButton('Set BG region', self.main_widget)
         self.setBGRegionButton.clicked.connect(self.set_bg_region)
@@ -153,25 +153,25 @@ class ApplicationWindow(QtGui.QMainWindow):
         self.pp4 = MyStaticMplCanvas(self.main_widget, width=1, height=1, dpi=100)
         self.pp4.clear()
 
-        self.which_setupComboBox = QtGui.QComboBox(self.main_widget)
-        self.which_setupComboBox.addItem('old setup')
-        self.which_setupComboBox.addItem('new setup')
-        self.which_setupComboBox.addItem('cool new setup')
-        self.which_setupComboBox.addItem('header')
-        self.which_setupComboBox.setCurrentIndex(2)
+        # self.which_setupComboBox = QtGui.QComboBox(self.main_widget)
+        # self.which_setupComboBox.addItem('old setup')
+        # self.which_setupComboBox.addItem('new setup')
+        # self.which_setupComboBox.addItem('cool new setup')
+        # self.which_setupComboBox.addItem('header')
+        # self.which_setupComboBox.setCurrentIndex(2)
 
 #        self.pick_reporter  = QtGui.QLabel('0 W/cm^{-2} \t x=0 \t y=0' )
 
         l.addWidget( QtGui.QLabel('global phase offset in deg:'), 1, 0 )
         l.addWidget( self.globalPhaseOffsetEdit, 1,1 )
-        l.addWidget( self.lambdaOver2Checkbox, 1,2)
-        l.addWidget( QtGui.QLabel('SNR:'), 1, 3 )
-        l.addWidget( self.SNREdit, 1,4 )
+#        l.addWidget( self.lambdaOver2Checkbox, 1,2)
+#        l.addWidget( QtGui.QLabel('SNR:'), 1, 3 )
+#        l.addWidget( self.SNREdit, 1,4 )
         l.addWidget( self.getDirButton,2,0,1,2)
         l.addWidget( self.fileChanger,3,0,1,2)
         l.addWidget( self.setBGRegionButton,2,2 )
         l.addWidget( self.setSignalRegionButton,3,2 )
-        l.addWidget( self.which_setupComboBox, 2,4 )
+#        l.addWidget( self.which_setupComboBox, 2,4 )
         l.addWidget( self.sc, 4,0,4,4 )
         l.addWidget( self.pp1, 4,4,1,1 )
         l.addWidget( self.pp2, 5,4,1,1 )
@@ -208,8 +208,8 @@ class ApplicationWindow(QtGui.QMainWindow):
             callstring += str(b)+' '
         for s in self.signal_region_coords:
             callstring += str(s)+' '
-        callstring += str(self.SNREdit.text())+' '
-        callstring += str(self.which_setupComboBox.currentIndex())
+#        callstring += str(self.SNREdit.text())+' '
+#        callstring += str(self.which_setupComboBox.currentIndex())
         os.system(callstring)
         
         portrait = np.load('spotmatrix.npy')
@@ -335,10 +335,10 @@ class ApplicationWindow(QtGui.QMainWindow):
         #                     excitation_optical_element=self.optical_element)
         self.m = Movie( self.data_directory, \
                             self.spefiles[fileindex][:-4], \
-                            phase_offset_in_deg=self.global_phase, \
-                            which_setup=self.which_setupComboBox.currentText(), \
-                            excitation_optical_element=self.optical_element)
-        self.sc.axes.imshow( self.m.camera_data.rawdata[0,:,:], zorder=1, cmap=cmap.gray )
+                            phase_offset_in_deg=self.global_phase )
+#                            which_setup=self.which_setupComboBox.currentText(), \
+#                            excitation_optical_element=self.optical_element)
+        self.sc.axes.imshow( self.m.sample_data.rawdata[0,:,:], zorder=1, cmap=cmap.gray )
         self.sc.draw()
         print "done"
 
