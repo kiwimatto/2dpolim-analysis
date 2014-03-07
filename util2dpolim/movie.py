@@ -16,11 +16,9 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
     if mods:
         movie.find_modulation_depths_and_phases_selective( myspots=thesespots )
     if ETruler:                
-        print "oh fuck ruler"
         for si in thesespots:
             movie.validspots[si].values_for_ETruler( newdatalength=1024 )
     if ETmodel:
-        print "jeeezus, model"
         movie.ETmodel_selective( myspots=thesespots )
                 
     for si in thesespots:

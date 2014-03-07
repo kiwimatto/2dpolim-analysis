@@ -6,15 +6,15 @@ import time as stopwatch
 
 
 prefix = '/home/rafael/Desktop/Win/Filter_Red'
-basename = 'S3-04-Ori-Red-OD3-gain1'
+basename = 'S1-01b-Ori-Red-OD206-gain1'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [361,74,440,425]         #[110,405,400,450] 
-fullbounds = [53,74,350,425]        #[110, 80,400,360]
+bgbounds   = [370,70,440,425]         #[110,405,400,450] 
+fullbounds = [50,70,360,425]        #[110, 80,400,360]
 resolution = 1
 Nsplit     = 4
-SNR    = 5
+SNR    = 4
 VFR    = .6
 Nprocs = 4
 
