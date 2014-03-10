@@ -18,11 +18,9 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
     if mods:
         movie.find_modulation_depths_and_phases_selective( myspots=thesespots )
     if ETruler:                
-        print "oh fuck ruler"
         for si in thesespots:
             movie.validspots[si].values_for_ETruler( newdatalength=1024 )
     if ETmodel:
-        print "jeeezus, model"
         movie.ETmodel_selective( myspots=thesespots )
                 
     for si in thesespots:
@@ -45,6 +43,7 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
             a['ETmodel_th_fu'] = movie.validspots[si].ETmodel_th_fu
             a['ETmodel_gr']    = movie.validspots[si].ETmodel_gr
             a['ETmodel_et']    = movie.validspots[si].ETmodel_et
+
         resultqueue.put( a )
     return
 
@@ -109,40 +108,40 @@ class Movie:
 
         assert fits >= mods >= ETruler >= ETmodel
 
-        def worker( resultqueue, thesespots, whichproc, fits, mods, ETruler, ETmodel ):
-            if fits:
-                self.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
-            if mods:
-                self.find_modulation_depths_and_phases_selective( myspots=thesespots )
-            if ETruler:                
-                for si in thesespots:
-                    self.validspots[si].values_for_ETruler( newdatalength=1024 )
-            if ETmodel:
-                self.ETmodel_selective( myspots=thesespots )
+        # def worker( resultqueue, thesespots, whichproc, fits, mods, ETruler, ETmodel ):
+        #     if fits:
+        #         self.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
+        #     if mods:
+        #         self.find_modulation_depths_and_phases_selective( myspots=thesespots )
+        #     if ETruler:                
+        #         for si in thesespots:
+        #             self.validspots[si].values_for_ETruler( newdatalength=1024 )
+        #     if ETmodel:
+        #         self.ETmodel_selective( myspots=thesespots )
                 
-            for si in thesespots:
-                a = {'spot':si}
-                if fits:
-                    a['linefitparams']     = self.validspots[si].linefitparams
-                    a['residual']          = self.validspots[si].residual
-                    a['verticalfitparams'] = self.validspots[si].verticalfitparams
-                if mods:
-                    a['M_ex']       = self.validspots[si].M_ex
-                    a['M_em']       = self.validspots[si].M_em
-                    a['phase_ex']   = self.validspots[si].phase_ex
-                    a['phase_em']   = self.validspots[si].phase_em
-                    a['LS']         = self.validspots[si].LS
-                    a['anisotropy'] = self.validspots[si].anisotropy
-                if ETruler:
-                    a['ET_ruler'] = self.validspots[si].ET_ruler
-                if ETmodel:
-                    a['ETmodel_md_fu'] = self.validspots[si].ETmodel_md_fu
-                    a['ETmodel_th_fu'] = self.validspots[si].ETmodel_th_fu
-                    a['ETmodel_gr']    = self.validspots[si].ETmodel_gr
-                    a['ETmodel_et']    = self.validspots[si].ETmodel_et
-                resultqueue.put( a )
+        #     for si in thesespots:
+        #         a = {'spot':si}
+        #         if fits:
+        #             a['linefitparams']     = self.validspots[si].linefitparams
+        #             a['residual']          = self.validspots[si].residual
+        #             a['verticalfitparams'] = self.validspots[si].verticalfitparams
+        #         if mods:
+        #             a['M_ex']       = self.validspots[si].M_ex
+        #             a['M_em']       = self.validspots[si].M_em
+        #             a['phase_ex']   = self.validspots[si].phase_ex
+        #             a['phase_em']   = self.validspots[si].phase_em
+        #             a['LS']         = self.validspots[si].LS
+        #             a['anisotropy'] = self.validspots[si].anisotropy
+        #         if ETruler:
+        #             a['ET_ruler'] = self.validspots[si].ET_ruler
+        #         if ETmodel:
+        #             a['ETmodel_md_fu'] = self.validspots[si].ETmodel_md_fu
+        #             a['ETmodel_th_fu'] = self.validspots[si].ETmodel_th_fu
+        #             a['ETmodel_gr']    = self.validspots[si].ETmodel_gr
+        #             a['ETmodel_et']    = self.validspots[si].ETmodel_et
+        #         resultqueue.put( a )
 
-            return
+        #     return
 
         myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
         resultqueue = mproc.Queue()
@@ -183,7 +182,7 @@ class Movie:
         print 'Movie: all done.'
 
     def update_images(self):
-        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ET_model_md_fu', 'ET_model_th_fu', 'ET_model_gr', 'ET_model_et']
+        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et']
         for s in self.validspots:
             for prop in allprops:
                 if hasattr(s,prop):
@@ -973,7 +972,7 @@ class Movie:
                 self.validspots[si].ETmodel_th_fu = np.nan
                 self.validspots[si].ETmodel_gr    = np.nan
                 self.validspots[si].ETmodel_et    = np.nan
-
+#            print self.validspots[si].ETmodel_et
             self.store_property_in_image( self.validspots[si], 'ETmodel_md_fu_image', 'ETmodel_md_fu' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_th_fu_image', 'ETmodel_th_fu' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_gr_image', 'ETmodel_gr' )
@@ -1054,6 +1053,7 @@ class Movie:
         # we use the spot pixel as coordinates into an image
         for p in spot.pixel:
             getattr(self,image)[ p[0], p[1] ] = getattr(spot, prop)
+           
 
 
 
