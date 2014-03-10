@@ -213,6 +213,10 @@ def save_spot_hdf5( movie ):
     filename = movie.data_directory + movie.data_basename + '_spot_output.hdf5'
     fid = h5py.File(filename,'w')
 
+    # before the spot data, we also save portrait and line indices
+    fid.create_dataset( 'portrait_indices', data=movie.portrait_indices )
+    fid.create_dataset( 'line_indices', data=movie.line_indices )
+
     for i,s in enumerate( movie.validspots ):
         spotname = 'spot_%06d' % i
         fid.create_group( spotname )

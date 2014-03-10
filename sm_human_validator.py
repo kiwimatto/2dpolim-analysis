@@ -5,6 +5,7 @@ import sys, traceback, os, time
 import numpy as np
 import layout_sm_human_validator
 from util2dpolim.spot import Spot
+import h5py
 
 class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWindow):
 
@@ -19,6 +20,10 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
 
         self.grab_directory()
 
+        self.cfi = 0    # current file index
+        self.csi = 0    # current spot index
+
+        self.show_spot()
 
     def main(self):
         self.show()
@@ -57,14 +62,19 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             f.close()
             
 
-    def validate_all_files(self):        
-        for hdf5file in self.hdf5files:
-            self.validate_single_file( hdf5file )
+    def show_spot(self):
+        spotname  = '/spot_00%04d' % self.csi
+        f = h5py.File( self.data_directory + os.path.sep + self.hdf5files[self.cfi] )
+        intensity = np.array( f[spotname+'/intensity'] )
+        self.intPlotWidget.axes_ints.plot( intensity )
 
-    def validate_single_file( hdf5file ):
-        for spotname in hdf5file.keys():
-            intensity = hdf5file[ spotname+'/intensity' ]
-            self.axes_ints.plot( intensity )
+        pis = np.array( f['portrait_indices'] )
+        lis = np.array( f['line_indices'] )
+
+        print pis
+        print lis
+        
+
 
 
 if __name__=='__main__':

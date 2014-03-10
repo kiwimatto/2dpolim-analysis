@@ -273,78 +273,44 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.frameSlider.setValue(0)
 
         # self.imageview.myaxes.imshow( self.spefile[0], interpolation='nearest' )
-        # self.imageview.figure.canvas.draw()        
-        self.drawFrame()
+        # self.imageview.figure.canvas.draw()
+        self.forceRedrawFrame()
 
 #        self.frameAverageToggleButton.setEnabled(True)
         self.statusbar.showMessage("Back to square one.")
+        self.createLineAveragePushButton.setEnabled(True)
         
 
-    def drawFrame_old(self):
-        frame = self.frameSlider.value()
-        cmap = getattr( cm, str(self.cmapComboBox.currentText()) )
-        bins = 200
+    def forceRedrawFrame(self):
         self.imageview.clear()
-
-        if str(self.logScaleComboBox.currentText())=='normal scale':
-            modfun = lambda x: x
-        elif str(self.logScaleComboBox.currentText())=='log scale':
-            modfun = lambda x: np.log( x+2*np.abs(np.min(x)) )
-
-
-        if self.showWhatComboBox.currentIndex()==0:
-            if self.histogramToggleButton.isChecked():
-                self.imageview.myaxes.hist( modfun(self.spefile[frame]).flatten(), bins=bins )
-            else:
-                self.imageview.myaxes.imshow( modfun( self.spefile[frame] ), interpolation='nearest', cmap=cmap, \
-                                                  vmin=modfun(np.min(self.spefile)), vmax=modfun(np.max(self.spefile)) )
-
-        elif self.showWhatComboBox.currentIndex()==1:
-            if self.histogramToggleButton.isChecked():
-                self.imageview.myaxes.hist( modfun(self.filtered[frame]).flatten(), 500 )
-            else:
-                self.imageview.myaxes.imshow( modfun( self.filtered[frame] ), interpolation='nearest', cmap=cmap  )
-
-        elif self.showWhatComboBox.currentIndex()==2:
-            if self.histogramToggleButton.isChecked():
-                self.imageview.myaxes.hist( self.clusters[frame].flatten(), 500 )
-            else:
-                if np.max(self.clusters[frame])==1:   # most likely got the boolean image
-                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', vmax=2, cmap=cmap )
-                else:
-                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', cmap=cmap )
-        else:
-            raise hell
-
-        if self.showBoolimageCheckBox.isChecked():
-            if hasattr( self, 'boolimage' ):
-                print 'yup'
-                self.imageview.myaxes.imshow( self.boolimage.astype(np.float)*np.max(self.spefile[frame]), \
-                                                  interpolation='nearest', alpha=.6, cmap=cm.gray, zorder=9 )
-
-        if self.highlightClusterPositionsCheckBox.isChecked():
-            if hasattr( self, 'validclusters' ):
-
-                self.imageview.myaxes.plot( self.cluster_positions[frame][:,1], \
-                                                self.cluster_positions[frame][:,0], 'ko', \
-                                                markersize=8, markerfacecolor='none', zorder=5 )
-
-        # fix zoom (cluster marker plot can screw it up)
-        xlim = self.imageview.myaxes.get_xlim()
-        ylim = self.imageview.myaxes.get_ylim()
-        if (np.min(xlim)<0) or (np.max(xlim)>self.spefile.shape[2]):
-            self.imageview.myaxes.set_xlim( [0, self.spefile.shape[2]] )
-        if (np.min(ylim)<0) or (np.max(ylim)>self.spefile.shape[1]):
-            self.imageview.myaxes.set_ylim( [self.spefile.shape[1], 0] )
-
-        self.imageview.figure.canvas.draw()
-        self.statusbar.showMessage("frame %d/%d" % (frame+1,self.spefile.shape[0]))
+        del(self.imageview.current_image)
+        self.drawFrame()
 
 
     def drawFrame(self):
+        # def resetExtent(data,im):
+        #     """
+        #     Using the data and axes from an AxesImage, im, force the extent and 
+        #     axis values to match shape of data.
+        #     """
+        #     ax = im.get_axes()
+        #     dataShape = data.shape
+        #     print dataShape
+
+        #     if im.origin == 'upper':
+        #         im.set_extent((-0.5,dataShape[1]-.5,dataShape[2]-.5,-.5))
+        #         ax.set_xlim((-0.5,dataShape[1]-.5))
+        #         ax.set_ylim((dataShape[2]-.5,-.5))
+        #     else:
+        #         im.set_extent((-0.5,dataShape[1]-.5,-.5,dataShape[2]-.5))
+        #         ax.set_xlim((-0.5,dataShape[1]-.5))
+        #         ax.set_ylim((-.5,dataShape[2]-.5))
+
+        #     return
+
         frame = self.frameSlider.value()
-        cmap = getattr( cm, str(self.cmapComboBox.currentText()) )
-        bins = 200
+        cmap  = getattr( cm, str(self.cmapComboBox.currentText()) )
+        bins  = 200
 
         if str(self.logScaleComboBox.currentText())=='normal scale':
             modfun = lambda x: x
@@ -363,12 +329,14 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         else:
             if self.showWhatComboBox.currentIndex()==0:
                 if not hasattr(self.imageview, 'current_image'):
+                    print 'draw'
                     im = self.imageview.myaxes.imshow( modfun(self.spefile[frame]), \
                                                            interpolation='nearest', cmap=cmap, \
                                                            vmin=modfun(np.min(self.spefile)), \
                                                            vmax=modfun(np.max(self.spefile)) )
                     self.imageview.current_image = im
                 else:
+                    print 'set data'
                     self.imageview.current_image.set_data( modfun(self.spefile[frame]) )
                     self.imageview.current_image.set_clim( modfun(np.min(self.spefile)), \
                                                                modfun(np.max(self.spefile)) )
@@ -397,6 +365,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
                     self.imageview.current_image.set_cmap( cmap )
             else:
                 raise hell
+
 
         if self.showBoolimageCheckBox.isChecked():
             if hasattr( self, 'boolimage' ):
@@ -840,7 +809,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
     def createLineAverages(self):
         lineAverageImages = [np.mean(line,axis=0) for line in np.array_split( self.spefile, 8 )]
-        self.spefile = np.array(lineAverageImages)
+        self.spefile  = np.array(lineAverageImages)
         self.filtered = np.ones_like( self.spefile ) * np.nan
         self.clusters = np.ones_like( self.spefile ) * np.nan
         self.cluster_positions = [None] * self.spefile.shape[0]
@@ -849,6 +818,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.frameSlider.setMaximum( self.spefile.shape[0]-1 )
         self.frameSlider.setValue( 0 )
         self.drawFrame()
+        self.createLineAveragePushButton.setEnabled(False)
 
     def write_motor_file( self, prefix, basename, exangles, emangles ):
         header = """optical element in excitation: L/2 Plate
@@ -1046,11 +1016,98 @@ Frame	Excitation Physical Angle	Excitation Polarization Angle	Excitation Power [
             r0 = self.imageview.r0
             r1 = self.imageview.r1
 
+        print 'cropping!'
+        print 'going from dimensions:'
+        print self.spefile.shape
+        print self.blankfile.shape
+        print self.filtered.shape
+        print self.clusters.shape
+        print self.boolimage.shape
+
         self.spefile   = self.spefile[:,r0:r1+1,c0:c1+1]
         self.blankfile = self.blankfile[:,r0:r1+1,c0:c1+1]
         self.filtered  = self.filtered[:,r0:r1+1,c0:c1+1]
         self.clusters  = self.clusters[:,r0:r1+1,c0:c1+1]
-        self.drawFrame()
+        self.boolimage = self.boolimage[r0:r1+1,c0:c1+1]
+
+        print 'to dimensions:'
+        print self.spefile.shape
+        print self.blankfile.shape
+        print self.filtered.shape
+        print self.clusters.shape
+        print self.boolimage.shape
+
+        self.forceRedrawFrame()
+
+
+
+
+    #### old stuff, can prolly be deleted ####
+
+
+    def drawFrame_old(self):
+        frame = self.frameSlider.value()
+        cmap = getattr( cm, str(self.cmapComboBox.currentText()) )
+        bins = 200
+        self.imageview.clear()
+
+        if str(self.logScaleComboBox.currentText())=='normal scale':
+            modfun = lambda x: x
+        elif str(self.logScaleComboBox.currentText())=='log scale':
+            modfun = lambda x: np.log( x+2*np.abs(np.min(x)) )
+
+
+        if self.showWhatComboBox.currentIndex()==0:
+            if self.histogramToggleButton.isChecked():
+                self.imageview.myaxes.hist( modfun(self.spefile[frame]).flatten(), bins=bins )
+            else:
+                self.imageview.myaxes.imshow( modfun( self.spefile[frame] ), interpolation='nearest', cmap=cmap, \
+                                                  vmin=modfun(np.min(self.spefile)), vmax=modfun(np.max(self.spefile)) )
+
+        elif self.showWhatComboBox.currentIndex()==1:
+            if self.histogramToggleButton.isChecked():
+                self.imageview.myaxes.hist( modfun(self.filtered[frame]).flatten(), 500 )
+            else:
+                self.imageview.myaxes.imshow( modfun( self.filtered[frame] ), interpolation='nearest', cmap=cmap  )
+
+        elif self.showWhatComboBox.currentIndex()==2:
+            if self.histogramToggleButton.isChecked():
+                self.imageview.myaxes.hist( self.clusters[frame].flatten(), 500 )
+            else:
+                if np.max(self.clusters[frame])==1:   # most likely got the boolean image
+                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', vmax=2, cmap=cmap )
+                else:
+                    self.imageview.myaxes.imshow( self.clusters[frame], interpolation='nearest', cmap=cmap )
+        else:
+            raise hell
+
+        if self.showBoolimageCheckBox.isChecked():
+            if hasattr( self, 'boolimage' ):
+                print 'yup'
+                self.imageview.myaxes.imshow( self.boolimage.astype(np.float)*np.max(self.spefile[frame]), \
+                                                  interpolation='nearest', alpha=.6, cmap=cm.gray, zorder=9 )
+
+        if self.highlightClusterPositionsCheckBox.isChecked():
+            if hasattr( self, 'validclusters' ):
+
+                self.imageview.myaxes.plot( self.cluster_positions[frame][:,1], \
+                                                self.cluster_positions[frame][:,0], 'ko', \
+                                                markersize=8, markerfacecolor='none', zorder=5 )
+
+        # fix zoom (cluster marker plot can screw it up)
+        xlim = self.imageview.myaxes.get_xlim()
+        ylim = self.imageview.myaxes.get_ylim()
+        if (np.min(xlim)<0) or (np.max(xlim)>self.spefile.shape[2]):
+            self.imageview.myaxes.set_xlim( [0, self.spefile.shape[2]] )
+        if (np.min(ylim)<0) or (np.max(ylim)>self.spefile.shape[1]):
+            self.imageview.myaxes.set_ylim( [self.spefile.shape[1], 0] )
+
+        self.imageview.figure.canvas.draw()
+        self.statusbar.showMessage("frame %d/%d" % (frame+1,self.spefile.shape[0]))
+
+
+
+
 
 
 if __name__=='__main__':

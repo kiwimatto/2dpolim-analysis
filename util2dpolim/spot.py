@@ -676,10 +676,10 @@ class Spot:
         sb[sb<0] = 0
 
         # peak intensities:
-        peakints = np.array( [ np.sum( nPint[sb[i,0]:sb[i,1]] ) for i in range(sortedfreqs.size) ] )
+        peakints = np.array( [ np.sum( nPint[int(sb[i,0]):int(sb[i,1])] ) for i in range(sortedfreqs.size) ] )
 
         # peak intensities for the no-ET model:
-        modelNoETpeakints = np.array( [ np.sum( nPmodelNoET[sb[i,0]:sb[i,1]] ) \
+        modelNoETpeakints = np.array( [ np.sum( nPmodelNoET[int(sb[i,0]):int(sb[i,1])] ) \
                                             for i in range(sortedfreqs.size) ] )
 
         # if peak sums make no sense, then say something and set result to NaN

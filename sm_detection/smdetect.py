@@ -155,7 +155,7 @@ def mark_this_cluster_recursively( clusterimage, iy, ix, icluster ):
             clusterimage = mark_this_cluster_recursively( clusterimage, iy, ix+1, icluster )
 
     # is the pixel below also above threshold?            
-    if iy!=clusterimage.shape[0]:
+    if iy!=clusterimage.shape[0]-1:
         if clusterimage[iy+1, ix]==-1:
             # call self to mark it
             clusterimage = mark_this_cluster_recursively( clusterimage, iy+1, ix, icluster )
