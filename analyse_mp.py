@@ -5,13 +5,13 @@ from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
 import time as stopwatch
 
 
-prefix = '/home/rafael/Desktop/Win/Filter_Red'
-basename = 'S1-01b-Ori-Red-OD206-gain1'
+prefix = '/home/rafael/Desktop/Win/Blend'
+basename = 'blend-S3-01-Iso-Red-OD1-gain1'
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [370,70,440,425]         #[110,405,400,450] 
-fullbounds = [50,70,360,425]        #[110, 80,400,360]
+bgbounds   = [10,40,90,400]         #[110,405,400,450] 
+fullbounds = [105,40,405,400]        #[110, 80,400,360]
 resolution = 1
 Nsplit     = 4
 SNR    = 4
