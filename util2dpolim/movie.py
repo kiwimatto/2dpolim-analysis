@@ -49,7 +49,8 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
 
 
 class Movie:
-    def __init__( self, datadir, basename, phase_offset_in_deg=np.nan, quiet=False ):
+    def __init__( self, datadir, basename, \
+                      phase_offset_in_deg=np.nan, quiet=False ):
 
         self.cos_fitter = CosineFitter_new
         self.phase_offset_in_deg = phase_offset_in_deg
@@ -76,8 +77,9 @@ class Movie:
         TargetNAngles = 90
         # ExAngleGridSize = np.round( TargetNAngles/float(len(self.unique_exangles)) ) * len(self.unique_exangles)
         # EmAngleGridSize = np.round( TargetNAngles/float(len(self.unique_emangles)) ) * len(self.unique_emangles)
-        ExAngleGridSize = 6
-        EmAngleGridSize = 4
+
+        ExAngleGridSize = self.unique_exangles.size
+        EmAngleGridSize = self.unique_emangles.size
         phase_offset_in_rad = self.motors.phase_offset_in_deg * np.pi/180.0
         self.excitation_angles_grid = np.linspace(0,np.pi,ExAngleGridSize, endpoint=False)
         self.emission_angles_grid   = np.linspace(0,np.pi,EmAngleGridSize, endpoint=False)
@@ -90,12 +92,14 @@ class Movie:
 #        print self.unique_exangles
 #        print self.excitation_angles_grid
         for uexa in self.unique_exangles:
-            assert np.any(np.abs(uexa-self.excitation_angles_grid) < 10*np.finfo(np.float).eps)
+            assert np.any(np.abs(uexa-self.excitation_angles_grid) < 10*np.finfo(np.float).eps), \
+                "The excitation angles and their grid don't match, which is strange..."
             self.uexa_portrait_indices.append( np.argmin( np.abs(uexa-self.excitation_angles_grid) ) )
 
         self.uema_portrait_indices = []
         for uema in self.unique_emangles:
-            assert np.any(np.abs(uema-self.emission_angles_grid) < 10*np.finfo(np.float).eps)
+            assert np.any(np.abs(uema-self.emission_angles_grid) < 10*np.finfo(np.float).eps), \
+                "The emission angles and their grid don't match, which is strange..."
             self.uema_portrait_indices.append( np.argmin( np.abs(uema-self.emission_angles_grid) ) )
 
         self.Nexphases_for_cos_fitter = 181
@@ -726,11 +730,19 @@ class Movie:
         LS = ph_ex - ph_em
         LS[LS >  np.pi/2] -= np.pi
         LS[LS < -np.pi/2] += np.pi
-        for sii,si in enumerate(myspots):
+        for sii,si in enumerate(myspots):            
             self.validspots[si].phase_ex = ph_ex[sii]
+            self.validspots[si].I_ex     = I_ex[sii]
             self.validspots[si].M_ex     = M_ex[sii]
+            self.validspots[si].resi_ex  = r_ex[sii]
+            self.validspots[si].modulation_ex_data = proj_ex[:,sii]
+            self.validspots[si].modulation_ex_fit  = fit_ex[:,sii]
             self.validspots[si].phase_em = ph_em[sii]
+            self.validspots[si].I_em     = I_em[sii]
             self.validspots[si].M_em     = M_em[sii]
+            self.validspots[si].resi_em  = r_em[sii]
+            self.validspots[si].modulation_em_data = proj_em[:,sii]
+            self.validspots[si].modulation_em_fit  = fit_em[:,sii]
             self.validspots[si].LS       = LS[sii]
             # store in coverage maps
             self.store_property_in_image( self.validspots[si], 'M_ex_image', 'M_ex' )
@@ -911,6 +923,8 @@ class Movie:
 
     def ETmodel_selective( self, myspots, fac=1e4, pg=1e-9, epsi=1e-11 ):
 
+        from fitting import fit_portrait_single_funnel_symmetric, SFA_full_error, SFA_full_func
+
         def look_up_cosine( self, spot, exa, emas ):
             mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
@@ -923,49 +937,108 @@ class Movie:
                               spot.verticalfitparams[which_portrait,iexa,1], \
                               spot.verticalfitparams[which_portrait,iexa,2] )
 
-        from fitting import fit_portrait_single_funnel_symmetric
+        def the_old_way():
+            a0 = [mex, 0, 1]
+            EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
+            funargs = (EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, 'fitting')
+            # EX = self.excitation_angles_grid
+            # EM = np.linspace( 0, 180, 20, endpoint=False )/180*np.pi
+            # spotint = np.array([look_up_cosine(self, self.validspots[si], exa, EM) for exa in EX]).T
+            # EX, EM = np.meshgrid( EX, EM )
+            # funargs = (EX, EM, spotint, mex, self.validspots[si].phase_ex, 'fitting')
+
+            LB = [0.001,   -np.pi/2, 0]
+            UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
+#            print "upper limit: ", 2*(1+self.validspots[si].M_ex)/(1-self.validspots[si].M_ex)
+#            print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
+
+            fitresult = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
+                                              x0=a0, \
+                                              fprime=None, \
+                                              args=funargs, \
+                                              approx_grad=True, \
+                                              epsilon=epsi, \
+                                              bounds=zip(LB,UB), \
+                                              factr=fac, \
+                                              pgtol=pg )
+
+            et,resi = fit_portrait_single_funnel_symmetric( fitresult[0], \
+                                                                EX, EM, self.validspots[si].sam, \
+                                                                mex, self.validspots[si].phase_ex, \
+                                                                mode='show_eps' )
+            md_fu = fitresult[0][0] 
+            th_fu = fitresult[0][1] 
+            gr    = fitresult[0][2]
+ 
+            return md_fu, th_fu, gr, et, resi
+
+        def the_new_way():
+            a0 = [mex, 0, 1, .5]
+            EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
+            funargs = (EX, EM, mex, self.validspots[si].phase_ex, Ftotnormed )
+
+            LB = [0.001,   -np.pi/2, 0, 0]
+            UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999, 1]
+
+            fitresult = so.fmin_l_bfgs_b( func=SFA_full_error, \
+                                              x0=a0, \
+                                              fprime=None, \
+                                              args=funargs, \
+                                              approx_grad=True, \
+                                              epsilon=epsi, \
+                                              bounds=zip(LB,UB), \
+                                              factr=fac, \
+                                              pgtol=pg )
+
+            md_fu = fitresult[0][0] 
+            th_fu = fitresult[0][1] 
+            gr    = fitresult[0][2]
+            et    = fitresult[0][3]
+            resi  = fitresult[1]
+
+            return md_fu,th_fu,gr,et,resi
+
 
         for si in myspots:
 #            print 'ETmodel fitting spot %d' % si
+
+            Ftotnormed = self.validspots[si].sam/np.sum(self.validspots[si].sam)*6
+            Ftotnormed = Ftotnormed.reshape((Ftotnormed.size,))
 
             # we 'correct' the modulation in excitation to be within 
             # limits of reason (and proper arccos functionality)
             mex = np.clip( self.validspots[si].M_ex, .000001, .999999 )
 
             if not np.isnan(mex):
-                a0 = [mex, 0, 1]
+                md_fu,th_fu,gr,et,resi = the_new_way()
+                
                 EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
-                funargs = (EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, 'fitting')
-                # EX = self.excitation_angles_grid
-                # EM = np.linspace( 0, 180, 20, endpoint=False )/180*np.pi
-                # spotint = np.array([look_up_cosine(self, self.validspots[si], exa, EM) for exa in EX]).T
-                # EX, EM = np.meshgrid( EX, EM )
-                # funargs = (EX, EM, spotint, mex, self.validspots[si].phase_ex, 'fitting')
+                Fnoet = SFA_full_func( [md_fu,th_fu,gr,0], EX, EM, mex, self.validspots[si].phase_ex )
+                Fet   = SFA_full_func( [md_fu,th_fu,gr,1], EX, EM, mex, self.validspots[si].phase_ex )
+                model = SFA_full_func( [md_fu,th_fu,gr,et], EX, EM, mex, self.validspots[si].phase_ex )
 
-                LB = [0.001,   -np.pi/2, 0]
-                UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999]
-                #            print "upper limit: ", 2*(1+self.validspots[si].M_ex)/(1-self.validspots[si].M_ex)
-                #            print "upper limit (fixed): ", 2*(1+mex)/(1-mex)
+                import matplotlib.pyplot as plt
+                plt.interactive(True)
+                plt.cla()
+                plt.plot( Fet, 'b:' )
+                plt.plot( Fnoet, 'r:')
+                plt.plot( Ftotnormed, ':', color='gray' )
+                plt.plot( model, 'k-' )
+                plt.title( "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi) )
+                plt.savefig( 'figure%03d.png' % si )
 
-                fitresult = so.fmin_l_bfgs_b( func=fit_portrait_single_funnel_symmetric, \
-                                                  x0=a0, \
-                                                  fprime=None, \
-                                                  args=funargs, \
-                                                  approx_grad=True, \
-                                                  epsilon=epsi, \
-                                                  bounds=zip(LB,UB), \
-                                                  factr=fac, \
-                                                  pgtol=pg )
+                print "et = %f" % et
 
-                et,A = fit_portrait_single_funnel_symmetric( fitresult[0], EX, EM, self.validspots[si].sam, mex, self.validspots[si].phase_ex, \
-                                                                 mode='show_et_and_A', use_least_sq=True)
+                # print "%f ---> %f" % (self.validspots[si].M_ex,self.validspots[si].M_em)
+                # raise SystemExit
+
                 # et,A = fit_portrait_single_funnel_symmetric( fitresult[0], \
                     #                                                  EX, EM, spotint, mex, \
                     #                                                  self.validspots[si].phase_ex, \
                     #                                                  mode='show_et_and_A', use_least_sq=True )
-                self.validspots[si].ETmodel_md_fu = fitresult[0][0]
-                self.validspots[si].ETmodel_th_fu = fitresult[0][1]
-                self.validspots[si].ETmodel_gr    = fitresult[0][2]
+                self.validspots[si].ETmodel_md_fu = md_fu
+                self.validspots[si].ETmodel_th_fu = th_fu
+                self.validspots[si].ETmodel_gr    = gr
                 self.validspots[si].ETmodel_et    = et            
             else:
                 self.validspots[si].ETmodel_md_fu = np.nan

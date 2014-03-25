@@ -7,25 +7,23 @@ import time as stopwatch
 
 #### data directory and file name ####
 
-#prefix = '/home/kiwimatto/Desktop/Lund/Aboma_Jaggs/Full 2D/exp1'
-prefix = '/home/kiwimatto/Desktop/C7'
-basename = 'spot1'
+prefix = '/home/kiwimatto/Desktop/2D Jagg/'
+#prefix = '/home/kiwimatto/Desktop/C7'
+basename = 'Area 1 Blue 2D'
 SNR    = 1
-VFR    = .3
+VFR    = .6
 spotradius = 4  # pixel
 
 
 m = Movie( prefix, basename )
-m.find_portraits( frameoffset=1 )
+m.find_portraits( frameoffset=0 )
 m.find_lines()
 
-
 #### blank fitting ####
-
-boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
+#boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
 #blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
 #boolimage = pixel_list( m, blankfitexclusion, boolimage )
-m.fit_blank_image( boolimage, verbosity=0 )
+#m.fit_blank_image( boolimage, verbosity=0 )
 
 
 #### main part of the analysis ####

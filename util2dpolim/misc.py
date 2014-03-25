@@ -213,9 +213,13 @@ def save_spot_hdf5( movie ):
     filename = movie.data_directory + movie.data_basename + '_spot_output.hdf5'
     fid = h5py.File(filename,'w')
 
-    # before the spot data, we also save portrait and line indices
+    # before the spot data, we also save portrait and line indices, and angles and grids
     fid.create_dataset( 'portrait_indices', data=movie.portrait_indices )
     fid.create_dataset( 'line_indices', data=movie.line_indices )
+    fid.create_dataset( 'exangles', data=movie.exangles )
+    fid.create_dataset( 'emangles', data=movie.emangles )
+    fid.create_dataset( 'excitation_angles_grid', data=movie.excitation_angles_grid )
+    fid.create_dataset( 'emission_angles_grid', data=movie.emission_angles_grid )
 
     for i,s in enumerate( movie.validspots ):
         spotname = 'spot_%06d' % i
@@ -265,21 +269,26 @@ def save_spot_hdf5( movie ):
                        'ETmodel_md_fu', \
                        'ETmodel_th_fu', \
                        'LS', \
-                       'M_em', \
-                       'M_ex', \
+                       'phase_em', 'phase_ex', \
+                       'I_em', 'I_ex', \
+                       'M_em', 'M_ex', \
+                       'resi_em', 'resi_ex', \
                        'anisotropy', \
                        'meanSNR', \
-                       'mean_intensity', \
-                       'phase_em', \
-                       'phase_ex' ]
+                       'mean_intensity' ]
         for p in params:
             fid.create_dataset( spotname+'/contrasts/'+p, data=getattr(s,p) )
 
         # fits
         fid.create_group( spotname+'/fits' )
-        params = [ 'linefitparams', 'verticalfitparams', 'residual' ]
+        params = [ 'linefitparams', 'verticalfitparams', 'residual', \
+                       'modulation_em_data', 'modulation_ex_data', \
+                       'modulation_em_fit', 'modulation_ex_fit']
         for p in params:
             fid.create_dataset( spotname+'/fits/'+p, data=getattr(s,p) )
+
+        # fitted average portrait
+        fid.create_dataset( spotname+'/sam', data=getattr(s,'sam') )
 
     fid.close()
 

@@ -278,9 +278,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>930</x>
+      <x>880</x>
       <y>10</y>
-      <width>81</width>
+      <width>51</width>
       <height>27</height>
      </rect>
     </property>
@@ -291,7 +291,7 @@
    <widget class="QPushButton" name="resetPushButton">
     <property name="geometry">
      <rect>
-      <x>1020</x>
+      <x>1040</x>
       <y>10</y>
       <width>81</width>
       <height>27</height>
@@ -340,12 +340,12 @@
      <rect>
       <x>770</x>
       <y>10</y>
-      <width>151</width>
+      <width>101</width>
       <height>27</height>
      </rect>
     </property>
     <property name="text">
-     <string>create line average</string>
+     <string>line average</string>
     </property>
    </widget>
    <widget class="QToolBox" name="toolBox">
@@ -1035,6 +1035,22 @@
     </property>
     <property name="checkable">
      <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="bgCorrectPushButton">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>940</x>
+      <y>10</y>
+      <width>81</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>bg correct</string>
     </property>
    </widget>
   </widget>

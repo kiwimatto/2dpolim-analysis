@@ -1,24 +1,64 @@
 import numpy as np
 
 
-def wrapper_for_de( params, extras ):
-    ex_angles = extras[0]
-    em_angles = extras[1]
-    Ftot      = extras[2]
-    mod_depth_excitation = extras[3] 
-    phase_excitation     = extras[4]
-    mode                 = extras[5]
-    use_least_sq         = extras[6]
+# def wrapper_for_de( params, extras ):
+#     ex_angles = extras[0]
+#     em_angles = extras[1]
+#     Ftot      = extras[2]
+#     mod_depth_excitation = extras[3] 
+#     phase_excitation     = extras[4]
+#     mode                 = extras[5]
+#     use_least_sq         = extras[6]
 
-    result = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
-                                                       mod_depth_excitation, phase_excitation, \
-                                                       mode, use_least_sq )
-    return result
+#     result = fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
+#                                                        mod_depth_excitation, phase_excitation, \
+#                                                        mode, use_least_sq )
+#     return result
+
+
+def SFA_full_func( params, ex_angles, em_angles, md_ex, phase_ex ):
+    md_fu = params[0]
+    th_fu = params[1]
+    gr    = params[2]
+    et    = params[3]
+
+    EX, EM = ex_angles.flatten(), em_angles.flatten()
+    # calculate angle between off-axis dipoles in symmetric model
+    if np.isnan(gr): gr=1.0
+    alpha = 0.5 * np.arccos( .5*(((gr+2)*md_ex)-gr) )
+
+    ph_ii_minus = phase_ex -alpha
+    ph_ii_plus  = phase_ex +alpha
+
+    # print EX
+    # print EM
+    # print np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
+    # raise SystemExit
+    Fnoet  =    np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
+    Fnoet += gr*np.cos( EX-phase_ex )**2 * np.cos( EM-phase_ex )**2
+    Fnoet +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
+    Fnoet /= (2.0+gr)
+
+    Fet   = .25 * (1+md_ex*np.cos(2*(EX-phase_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-phase_ex)))
+
+    return et*Fet + (1-et)*Fnoet
+
+def SFA_full_error( params, ex_angles, em_angles, md_ex, phase_ex, Ftot ):
+    diff = Ftot - SFA_full_func( params, ex_angles, em_angles, md_ex, phase_ex )
+
+    # import matplotlib.pyplot as plt
+    # plt.interactive(True)
+    # plt.cla()
+    # plt.plot( Ftot, 'b' )
+    # plt.plot( SFA_full_func( params, ex_angles, em_angles, md_ex, phase_ex ), 'g' )
+    # raise SystemExit
+
+    return np.sqrt(np.sum( diff**2 ))
 
 
 def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
                                               mod_depth_excitation, phase_excitation, \
-                                              mode, use_least_sq=True ):
+                                              mode, fitmode='scan'):
     md_fu = params[0]
     th_fu = params[1]
     gr    = params[2]
@@ -27,7 +67,7 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
         print 'carefull with gr'
         gr = 1
 #        raise ValueError ( "we have a problem with gr, it is NaN")
-    if not use_least_sq:
+    if fitmode=='full':
         et    = params[3]
 
     md_ex = mod_depth_excitation
@@ -59,7 +99,9 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
 
     Fet   = .25 * (1+md_ex*np.cos(2*(EX-ph_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-ph_ex)))
 
-    if use_least_sq:
+    epsilon = np.linspace(0,1,200)
+
+    if fitmode=='leastsqr':
         # arrange Fet and Fnoet in two columns
         cols = np.hstack([Fet.reshape((Fet.size,1)), Fnoet.reshape((Fnoet.size,1))])
 
@@ -80,18 +122,61 @@ def fit_portrait_single_funnel_symmetric( params, ex_angles, em_angles, Ftot, \
         et = res[0][0]/A
         resi = res[1]
 
-    else:
+        print "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi)
+
+    elif fitmode=='scan':
+
+        Fetnorm   = Fet / np.sum( Fet )
+        Fnoetnorm = Fnoet / np.sum( Fnoet )
+        Ftotnorm  = Ftot / np.sum( Ftot )
+        Ftotnorm  = Ftotnorm.reshape((Ftotnorm.size,))
+        minR   = np.inf
+        mineps = np.nan
+        for i,eps in enumerate(epsilon):
+
+            R = np.sum( (eps*Fetnorm + (1-eps)*Fnoetnorm - Ftotnorm)**2 )
+            if R < minR:
+                minR = R
+                mineps = eps
+
+            # plt.cla()
+            # plt.plot( Fetnorm, 'b:' )
+            # plt.plot( Fnoetnorm, 'r:' )
+            # plt.plot( Ftotnorm, 'k-' )
+            # plt.plot( eps*Fetnorm + (1-eps)*Fnoetnorm, 'k:' )
+            # plt.plot( (eps*Fetnorm + (1-eps)*Fnoetnorm - Ftotnorm)**2, 'k--' )
+            # plt.title( "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,mineps,minR) )
+            # plt.savefig('fig%03d.png' % i)
+
+        resi = minR
+        et = mineps
+
+        # print "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi) # 
+
+    elif fitmore=='full':
         Ftot /= np.max(Ftot)
         Fem   = et*Fet + (1-et)*Fnoet 
         Fem  /= np.max(Fem)
         A     = []
         resi  = np.sum( (Ftot.flatten()-Fem.flatten())**2 )
+    else:
+        raise ValueError("wrong fitting mode!?")
 
 
     if mode=="fitting":
-        return resi   
-    elif mode=="show_et_and_A":
-        return et, A
+        return resi
+    elif mode=="show_eps":
+        # import matplotlib.pyplot as plt
+        # plt.interactive(True)
+        # import time
+        # plt.cla()
+        # plt.plot( Fetnorm, 'b:' )
+        # plt.plot( Fnoetnorm, 'r:' )
+        # plt.plot( Ftotnorm, 'k-' )
+        # plt.plot( eps*Fetnorm + (1-eps)*Fnoetnorm, 'k:' )
+        # plt.title( "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi) )
+
+        return et, resi
     elif mode=="display":
         Fem  = A*et*Fet + A*(1-et)*Fnoet 
         Fem  = Fem.reshape((N_em_angles,N_ex_angles))        
@@ -191,6 +276,21 @@ def CosineFitter_new( angles, data, Nphases=91 ):
 
     for i in range(Nspots):
 
+        # take a look at the fit directly
+        fit[:,i]     = np.dot( er[:,2*mm[i]:2*mm[i]+2], cm[mm[i],:,i] )
+        try:
+            assert np.all(fit[:,i]>=0)   # is it non-negative everywhere?
+        except AssertionError:
+            # print "############### ---------------- HOUSTON, WE HAVE A PROBLEM ---------------- ###############"
+            # print ' residual   : ', rm[mm[i],i] 
+            # print ' parameters : ', cm[mm[i],:,i]
+            # print ' Setting everything to zero here. '
+            # print "!!!!!!!!!!!!!!!!!!!!!!!"
+            I_0[i] = 0
+            M_0[i] = 0
+#            raise AssertionError("The fit should be positive everywhere, but isn't. Something wrong?")
+
+
         rawfitpars[:,i] = cm[mm[i],:,i]
 
         # phases are given by the minimum index, but
@@ -208,20 +308,6 @@ def CosineFitter_new( angles, data, Nphases=91 ):
 
         # also collect residuals of these minima
         resi[i] = rm[mm[i],i]
-
-        # take a look at the fit directly
-        fit[:,i]     = np.dot( er[:,2*mm[i]:2*mm[i]+2], cm[mm[i],:,i] )
-        try:
-            assert np.all(fit[:,i]>=0)   # is it non-negative everywhere?
-        except AssertionError:
-            # print "############### ---------------- HOUSTON, WE HAVE A PROBLEM ---------------- ###############"
-            # print ' residual   : ', rm[mm[i],i] 
-            # print ' parameters : ', cm[mm[i],:,i]
-            # print ' Setting everything to zero here. '
-            # print "!!!!!!!!!!!!!!!!!!!!!!!"
-            I_0[i] = 0
-            M_0[i] = 0
-#            raise AssertionError("The fit should be positive everywhere, but isn't. Something wrong?")
 
 
     return rp, I_0, M_0, resi, fit, rawfitpars, mm

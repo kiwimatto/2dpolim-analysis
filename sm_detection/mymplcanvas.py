@@ -38,10 +38,10 @@ class MyMplCanvas(FigureCanvas):
 
         self.myrect = Rectangle((0,0), 1, 1, facecolor='red', edgecolor='red', alpha=.2, zorder=8 )
         self.myaxes.add_patch(self.myrect)
-        self.c0 = None
-        self.r0 = None
-        self.c1 = None
-        self.r1 = None
+        self.c0 = 10   #None
+        self.r0 = 10   #None
+        self.c1 = 60   #None
+        self.r1 = 200  #None
         self.is_pressed = False
 
         self.myaxes.figure.canvas.mpl_connect('button_press_event', self.on_press)

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'sm_detector_layout.ui'
 #
-# Created: Wed Feb 19 11:21:53 2014
+# Created: Tue Mar 25 09:35:33 2014
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -91,10 +91,10 @@ class Ui_MainWindow(object):
         self.highlightClusterPositionsCheckBox.setObjectName(_fromUtf8("highlightClusterPositionsCheckBox"))
         self.cropPushButton = QtGui.QPushButton(self.centralwidget)
         self.cropPushButton.setEnabled(True)
-        self.cropPushButton.setGeometry(QtCore.QRect(930, 10, 81, 27))
+        self.cropPushButton.setGeometry(QtCore.QRect(880, 10, 51, 27))
         self.cropPushButton.setObjectName(_fromUtf8("cropPushButton"))
         self.resetPushButton = QtGui.QPushButton(self.centralwidget)
-        self.resetPushButton.setGeometry(QtCore.QRect(1020, 10, 81, 27))
+        self.resetPushButton.setGeometry(QtCore.QRect(1040, 10, 81, 27))
         self.resetPushButton.setCheckable(False)
         self.resetPushButton.setObjectName(_fromUtf8("resetPushButton"))
         self.loadDefaultPushButton = QtGui.QPushButton(self.centralwidget)
@@ -108,7 +108,7 @@ class Ui_MainWindow(object):
         self.toolbar.setFocusPolicy(QtCore.Qt.NoFocus)
         self.toolbar.setObjectName(_fromUtf8("toolbar"))
         self.createLineAveragePushButton = QtGui.QPushButton(self.centralwidget)
-        self.createLineAveragePushButton.setGeometry(QtCore.QRect(770, 10, 151, 27))
+        self.createLineAveragePushButton.setGeometry(QtCore.QRect(770, 10, 101, 27))
         self.createLineAveragePushButton.setObjectName(_fromUtf8("createLineAveragePushButton"))
         self.toolBox = QtGui.QToolBox(self.centralwidget)
         self.toolBox.setGeometry(QtCore.QRect(770, 250, 341, 521))
@@ -292,6 +292,10 @@ class Ui_MainWindow(object):
         self.histogramToggleButton.setGeometry(QtCore.QRect(770, 180, 201, 27))
         self.histogramToggleButton.setCheckable(True)
         self.histogramToggleButton.setObjectName(_fromUtf8("histogramToggleButton"))
+        self.bgCorrectPushButton = QtGui.QPushButton(self.centralwidget)
+        self.bgCorrectPushButton.setEnabled(True)
+        self.bgCorrectPushButton.setGeometry(QtCore.QRect(940, 10, 81, 27))
+        self.bgCorrectPushButton.setObjectName(_fromUtf8("bgCorrectPushButton"))
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -322,7 +326,7 @@ class Ui_MainWindow(object):
         self.cropPushButton.setText(QtGui.QApplication.translate("MainWindow", "crop", None, QtGui.QApplication.UnicodeUTF8))
         self.resetPushButton.setText(QtGui.QApplication.translate("MainWindow", "reset", None, QtGui.QApplication.UnicodeUTF8))
         self.loadDefaultPushButton.setText(QtGui.QApplication.translate("MainWindow", "*", None, QtGui.QApplication.UnicodeUTF8))
-        self.createLineAveragePushButton.setText(QtGui.QApplication.translate("MainWindow", "create line average", None, QtGui.QApplication.UnicodeUTF8))
+        self.createLineAveragePushButton.setText(QtGui.QApplication.translate("MainWindow", "line average", None, QtGui.QApplication.UnicodeUTF8))
         self.useCorrelatorCheckBox.setText(QtGui.QApplication.translate("MainWindow", "use correlator in analysis", None, QtGui.QApplication.UnicodeUTF8))
         self.applyCorrelatorPushButton.setText(QtGui.QApplication.translate("MainWindow", "apply right now (undo requires reset)", None, QtGui.QApplication.UnicodeUTF8))
         self.fourthRootInCorrelatorCheckBox.setText(QtGui.QApplication.translate("MainWindow", "apply fourth root after correlation", None, QtGui.QApplication.UnicodeUTF8))
@@ -361,4 +365,5 @@ class Ui_MainWindow(object):
         self.blankFitPushButton.setText(QtGui.QApplication.translate("MainWindow", "fit and subtract", None, QtGui.QApplication.UnicodeUTF8))
         self.showBoolimageCheckBox.setText(QtGui.QApplication.translate("MainWindow", "show boolimage", None, QtGui.QApplication.UnicodeUTF8))
         self.histogramToggleButton.setText(QtGui.QApplication.translate("MainWindow", "histogram", None, QtGui.QApplication.UnicodeUTF8))
+        self.bgCorrectPushButton.setText(QtGui.QApplication.translate("MainWindow", "bg correct", None, QtGui.QApplication.UnicodeUTF8))
 

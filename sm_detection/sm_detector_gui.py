@@ -50,6 +50,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.cmapComboBox.activated.connect( self.drawFrame )
         self.highlightClusterPositionsCheckBox.stateChanged.connect( self.drawFrame )
         self.cropPushButton.clicked.connect( self.crop )
+        self.bgCorrectPushButton.clicked.connect( self.bgCorrect )
         self.resetPushButton.clicked.connect( self.reset )
         self.loadDefaultPushButton.clicked.connect( self.loadDefault )
         self.clusterIntensityThresholdSlider.valueChanged.connect( self.clusterIntensityThresholdChanged )
@@ -79,6 +80,25 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 #        self.clusterMergeAcrossFramesCheckBox.stateChanged.connect( self.clusterValidationStateChanged )
 
         self.writeCoordsPushButton.clicked.connect( self.writeCoordinates )
+
+    def bgCorrect(self):
+        c0 = self.imageview.c0
+        r0 = self.imageview.r0
+        c1 = self.imageview.c1
+        r1 = self.imageview.r1
+        assert not c0==None, 'At least one of the coordinates of the selection rectangle is None.'
+        assert not r0==None, 'At least one of the coordinates of the selection rectangle is None.'
+        assert not c1==None, 'At least one of the coordinates of the selection rectangle is None.'
+        assert not r1==None, 'At least one of the coordinates of the selection rectangle is None.'
+
+        bglevel = np.mean( self.spefile[:,r0:r1,c0:c1] )
+        print bglevel
+
+        self.spefile -= bglevel
+        print np.mean( self.spefile[:,r0:r1,c0:c1] )
+
+        self.drawFrame()
+
 
 
     def clusterDistanceThresholdSliderChanged(self):
@@ -986,10 +1006,16 @@ Frame	Excitation Physical Angle	Excitation Polarization Angle	Excitation Power [
             else:
                 image = self.filtered[frame]
 
+            print np.std(image.flatten())
             clusterimage = image > np.std(image.flatten())*threshold
-            self.clusters[frame] = clusterimage
+            self.clusters[frame] = clusterimage.astype(np.int)
         self.showWhatComboBox.setCurrentIndex(2)
         self.drawFrame()
+
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.hist( image.flatten(), 100 )
+
 
 #        self.findClusters()
 
