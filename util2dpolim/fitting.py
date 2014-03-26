@@ -38,8 +38,10 @@ def SFA_full_func( params, ex_angles, em_angles, md_ex, phase_ex ):
     Fnoet += gr*np.cos( EX-phase_ex )**2 * np.cos( EM-phase_ex )**2
     Fnoet +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
     Fnoet /= (2.0+gr)
+    Fnoet /= np.sum(Fnoet)
 
     Fet   = .25 * (1+md_ex*np.cos(2*(EX-phase_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-phase_ex)))
+    Fet  /= np.sum(Fet)
 
     return et*Fet + (1-et)*Fnoet
 

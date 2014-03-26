@@ -1002,7 +1002,7 @@ class Movie:
         for si in myspots:
 #            print 'ETmodel fitting spot %d' % si
 
-            Ftotnormed = self.validspots[si].sam/np.sum(self.validspots[si].sam)*6
+            Ftotnormed = self.validspots[si].sam/np.sum(self.validspots[si].sam)
             Ftotnormed = Ftotnormed.reshape((Ftotnormed.size,))
 
             # we 'correct' the modulation in excitation to be within 
@@ -1017,17 +1017,23 @@ class Movie:
                 Fet   = SFA_full_func( [md_fu,th_fu,gr,1], EX, EM, mex, self.validspots[si].phase_ex )
                 model = SFA_full_func( [md_fu,th_fu,gr,et], EX, EM, mex, self.validspots[si].phase_ex )
 
-                import matplotlib.pyplot as plt
-                plt.interactive(True)
-                plt.cla()
-                plt.plot( Fet, 'b:' )
-                plt.plot( Fnoet, 'r:')
-                plt.plot( Ftotnormed, ':', color='gray' )
-                plt.plot( model, 'k-' )
-                plt.title( "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi) )
-                plt.savefig( 'figure%03d.png' % si )
+                # print "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"
+                # print np.sum(Fnoet)
+                # print np.sum(Fet)
+                # print np.sum(model)
+                # print np.sum(Ftotnormed)
 
-                print "et = %f" % et
+                # import matplotlib.pyplot as plt
+                # plt.interactive(True)
+                # plt.cla()
+                # plt.plot( Fet, 'r-', alpha=.4 )
+                # plt.plot( Fnoet, 'b-', alpha=.4 )
+                # plt.plot( model, 'g-', alpha=.4 )
+                # plt.plot( Ftotnormed, '--', color='gray' )
+                # plt.title( "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi) )
+                # plt.savefig( 'figure%03d.png' % si )
+
+                # print "et = %f" % et
 
                 # print "%f ---> %f" % (self.validspots[si].M_ex,self.validspots[si].M_em)
                 # raise SystemExit
