@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'layout_sm_human_validator.ui'
 #
-# Created: Tue Mar 25 13:04:11 2014
+# Created: Fri Mar 28 12:44:15 2014
 #      by: PyQt4 UI code generator 4.9.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -24,10 +24,10 @@ class Ui_MainWindow(object):
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
         self.intPlotWidget = IntPlotMplCanvas(self.centralwidget, width=10, height=10, dpi=75)
-        self.intPlotWidget.setGeometry(QtCore.QRect(10, 10, 1181, 161))
+        self.intPlotWidget.setGeometry(QtCore.QRect(10, 50, 1181, 161))
         self.intPlotWidget.setObjectName(_fromUtf8("intPlotWidget"))
         self.intPlotToolsWidget = NavigationToolbar(self.intPlotWidget, self.centralwidget)
-        self.intPlotToolsWidget.setGeometry(QtCore.QRect(10, 170, 1181, 41))
+        self.intPlotToolsWidget.setGeometry(QtCore.QRect(10, 10, 341, 41))
         self.intPlotToolsWidget.setObjectName(_fromUtf8("intPlotToolsWidget"))
         self.portraitPlotWidget = PortraitMplCanvas(self.centralwidget, width=10, height=10, dpi=75)
         self.portraitPlotWidget.setGeometry(QtCore.QRect(10, 210, 556, 531))
@@ -37,7 +37,7 @@ class Ui_MainWindow(object):
         self.projectionsPlotWidget.setObjectName(_fromUtf8("projectionsPlotWidget"))
         self.yarpPushButton = QtGui.QPushButton(self.centralwidget)
         self.yarpPushButton.setGeometry(QtCore.QRect(1090, 450, 101, 101))
-        self.yarpPushButton.setAutoFillBackground(True)
+        self.yarpPushButton.setAutoFillBackground(False)
         self.yarpPushButton.setStyleSheet(_fromUtf8("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(255, 255, 255, 255), stop:1 rgba(100, 255, 100, 255));\n"
 "font-weight: bold;\n"
 "font-size: 20pt;\n"
@@ -46,7 +46,7 @@ class Ui_MainWindow(object):
         self.yarpPushButton.setObjectName(_fromUtf8("yarpPushButton"))
         self.narpPushButton = QtGui.QPushButton(self.centralwidget)
         self.narpPushButton.setGeometry(QtCore.QRect(1090, 680, 101, 101))
-        self.narpPushButton.setAutoFillBackground(True)
+        self.narpPushButton.setAutoFillBackground(False)
         self.narpPushButton.setStyleSheet(_fromUtf8("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(255, 255, 255, 255), stop:1 rgba(255, 100, 100, 255));\n"
 "font-weight: bold;\n"
 "font-size: 20pt;\n"
@@ -86,6 +86,12 @@ class Ui_MainWindow(object):
         self.imlostPushButton.setStyleSheet(_fromUtf8(""))
         self.imlostPushButton.setCheckable(True)
         self.imlostPushButton.setObjectName(_fromUtf8("imlostPushButton"))
+        self.label = QtGui.QLabel(self.centralwidget)
+        self.label.setGeometry(QtCore.QRect(360, 10, 831, 31))
+        font = QtGui.QFont()
+        font.setPointSize(14)
+        self.label.setFont(font)
+        self.label.setObjectName(_fromUtf8("label"))
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtGui.QStatusBar(MainWindow)
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
@@ -101,4 +107,5 @@ class Ui_MainWindow(object):
         self.meanintPushButton.setText(QtGui.QApplication.translate("MainWindow", "mean int", None, QtGui.QApplication.UnicodeUTF8))
         self.coveragePushButton.setText(QtGui.QApplication.translate("MainWindow", "coverage", None, QtGui.QApplication.UnicodeUTF8))
         self.imlostPushButton.setText(QtGui.QApplication.translate("MainWindow", "i\'m lost", None, QtGui.QApplication.UnicodeUTF8))
+        self.label.setText(QtGui.QApplication.translate("MainWindow", "No files found.", None, QtGui.QApplication.UnicodeUTF8))
 

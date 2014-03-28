@@ -20,14 +20,14 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.app = app
         self.data_directory = self.pwd   # to be changed to the dir containing the last selected file
 
-        self.grab_directory()
+        self.cfi = -1    # current file index
+        self.csi = -1    # current spot index
 
-        self.cfi = 0    # current file index
-        self.csi = 0    # current spot index
+        self.grab_directory()
 
         self.curmsg = None
 
-        self.show_spot()
+        self.next()
 
     def main(self):
         self.show()
@@ -73,23 +73,44 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.next()
 
     def next(self):
+        # if there's no file to do anything with, bomb out here
+        if self.cfi == -1:
+            print 'no files found'
+
         # save current message (if any)
+        if not os.path.exists(self.data_directory + os.path.sep + 'smhv_results.txt'):
+            f = open(self.data_directory + os.path.sep + 'smhv_results.txt','w')
+            f.writelines(['Int\tM_ex\tM_em\tphase_ex\tphase_em\tET_M\tET_phase\tET_gr\tET_et\n'])
+        else:
+            f = open(self.data_directory + os.path.sep + 'smhv_results.txt','a')
         if not self.curmsg==None:
-            if not os.path.exists(self.data_directory + os.path.sep + 'smhv_results.txt'):
-                f = open(self.data_directory + os.path.sep + 'smhv_results.txt','w')
-            else:
-                f = open(self.data_directory + os.path.sep + 'smhv_results.txt','a')
             f.writelines([self.curmsg+'\n'])
-            f.close()
+        f.close()
 
         # next
-        print 'next!'
         self.intPlotWidget.clear()
         self.portraitPlotWidget.clear()
         self.projectionsPlotWidget.clear()
         self.ETmodelPlotWidget.clear()
-        self.csi += 1
+
+        # if we have not run out of spots in this file yet
+        if self.csi < self.NspotsList[self.cfi]-1:
+            # ask for the next spot
+            print 'next spot'
+            self.csi += 1        
+        else:
+            print 'new file?...',
+            if self.cfi < len(self.hdf5files)-1:
+                print 'yes'
+                # ask for next file
+                self.cfi += 1
+                self.csi = 0
+            else:
+                print 'nope'
+                return
+
         self.show_spot()
+
 
     def grab_directory(self):
         # try to start from previous dir
@@ -120,11 +141,41 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             f = open( self.pwd+os.path.sep+'lastdir.txt', 'w')
             f.writelines( [self.data_directory] )
             f.close()
-            
+
+        # now make a list of the number of spots in each hdf5
+        NspotsList = []
+        for h5f in self.hdf5files:
+            fid = h5py.File( self.data_directory + os.path.sep + h5f, 'r' )
+            Nspots = 0
+            for k in fid.keys():
+                if k.startswith('spot_'):
+                    Nspots += 1
+            NspotsList.append( Nspots )
+            fid.close()
+        self.NspotsList = NspotsList
+
+        # re-build list of hdf5 files to include only those with spots
+        flist = []
+        for i,N in enumerate(NspotsList):
+            if N>0:
+                flist.append( self.hdf5files[i] )
+        self.hdf5files = flist        
+
+        # if files were found, point the current file index to the first one
+        if len(self.hdf5files)>0:
+            self.cfi = 0
+
+        print "Files found:"
+        print self.hdf5files
+
 
     def show_spot(self):
         spotname  = '/spot_00%04d' % self.csi
         filename = self.data_directory + os.path.sep + self.hdf5files[self.cfi]
+        labelmsg  = self.hdf5files[self.cfi]
+        labelmsg += " ---  spot %d of %d" % (self.csi+1,self.NspotsList[self.cfi])
+        self.label.setText( labelmsg )
+
         print "Looking at %s in file %s" % (spotname, filename)
         f = h5py.File( filename, 'r' )
         
@@ -380,6 +431,7 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.projectionsPlotWidget.fig.canvas.draw()
         self.ETmodelPlotWidget.fig.canvas.draw()
 
+        # message for status bar
         msg  = 'Int=%.2f    ' % np.mean(intensity)
         msg += 'Mex=%.2f    ' % M_ex
         msg += 'Mem=%.2f    ' % M_em
@@ -389,10 +441,19 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         msg += 'ph_fu=%.1f    ' % (th_fu * 180.0/np.pi)
         msg += 'gr=%.2f    ' % gr
         msg += 'et=%.2f    ' % et
-
-        self.curmsg = msg
-        
         self.statusbar.showMessage( msg )
+
+        # message for file
+        msg  = '%.2f\t' % np.mean(intensity)
+        msg += '%.2f\t' % M_ex
+        msg += '%.2f\t' % M_em
+        msg += '%.1f\t' % (phase_ex * 180.0/np.pi)
+        msg += '%.1f\t' % (phase_em * 180.0/np.pi)
+        msg += '%.1f\t' % md_fu
+        msg += '%.1f\t' % (th_fu * 180.0/np.pi)
+        msg += '%.2f\t' % gr
+        msg += '%.2f\t' % et
+        self.curmsg = msg
 
         ### spot coverage ###
         self.draw_mean_int_and_spot_coverage()

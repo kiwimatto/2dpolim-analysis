@@ -21,7 +21,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>10</y>
+      <y>50</y>
       <width>1181</width>
       <height>161</height>
      </rect>
@@ -31,8 +31,8 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>170</y>
-      <width>1181</width>
+      <y>10</y>
+      <width>341</width>
       <height>41</height>
      </rect>
     </property>
@@ -67,7 +67,7 @@
      </rect>
     </property>
     <property name="autoFillBackground">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
     <property name="styleSheet">
      <string notr="true">background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(255, 255, 255, 255), stop:1 rgba(100, 255, 100, 255));
@@ -90,7 +90,7 @@ color: green;
      </rect>
     </property>
     <property name="autoFillBackground">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
     <property name="styleSheet">
      <string notr="true">background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(255, 255, 255, 255), stop:1 rgba(255, 100, 100, 255));
@@ -217,6 +217,24 @@ color: red;
     </property>
     <property name="checkable">
      <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>10</y>
+      <width>831</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>No files found.</string>
     </property>
    </widget>
   </widget>
