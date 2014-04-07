@@ -43,6 +43,7 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
             a['ETmodel_th_fu'] = movie.validspots[si].ETmodel_th_fu
             a['ETmodel_gr']    = movie.validspots[si].ETmodel_gr
             a['ETmodel_et']    = movie.validspots[si].ETmodel_et
+            a['ETmodel_resi']    = movie.validspots[si].ETmodel_resi
 
         resultqueue.put( a )
     return
@@ -186,7 +187,7 @@ class Movie:
         print 'Movie: all done.'
 
     def update_images(self):
-        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et']
+        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et', 'ETmodel_resi']
         for s in self.validspots:
             for prop in allprops:
                 if hasattr(s,prop):
@@ -286,6 +287,7 @@ class Movie:
         self.ETmodel_th_fu_image = self.spot_coverage_image.copy()
         self.ETmodel_gr_image    = self.spot_coverage_image.copy()
         self.ETmodel_et_image    = self.spot_coverage_image.copy()
+        self.ETmodel_resi_image  = self.spot_coverage_image.copy()
 
 
     def define_background_spot( self, shape, intensity_type='mean' ):
@@ -1046,16 +1048,19 @@ class Movie:
                 self.validspots[si].ETmodel_th_fu = th_fu
                 self.validspots[si].ETmodel_gr    = gr
                 self.validspots[si].ETmodel_et    = et            
+                self.validspots[si].ETmodel_resi  = resi
             else:
                 self.validspots[si].ETmodel_md_fu = np.nan
                 self.validspots[si].ETmodel_th_fu = np.nan
                 self.validspots[si].ETmodel_gr    = np.nan
                 self.validspots[si].ETmodel_et    = np.nan
+                self.validspots[si].ETmodel_resi  = np.nan
 #            print self.validspots[si].ETmodel_et
             self.store_property_in_image( self.validspots[si], 'ETmodel_md_fu_image', 'ETmodel_md_fu' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_th_fu_image', 'ETmodel_th_fu' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_gr_image', 'ETmodel_gr' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_et_image', 'ETmodel_et' )
+            self.store_property_in_image( self.validspots[si], 'ETmodel_resi_image', 'ETmodel_resi' )
 
 
     def chew_AM( self, quiet=False, loud=False, SNR=10 ):

@@ -268,6 +268,7 @@ def save_spot_hdf5( movie ):
                        'ETmodel_gr', \
                        'ETmodel_md_fu', \
                        'ETmodel_th_fu', \
+                       'ETmodel_resi', \
                        'LS', \
                        'phase_em', 'phase_ex', \
                        'I_em', 'I_ex', \

@@ -7,10 +7,10 @@ import time as stopwatch
 
 #### data directory and file name ####
 
-#prefix = '/home/kiwimatto/Desktop/2D Jagg/'
-prefix = '/home/kiwimatto/Desktop/C7'
-#basename = 'Area 1 Blue 2D'
-basename = 'spot1'
+prefix = '/home/kiwimatto/Desktop/2D Jagg/'
+#prefix = '/home/kiwimatto/Desktop/C7'
+basename = 'Area 1 Blue 2D'
+#basename = 'spot1'
 SNR    = 1
 VFR    = .6
 spotradius = 4  # pixel

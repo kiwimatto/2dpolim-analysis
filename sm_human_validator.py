@@ -24,6 +24,7 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.csi = -1    # current spot index
 
         self.grab_directory()
+        self.collect_residuals()
 
         self.curmsg = None
 
@@ -38,7 +39,25 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.meanintPushButton.clicked.connect( self.draw_mean_int_and_spot_coverage )
         self.coveragePushButton.clicked.connect( self.draw_mean_int_and_spot_coverage )
         self.imlostPushButton.clicked.connect( self.imlost )
+        self.numericPortraitsPushButton.clicked.connect( self.num_portraits )
+        self.interpolatedPortraitsPushButton.clicked.connect( self.interp_portraits )
         
+    def num_portraits(self):
+        self.numericPortraitsPushButton.setChecked(True)
+        self.interpolatedPortraitsPushButton.setChecked(False)
+        filename = self.data_directory + os.path.sep + self.hdf5files[self.cfi]
+        f = h5py.File( filename, 'r' )
+        self.show_portraits(f)        
+        f.close()
+
+    def interp_portraits(self):
+        self.numericPortraitsPushButton.setChecked(False)
+        self.interpolatedPortraitsPushButton.setChecked(True)
+        filename = self.data_directory + os.path.sep + self.hdf5files[self.cfi]
+        f = h5py.File( filename, 'r' )
+        self.show_portraits(f)        
+        f.close()
+
     def imlost(self):
         if self.imlostPushButton.isChecked():
             self.intPlotWidget.setVisible(False)
@@ -46,12 +65,15 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             self.projectionsPlotWidget.setVisible(False)
             self.ETmodelPlotWidget.setVisible(False)
             self.spotcoveragePlotWidget.setVisible(False)
+            self.residualsPlotWidget.setVisible(False)
             self.intPlotToolsWidget.setVisible(False)
-            self.PortraitPlotToolsWidget.setVisible(False)
             self.ProjectionsPlotToolsWidget.setVisible(False)
             self.spotcoveragePlotToolsWidget.setVisible(False)
             self.yarpPushButton.setVisible(False)
             self.narpPushButton.setVisible(False)
+            self.label_2.setVisible(False)
+            self.numericPortraitsPushButton.setVisible(False)
+            self.interpolatedPortraitsPushButton.setVisible(False)
             self.centralwidget.setStyleSheet("background-image: url(bg_anno.png);")
             self.imlostPushButton.setStyleSheet("")
         else:
@@ -60,12 +82,15 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             self.projectionsPlotWidget.setVisible(True)
             self.ETmodelPlotWidget.setVisible(True)
             self.spotcoveragePlotWidget.setVisible(True)
+            self.residualsPlotWidget.setVisible(True)
             self.intPlotToolsWidget.setVisible(True)
-            self.PortraitPlotToolsWidget.setVisible(True)
             self.ProjectionsPlotToolsWidget.setVisible(True)
             self.spotcoveragePlotToolsWidget.setVisible(True)
             self.yarpPushButton.setVisible(True)
             self.narpPushButton.setVisible(True)
+            self.label_2.setVisible(True)
+            self.numericPortraitsPushButton.setVisible(True)
+            self.interpolatedPortraitsPushButton.setVisible(True)
             self.centralwidget.setStyleSheet("")
 
     def narpie(self):
@@ -87,11 +112,23 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             f.writelines([self.curmsg+'\n'])
         f.close()
 
+        if not self.csi==-1:
+            # write result in hdf5
+            spotname  = '/spot_00%04d' % self.csi
+            filename = self.data_directory + os.path.sep + self.hdf5files[self.cfi]
+            f = h5py.File( filename, 'r+' )
+            if self.curmsg==None:
+                f.create_dataset( spotname+'/ok_by_eye', data=False )
+            else:
+                f.create_dataset( spotname+'/ok_by_eye', data=True )
+            f.close()
+
         # next
         self.intPlotWidget.clear()
         self.portraitPlotWidget.clear()
         self.projectionsPlotWidget.clear()
         self.ETmodelPlotWidget.clear()
+        self.residualsPlotWidget.clear()
 
         # if we have not run out of spots in this file yet
         if self.csi < self.NspotsList[self.cfi]-1:
@@ -166,7 +203,25 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             self.cfi = 0
 
         print "Files found:"
-        print self.hdf5files
+        print self.hdf5files        
+
+    def collect_residuals(self):
+        fitresi = []
+        ETresi = []
+        for i,f in enumerate(self.hdf5files):
+            filename = self.data_directory + os.path.sep + f
+            fid = h5py.File( filename, 'r' )
+            for n in range(self.NspotsList[i]):
+                spotname  = '/spot_00%04d' % n
+                fitresi.append( np.array(fid[spotname+'/fits/residual']) )
+                ETresi.append( np.array(fid[spotname+'/contrasts/ETmodel_resi']) )
+            fid.close()
+        self.fitresi = np.array(fitresi)
+        self.ETresi = np.array(ETresi)
+        self.fitresi_hist = np.histogram( self.fitresi, 20) 
+        self.ETresi_hist = np.histogram( self.ETresi, 20 )
+
+
 
 
     def show_spot(self):
@@ -295,48 +350,7 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         #         y = mycos(exa, lfps[pi][li][0],lfps[pi][li][1],lfps[pi][li][2])
         #         self.intPlotWidget.axes_ints.plot( x, y, 'r-' )
 
-        ### show numerical portraits ###
-        # first two numerical data portraits
-        emangles = np.array( f['emangles'] ) 
-#        ndp = np.zeros( (len(pis)-1, emangles.size, exangles.size) )
-        ndp = np.zeros( (lis.shape[0], lis.shape[1], lis.shape[2]/lis.shape[1]) )
-        for pi in range(len(pis)-1):
-            for li in range(len(lis[pi])):
-                ndp[pi,li,:] = intensity[ pis[pi]:pis[pi+1] ][ lis[pi][li] ]
-        # first two portraits:
-        for pi in range(len(pis)-1):
-            self.portraitPlotWidget.axes[0,pi].imshow( ndp[pi], interpolation='nearest', \
-                                                           extent=[np.min(exangles),np.max(exangles),\
-                                                                       np.min(emangles),np.max(emangles)], \
-                                                           origin='bottom' )
-        # average numerical portrait
-        self.portraitPlotWidget.axes[0,2].imshow( np.mean(ndp,axis=0), interpolation='nearest',\
-                                                      extent=[np.min(exangles),np.max(exangles),\
-                                                                  np.min(emangles),np.max(emangles)], \
-                                                      origin='bottom' )
-
-        ### build and display fitted portraits ###
-        # need to first evaluate the line fits for finely spaced excitation angles
-        fineexa = np.linspace(0, np.pi, 40, endpoint=False)
-        fineema = np.linspace(0, np.pi, 40, endpoint=False)
-        finelines = np.zeros( (lis.shape[1], fineexa.size) )
-        fineportraits = np.zeros( (len(pis)-1, fineema.size, fineexa.size) )
-        for pi in range(len(pis)-1):          # go through all portraits
-            for li in range(len(lis[pi])):    # go through all lines in this portrait
-                finelines[li,:] = mycos(fineexa, lfps[pi][li][0],lfps[pi][li][1],lfps[pi][li][2])
-            # vertical fit for all those fine-ex-angles
-            ema = np.unique(emangles)
-            phase, I0, M, resi, fit, rawfitpars, mm = CosineFitter_new( ema, finelines, 91 ) 
-            # and store in portrait array
-            for j in range(len(phase)):
-                fineportraits[pi,:,j] = mycos( fineema, phase[j], I0[j], M[j] )
-        # first two fitted portraits
-        for pi in range(len(pis)-1):
-            self.portraitPlotWidget.axes[1,pi].imshow( fineportraits[pi], interpolation='nearest',\
-                                                           origin='bottom')
-        # mean fitted portrait
-        self.portraitPlotWidget.axes[1,2].imshow( np.mean(fineportraits,axis=0), interpolation='nearest',\
-                                                      origin='bottom')
+        self.show_portraits(f)
 
         ### modulation depths and their fits ###
         exa = np.unique( np.array( f['excitation_angles_grid'] ) )
@@ -411,11 +425,11 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
 
         model = et*Fet + (1-et)*Fnoet
 
-        self.portraitPlotWidget.axes[2,0].imshow( Fnoet.reshape( (emafine.size, exafine.size) ), \
+        self.portraitPlotWidget.axes[1,0].imshow( Fnoet.reshape( (emafine.size, exafine.size) ), \
                                                       interpolation='nearest', origin='bottom' )
-        self.portraitPlotWidget.axes[2,1].imshow( Fet.reshape( (emafine.size, exafine.size) ), \
+        self.portraitPlotWidget.axes[1,1].imshow( Fet.reshape( (emafine.size, exafine.size) ), \
                                                       interpolation='nearest', origin='bottom' )
-        self.portraitPlotWidget.axes[2,2].imshow( model.reshape( (emafine.size, exafine.size) ), \
+        self.portraitPlotWidget.axes[1,2].imshow( model.reshape( (emafine.size, exafine.size) ), \
                                                       interpolation='nearest', origin='bottom' )
 
         # now draw the model dipoles
@@ -424,12 +438,57 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.ETmodelPlotWidget.axes.plot( [ph_ii_plus,ph_ii_plus+np.pi], [1,1], 'r-', lw=2 )
         self.ETmodelPlotWidget.axes.set_yticklabels([])
 
+        # now the projections of the model
+        sam = np.array(f[spotname+'/sam'])
+        fnoetp  = Fnoet.copy()
+        fnoetp  = fnoetp.reshape( (emafine.size, exafine.size) )
+        fnoetp /= np.max(fnoetp)
+        fnoetp *= np.sum( sam )
+        fnoetp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
+        self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( fnoetp, axis=0 ), 'g:' )
+        self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( fnoetp, axis=1 ), 'g:' )
+
+        fetp  = Fet.copy()
+        fetp  = fetp.reshape( (emafine.size, exafine.size) )
+        fetp /= np.max(fetp)
+        fetp *= np.sum( sam )            
+        fetp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
+        self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( fetp, axis=0 ), 'g-.' )
+        self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( fetp, axis=1 ), 'g-.' )
+
+        modelp  = model.copy()
+        modelp  = modelp.reshape( (emafine.size, exafine.size) )
+        modelp /= np.max( modelp )
+        modelp *= np.sum( sam )            
+        modelp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
+        self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( modelp, axis=0 ), 'g--' )
+        self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( modelp, axis=1 ), 'g--' )
+
+        # draw residual histograms
+        n  = self.fitresi_hist[0]
+        b  = self.fitresi_hist[1]
+        w  = b[1]-b[0]
+        self.residualsPlotWidget.axes_portrait.bar( b[:-1], n, width=w, alpha=.5 )
+        resi = np.array( f[spotname+'/fits/residual'] )
+        self.residualsPlotWidget.axes_portrait.stem( [resi]+.5*w, [.75*np.max(n)], \
+                                                         linefmt='r-', markerfmt='ro', basefmt='r-')
+
+        n  = self.ETresi_hist[0]
+        b  = self.ETresi_hist[1]
+        w  = b[1]-b[0]
+        self.residualsPlotWidget.axes_ETportrait.bar( b[:-1], n, width=w, alpha=.5 )
+        resi = np.array( f[spotname+'/contrasts/ETmodel_resi'] )
+        self.residualsPlotWidget.axes_ETportrait.stem( [resi]+.5*w, [.75*np.max(n)], \
+                                                         linefmt='r-', markerfmt='ro', basefmt='r-')
+        
+
         f.close()
 
         self.intPlotWidget.fig.canvas.draw()
         self.portraitPlotWidget.fig.canvas.draw()
         self.projectionsPlotWidget.fig.canvas.draw()
         self.ETmodelPlotWidget.fig.canvas.draw()
+        self.residualsPlotWidget.fig.canvas.draw()
 
         # message for status bar
         msg  = 'Int=%.2f    ' % np.mean(intensity)
@@ -457,6 +516,67 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
 
         ### spot coverage ###
         self.draw_mean_int_and_spot_coverage()
+
+
+
+    def show_portraits(self,f):
+        spotname  = '/spot_00%04d' % self.csi
+        pis = np.array( f['portrait_indices'] )
+        lis = np.array( f['line_indices'] )
+        intensity = np.array( f[spotname+'/intensity'] )
+        exangles = np.array( f['exangles'] )
+        lfps = np.array( f[spotname+'/fits/linefitparams'] )
+        mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ))
+
+        emangles = np.array( f['emangles'] ) 
+
+        if self.numericPortraitsPushButton.isChecked():
+            ### show numerical portraits ###
+            # first two numerical data portraits
+            #        ndp = np.zeros( (len(pis)-1, emangles.size, exangles.size) )
+            ndp = np.zeros( (lis.shape[0], lis.shape[1], lis.shape[2]/lis.shape[1]) )
+            for pi in range(len(pis)-1):
+                for li in range(len(lis[pi])):
+                    ndp[pi,li,:] = intensity[ pis[pi]:pis[pi+1] ][ lis[pi][li] ]
+            # first two portraits:
+            for pi in range(len(pis)-1):
+                self.portraitPlotWidget.axes[0,pi].imshow( ndp[pi], interpolation='nearest', \
+                                                               extent=[np.min(exangles),np.max(exangles),\
+                                                                           np.min(emangles),np.max(emangles)], \
+                                                               origin='bottom' )
+            # average numerical portrait
+            self.portraitPlotWidget.axes[0,2].imshow( np.mean(ndp,axis=0), interpolation='nearest',\
+                                                          extent=[np.min(exangles),np.max(exangles),\
+                                                                      np.min(emangles),np.max(emangles)], \
+                                                          origin='bottom' )
+        elif self.interpolatedPortraitsPushButton.isChecked():
+            ### build and display fitted portraits ###
+            # need to first evaluate the line fits for finely spaced excitation angles
+            fineexa = np.linspace( np.min(exangles), np.max(exangles), 40, endpoint=False)
+            fineema = np.linspace( np.min(emangles), np.max(emangles), 40, endpoint=False)
+            finelines = np.zeros( (lis.shape[1], fineexa.size) )
+            fineportraits = np.zeros( (len(pis)-1, fineema.size, fineexa.size) )
+            for pi in range(len(pis)-1):          # go through all portraits
+                for li in range(len(lis[pi])):    # go through all lines in this portrait
+                    finelines[li,:] = mycos(fineexa, lfps[pi][li][0],lfps[pi][li][1],lfps[pi][li][2])
+                # vertical fit for all those fine-ex-angles
+                ema = np.unique(emangles)
+                phase, I0, M, resi, fit, rawfitpars, mm = CosineFitter_new( ema, finelines, 91 ) 
+                # and store in portrait array
+                for j in range(len(phase)):
+                    fineportraits[pi,:,j] = mycos( fineema, phase[j], I0[j], M[j] )
+            # first two fitted portraits
+            for pi in range(len(pis)-1):
+                self.portraitPlotWidget.axes[0,pi].imshow( fineportraits[pi], interpolation='nearest',\
+                                                               origin='bottom')
+            # mean fitted portrait
+            self.portraitPlotWidget.axes[0,2].imshow( np.mean(fineportraits,axis=0), interpolation='nearest',\
+                                                          origin='bottom')
+        else:
+            raise hell
+
+        self.portraitPlotWidget.fig.canvas.draw()
+
 
 
     def draw_mean_int_and_spot_coverage(self):

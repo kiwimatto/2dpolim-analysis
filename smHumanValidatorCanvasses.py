@@ -35,7 +35,7 @@ class PortraitMplCanvas(FigureCanvas):
         matplotlib.rcParams.update( {'font size': 9} )
         # self.fig = Figure(figsize=(width, height), dpi=dpi)
         # self.axes = self.fig.add_subplot(1,1,1)
-        self.fig, self.axes = plt.subplots( 3,3, figsize=(width, height), dpi=dpi, frameon=False ) 
+        self.fig, self.axes = plt.subplots( 2,3, figsize=(width, height), dpi=dpi, frameon=False ) 
         self.fig.subplots_adjust(left=0., bottom=0., top=1, right=1, wspace=0.01, hspace=0.01)
         for a in self.axes.flatten():
             a.axis('off')
@@ -114,3 +114,24 @@ class spotcoverageMplCanvas(FigureCanvas):
 
     def clear(self):
         self.axes.clear()
+
+class residualsMplCanvas(FigureCanvas):
+    """Simple canvas with a sine plot."""
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        matplotlib.rcParams.update( {'font size': 9} )
+        self.axes_portrait = self.fig.add_subplot(2,1,1)
+        self.axes_ETportrait = self.fig.add_subplot(2,1,2)
+        self.fig.subplots_adjust(left=0, bottom=0, top=1, right=1, wspace=0, hspace=0)
+
+        FigureCanvas.__init__(self, self.fig)
+        self.setParent(parent)
+
+        FigureCanvas.setSizePolicy(self,
+                                   QtGui.QSizePolicy.Expanding,
+                                   QtGui.QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+
+    def clear(self):
+        self.axes_portrait.clear()
+        self.axes_ETportrait.clear()
