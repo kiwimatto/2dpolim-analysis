@@ -37,7 +37,7 @@ class BothMotorsWithHeader:
                 else:
                     self.header['comments'].append( line[0] )
             if Nheaderlines >= 1000:
-                print 'Tried to read in 1000 header lines --- either this file has no header or the header contains a novel, you tell me...   (Bombing out)'
+                print 'Tried to read in 1000 header lines --- either this file has no header or the header contains a novel, you tell me...   (bombing out)'
                 raise SystemExit
 
         f.close()
@@ -52,9 +52,17 @@ class BothMotorsWithHeader:
         if not np.isnan( self.phase_offset_in_deg ):
             phase_offset_in_deg = self.phase_offset_in_deg
         else:
+            if not self.header.has_key('phase offset in deg'):
+                raise ValueError("The header is missing the entry for 'phase offset in deg'. Cannot continue.")
             if not np.isnan(self.header['phase offset in deg']):
                 phase_offset_in_deg = self.header['phase offset in deg']
+                print "Motorfile: got phase offset of %f deg" % (phase_offset_in_deg)
             else:
+                print '\n\n\n'
+                print '###################################################################\n'
+                print "Cannot continue: the phase offset in the header is NaN.\nThis should only be the case for AM measurements.\nMost likely you forgot to specify the phase offset in the header data (fix this now in the motor file, %s).\nIf this is not the case, and this is an AM measurement, then for some reason the presumed phase offset was not passed to the movie class (that is, you're doing something wrong in the AM software).\n" % (filename)
+                print '###################################################################\n'
+                raw_input('[got that? press enter]')
                 raise ValueError("Phase offset in header is NaN (which should only be the case if this is an AM measurement), but no phase offset was specified to the movie class.")
 
         self.framenumbers = md[:,0]
@@ -65,19 +73,33 @@ class BothMotorsWithHeader:
             self.emission_angles          = md[:,4] * np.pi/180.0
             self.sample_plane_intensities = md[:,3]
         elif md.shape[1]==3:
+            if not self.header.has_key('optical element in excitation'):
+                raise ValueError("The header is missing the entry 'optical element in excitation'. Cannot continue.")
             if self.header['optical element in excitation']=='l/2 plate':
                 print 'Header says that l/2 plate was used.'
                 self.excitation_angles = (2*md[:,1] + phase_offset_in_deg ) * np.pi/180.0
             else:
-                print 'Er... header says that l/2 plate was _not_ used. Correct??'
+                print 'Err... header says that l/2 plate was _not_ used. Correct??'
                 self.excitation_angles = (  md[:,1] + phase_offset_in_deg ) * np.pi/180.0
             self.emission_angles   = md[:,2] * np.pi/180.0
         else:
-            raise ValueError("Huh? What the fuck man?")
+            raise ValueError("Huh? Something's very wrong here... the number of columns in the motor file appears to be neither five (standard) nor three (older style). Cannot continue.")
 
         self.excitation_angles     = np.mod( self.excitation_angles, np.pi ) 
         self.emission_angles       = np.mod( self.emission_angles, np.pi )
         self.phase_offset_in_deg   = phase_offset_in_deg
+#        print self.excitation_angles
+
+
+
+
+
+
+
+###### OLD MOTOR CLASSES #######
+
+
+
 
 class BothMotors:
     def __init__( self, filename, phase_offset_in_deg=0 ):
@@ -217,11 +239,6 @@ class NewSetupMotors:
                         np.interp( time, self.timestamps, self.emisangles ), np.pi ) )
 
 
-
-
-
-
-###### OLD MOTOR CLASSES #######
 
 
 class ExcitationMotor:

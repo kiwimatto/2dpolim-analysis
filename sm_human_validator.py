@@ -29,6 +29,8 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.curmsg = None
 
         self.next()
+        
+#        QtGui.QMessageBox.about(self, 'test1', 'test2')
 
     def main(self):
         self.show()
@@ -103,11 +105,13 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             print 'no files found'
 
         # save current message (if any)
-        if not os.path.exists(self.data_directory + os.path.sep + 'smhv_results.txt'):
-            f = open(self.data_directory + os.path.sep + 'smhv_results.txt','w')
-            f.writelines(['Int\tM_ex\tM_em\tphase_ex\tphase_em\tET_M\tET_phase\tET_gr\tET_et\n'])
+        outfilename = self.data_directory + os.path.sep + self.hdf5files[self.cfi][:-5] + '_smhv_results.txt'
+        print outfilename
+        if not os.path.exists(outfilename):
+            f = open( outfilename, 'w' )
+            f.writelines(['Filename\tspot-index\tX\tY\tInt\tmeanSNR\tM_ex\tM_em\tphase_ex[deg]\tphase_em[deg]\tLS[deg]\taniso\tET_M\tET_phase[deg]\tET_gr\tET_et\tET_resi\n'])
         else:
-            f = open(self.data_directory + os.path.sep + 'smhv_results.txt','a')
+            f = open( outfilename, 'a' )
         if not self.curmsg==None:
             f.writelines([self.curmsg+'\n'])
         f.close()
@@ -116,11 +120,18 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             # write result in hdf5
             spotname  = '/spot_00%04d' % self.csi
             filename = self.data_directory + os.path.sep + self.hdf5files[self.cfi]
-            f = h5py.File( filename, 'r+' )
+            f = h5py.File( filename, 'a' )
+            #ok = f.require_dataset( spotname+'/ok_by_eye', shape=(), dtype='bool', data=False )
             if self.curmsg==None:
-                f.create_dataset( spotname+'/ok_by_eye', data=False )
+                if f[ spotname ].__contains__('ok_by_eye'):
+                    f[ spotname+'/ok_by_eye' ].write_direct( np.array(False) )
+                else:
+                    f.create_dataset( spotname+'/ok_by_eye', data=False )
             else:
-                f.create_dataset( spotname+'/ok_by_eye', data=True )
+                if f[ spotname ].__contains__('ok_by_eye'):
+                    f[ spotname+'/ok_by_eye' ].write_direct( np.array(True) )
+                else:
+                    f.create_dataset( spotname+'/ok_by_eye', data=True )
             f.close()
 
         # next
@@ -253,16 +264,18 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         # collect intensity data into lines, where exangles are sorted (ascending)
         linedata = []
         for pi in range(len(lis)):               # for each portrait
-            portint = intensity[pis[pi]:pis[pi+1]]
+            portint = intensity[pis[pi]:pis[pi+1]]    # vector of intensities for all frames in this portrait
             for li in range(len(lis[pi])):       # for each line
-                exa = exangles[ lis[pi][li] ]
-                exasorti = np.argsort(exa)
-                exasort  = exa[exasorti]
-                sig = portint[ lis[pi][li] ]
-                sigsort  = sig[exasorti]
-                linedata.append( np.vstack([exasort,sigsort]).T )
+                exa = exangles[ lis[pi][li] ]       # get the exangles here
+                exasorti = np.argsort(exa)          # find the index vector which sorts the exangles
+                exasort  = exa[exasorti]            # create sorted exangles array
+                sig = portint[ lis[pi][li] ]        # get the intensity array for this line
+                sigsort  = sig[exasorti]            # sort it with the same indices which sorted the exangle
+                # append [exangles,intensity] array to linedata list
+                linedata.append( np.vstack([exasort,sigsort]).T )  
 
-        ymax = 1.2* np.max( np.array(linedata)[:,:,1] )
+        # for plot scaling
+        ymax = 1.2* np.max( np.array(linedata)[:,:,1] ) 
         ymin = 0 # np.min( np.array(linedata)[:,:,1] )
 
         ### intensity ###
@@ -304,7 +317,7 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
             intAxes[i].plot( [lfpsr[i,0],lfpsr[i,0]], [0,np.interp(lfpsr[i,0], fineexa, fit)], 'r--' )
 
             # previous portrait fits..
-            if i>=Nlinesperportrait:
+            if i >= Nlinesperportrait:
                 j = i - Nlinesperportrait
                 ldold = linedata[j]
                 fineexa = np.linspace( np.min(ldold[:,0]), np.max(ldold[:,0]), 40 )
@@ -353,10 +366,16 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.show_portraits(f)
 
         ### modulation depths and their fits ###
-        exa = np.unique( np.array( f['excitation_angles_grid'] ) )
-        ema = np.unique( np.array( f['emission_angles_grid'] ) )
-        exafine = np.linspace( np.min(exa), np.max(exa), 40 )
+#        exa = np.unique( np.array( f['excitation_angles_grid'] ) )
+#        ema = np.unique( np.array( f['emission_angles_grid'] ) )
+        exa = np.array( f['excitation_angles_grid'] )
+        ema = np.array( f['emission_angles_grid'] )
+#        print "exa:",exa
+#        print "ema:",ema
+        exafine = np.linspace( np.min(exa), np.max(exa), 60 )
         emafine = np.linspace( np.min(ema), np.max(ema), 40 )
+#        print "exafine:",exafine
+#        print "emafine:",emafine
 
         modexdata = np.array( f[spotname+'/fits/modulation_ex_data'] )
         modemdata = np.array( f[spotname+'/fits/modulation_em_data'] )
@@ -367,24 +386,28 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         I_em     = np.array( f[spotname+'/contrasts/I_em'] )
         M_em     = np.array( f[spotname+'/contrasts/M_em'] )
         phase_em = np.array( f[spotname+'/contrasts/phase_em'] )
+        LS       = np.array( f[spotname+'/contrasts/LS'] )
         modexfit = mycos( exafine, phase_ex, I_ex, M_ex )
         modemfit = mycos( emafine, phase_em, I_em, M_em )
 
         modexfit2 = np.array( f[spotname+'/fits/modulation_ex_fit'] )
         modemfit2 = np.array( f[spotname+'/fits/modulation_em_fit'] )
-        self.projectionsPlotWidget.axes_mex.plot( exa, modexdata, 'b-s', markerfacecolor='none' )
-        self.projectionsPlotWidget.axes_mex.plot( exa, modexfit2, 'rx' )
-        self.projectionsPlotWidget.axes_mex.plot( exa, modexdata-modexfit2, 'r:' )
-        self.projectionsPlotWidget.axes_mex.plot( exafine, modexfit, 'r-' )
+        print exa
+        self.projectionsPlotWidget.axes_mex.plot( exa, modexdata, 'b-x' )
+        self.projectionsPlotWidget.axes_mex.plot( exa, modexfit2, 'r:s', markerfacecolor='none', \
+                                                      markeredgecolor='r', markersize=8 )
+#        self.projectionsPlotWidget.axes_mex.plot( exa, modexdata-modexfit2, 'r-.' )
+        self.projectionsPlotWidget.axes_mex.plot( exafine, modexfit, 'r-' )    # fix phase here
         self.projectionsPlotWidget.axes_mex.plot( [phase_ex,phase_ex], \
                                                       [0, np.interp(phase_ex,exafine,modexfit)], 'r--' )
         self.projectionsPlotWidget.axes_mex.set_xlim( np.min(exa),np.max(exa) )
         self.projectionsPlotWidget.axes_mex.set_ylim( -.2*np.max(modexfit), 1.2*np.max(modexfit) )
         
 
-        self.projectionsPlotWidget.axes_mem.plot( ema, modemdata, 'b-s', markerfacecolor='none' )
-        self.projectionsPlotWidget.axes_mem.plot( ema, modemfit2, 'rx' )
-        self.projectionsPlotWidget.axes_mem.plot( ema, modemdata-modemfit2, 'r:' )
+        self.projectionsPlotWidget.axes_mem.plot( ema, modemdata, 'b-x' )
+        self.projectionsPlotWidget.axes_mem.plot( ema, modemfit2, 'r:s', markerfacecolor='none', \
+                                                      markeredgecolor='r', markersize=8 )
+#        self.projectionsPlotWidget.axes_mem.plot( ema, modemdata-modemfit2, 'r:' )
         self.projectionsPlotWidget.axes_mem.plot( emafine, modemfit, 'r-' )
         self.projectionsPlotWidget.axes_mem.plot( [phase_em,phase_em], \
                                                       [0, np.interp(phase_em,emafine,modemfit)], 'r--' )
@@ -403,7 +426,8 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
 
         # flattened meshgrid of the angles of the first portrait
 #        EX, EM = exangles[pis[0]:pis[1]].flatten(), emangles[pis[0]:pis[1]].flatten()
-        EX, EM = np.meshgrid( exafine, emafine )
+        EXfine, EMfine = np.meshgrid( exafine, emafine )
+        EX, EM = np.meshgrid( exa, ema )
 
         # calculate angle between off-axis dipoles in symmetric model
         if np.isnan(gr): gr=1.0
@@ -411,26 +435,32 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
 
         ph_ii_minus = phase_ex -alpha
         ph_ii_plus  = phase_ex +alpha
+        
+        # fine version
+        Fnoetfine  =    np.cos( EXfine-ph_ii_minus )**2 * np.cos( EMfine-ph_ii_minus )**2
+        Fnoetfine += gr*np.cos( EXfine-phase_ex )**2 * np.cos( EMfine-phase_ex )**2
+        Fnoetfine +=    np.cos( EXfine-ph_ii_plus )**2 * np.cos( EMfine-ph_ii_plus )**2
+        Fnoetfine /= (2.0+gr)
+        Fnoetfine /= np.sum(Fnoetfine)
+#        Fetfine    = .25 * (1+md_ex*np.cos(2*(EXfine-phase_ex))) * (1+md_fu*np.cos(2*(EMfine-th_fu-phase_ex)))
+        Fetfine    = .25 * (1+md_ex*np.cos(2*(EXfine-phase_ex))) * (1+md_fu*np.cos(2*(EMfine-th_fu)))
+        Fetfine   /= np.sum(Fetfine)
+        modelfine  = et*Fetfine + (1-et)*Fnoetfine
 
-        # print EX
-        # print EM
-        # print np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
-        # raise SystemExit
+        # coarse version
         Fnoet  =    np.cos( EX-ph_ii_minus )**2 * np.cos( EM-ph_ii_minus )**2
         Fnoet += gr*np.cos( EX-phase_ex )**2 * np.cos( EM-phase_ex )**2
         Fnoet +=    np.cos( EX-ph_ii_plus )**2 * np.cos( EM-ph_ii_plus )**2
         Fnoet /= (2.0+gr)
-    
-        Fet   = .25 * (1+md_ex*np.cos(2*(EX-phase_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-phase_ex)))
+        Fnoet /= np.sum(Fnoet)
+#        Fet    = .25 * (1+md_ex*np.cos(2*(EX-phase_ex))) * (1+md_fu*np.cos(2*(EM-th_fu-phase_ex)))
+        Fet    = .25 * (1+md_ex*np.cos(2*(EX-phase_ex))) * (1+md_fu*np.cos(2*(EM-th_fu)))
+        Fet   /= np.sum(Fet)
+        model  = et*Fet + (1-et)*Fnoet
 
-        model = et*Fet + (1-et)*Fnoet
-
-        self.portraitPlotWidget.axes[1,0].imshow( Fnoet.reshape( (emafine.size, exafine.size) ), \
-                                                      interpolation='nearest', origin='bottom' )
-        self.portraitPlotWidget.axes[1,1].imshow( Fet.reshape( (emafine.size, exafine.size) ), \
-                                                      interpolation='nearest', origin='bottom' )
-        self.portraitPlotWidget.axes[1,2].imshow( model.reshape( (emafine.size, exafine.size) ), \
-                                                      interpolation='nearest', origin='bottom' )
+        self.portraitPlotWidget.axes[1,0].imshow( Fnoetfine, interpolation='nearest', origin='bottom' )
+        self.portraitPlotWidget.axes[1,1].imshow( Fetfine, interpolation='nearest', origin='bottom' )
+        self.portraitPlotWidget.axes[1,2].imshow( modelfine, interpolation='nearest', origin='bottom' )
 
         # now draw the model dipoles
         self.ETmodelPlotWidget.axes.plot( [phase_ex,phase_ex+np.pi], [gr,gr], 'k-', lw=2 )
@@ -439,30 +469,33 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.ETmodelPlotWidget.axes.set_yticklabels([])
 
         # now the projections of the model
-        sam = np.array(f[spotname+'/sam'])
-        fnoetp  = Fnoet.copy()
-        fnoetp  = fnoetp.reshape( (emafine.size, exafine.size) )
-        fnoetp /= np.max(fnoetp)
-        fnoetp *= np.sum( sam )
-        fnoetp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
-        self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( fnoetp, axis=0 ), 'g:' )
-        self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( fnoetp, axis=1 ), 'g:' )
+        # load the average portrait
+        sam  = np.array(f[spotname+'/sam'])
 
-        fetp  = Fet.copy()
-        fetp  = fetp.reshape( (emafine.size, exafine.size) )
-        fetp /= np.max(fetp)
-        fetp *= np.sum( sam )            
-        fetp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
-        self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( fetp, axis=0 ), 'g-.' )
-        self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( fetp, axis=1 ), 'g-.' )
+        self.projectionsPlotWidget.axes_mex.plot( exa, np.mean( model, axis=0 )*np.sum(sam), \
+                                                      'g:o', markerfacecolor='none', \
+                                                      markeredgecolor='g', markersize=12 )
+        self.projectionsPlotWidget.axes_mem.plot( ema, np.mean( model, axis=1 )*np.sum(sam), \
+                                                      'g:o', markerfacecolor='none', \
+                                                      markeredgecolor='g', markersize=12 )
+#        self.projectionsPlotWidget.axes_mex.plot( exa, np.mean( sam, axis=0 ), 'c:' )
+        # self.projectionsPlotWidget.axes_mem.plot( ema, np.mean( sam, axis=1 ), 'c:' )
 
-        modelp  = model.copy()
-        modelp  = modelp.reshape( (emafine.size, exafine.size) )
-        modelp /= np.max( modelp )
-        modelp *= np.sum( sam )            
-        modelp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
-        self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( modelp, axis=0 ), 'g--' )
-        self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( modelp, axis=1 ), 'g--' )
+#         fetp  = Fet.copy()
+#         fetp  = fetp.reshape( (emafine.size, exafine.size) )
+# #        fetp /= np.max(fetp)
+# #        fetp *= np.sum( sam )            
+# #        fetp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
+#         self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( fetp, axis=0 ), 'g-.' )
+#         self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( fetp, axis=1 ), 'g-.' )
+
+#         modelp  = model.copy()
+#         modelp  = modelp.reshape( (emafine.size, exafine.size) )
+# #        modelp /= np.max( modelp )
+# #        modelp *= np.sum( sam )            
+# #        modelp *= np.max(np.abs(np.diff(emafine))) / np.max(np.abs(np.diff(ema)))
+#         self.projectionsPlotWidget.axes_mex.plot( exafine, np.mean( modelp, axis=0 ), 'g--' )
+#         self.projectionsPlotWidget.axes_mem.plot( emafine, np.mean( modelp, axis=1 ), 'g--' )
 
         # draw residual histograms
         n  = self.fitresi_hist[0]
@@ -481,6 +514,12 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.residualsPlotWidget.axes_ETportrait.stem( [resi]+.5*w, [.75*np.max(n)], \
                                                          linefmt='r-', markerfmt='ro', basefmt='r-')
         
+        # grab spot center
+        center  = np.array(f[spotname+'/setup/center'])
+        # grab spot anisotropy
+        anisotropy = np.array( f[spotname+'/contrasts/anisotropy'] )
+        # grab frame-averaged SNR
+        meanSNR = np.mean( np.array( f[spotname+'/SNR/SNR'] ) )
 
         f.close()
 
@@ -491,27 +530,39 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         self.residualsPlotWidget.fig.canvas.draw()
 
         # message for status bar
-        msg  = 'Int=%.2f    ' % np.mean(intensity)
+        msg  = 'X=%.2f  ' % center[1]
+        msg += 'Y=%.2f    ' % center[0]
+        msg += 'Int=%.2f    ' % np.mean(intensity)
         msg += 'Mex=%.2f    ' % M_ex
         msg += 'Mem=%.2f    ' % M_em
-        msg += 'phex=%.1f    ' % (phase_ex * 180.0/np.pi)
-        msg += 'phem=%.1f    ' % (phase_em * 180.0/np.pi)
-        msg += 'md_fu=%.1f    ' % md_fu
-        msg += 'ph_fu=%.1f    ' % (th_fu * 180.0/np.pi)
+        msg += 'phex=%.2f    ' % (phase_ex * 180.0/np.pi)
+        msg += 'phem=%.2f    ' % (phase_em * 180.0/np.pi)
+        msg += 'LS=%.2f    ' % (LS * 180/np.pi)
+        msg += 'anito=%.2f    ' % anisotropy
+        msg += 'md_fu=%.2f    ' % md_fu
+        msg += 'ph_fu=%.2f    ' % (th_fu * 180.0/np.pi)
         msg += 'gr=%.2f    ' % gr
         msg += 'et=%.2f    ' % et
         self.statusbar.showMessage( msg )
 
         # message for file
-        msg  = '%.2f\t' % np.mean(intensity)
+        msg  = self.hdf5files[self.cfi]+'\t'
+        msg += '%d\t' % self.csi
+        msg += '%.1f\t' % center[1]
+        msg += '%.1f\t' % center[0]
+        msg += '%.2f\t' % np.mean(intensity)
+        msg += '%.3f\t' % meanSNR
         msg += '%.2f\t' % M_ex
         msg += '%.2f\t' % M_em
-        msg += '%.1f\t' % (phase_ex * 180.0/np.pi)
-        msg += '%.1f\t' % (phase_em * 180.0/np.pi)
-        msg += '%.1f\t' % md_fu
-        msg += '%.1f\t' % (th_fu * 180.0/np.pi)
+        msg += '%.2f\t' % (phase_ex * 180.0/np.pi)
+        msg += '%.2f\t' % (phase_em * 180.0/np.pi)
+        msg += '%.2f\t' % (LS * 180/np.pi)
+        msg += '%.2f\t' % anisotropy
+        msg += '%.2f\t' % md_fu
+        msg += '%.2f\t' % (th_fu * 180.0/np.pi)
         msg += '%.2f\t' % gr
         msg += '%.2f\t' % et
+        msg += '%.3f\t' % resi
         self.curmsg = msg
 
         ### spot coverage ###

@@ -498,8 +498,8 @@ class Spot:
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ) )
 
         # indices of the angles which were measured in the portrait
-        iuexa = self.parent.uexa_portrait_indices
-        iuema = self.parent.uema_portrait_indices
+        #iuexa = self.parent.uexa_portrait_indices
+        #iuema = self.parent.uema_portrait_indices
       
         experimental_portrait = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )
         experimental_exangles = np.zeros( (self.parent.Nlines, len(self.parent.unique_exangles)) )

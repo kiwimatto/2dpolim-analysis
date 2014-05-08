@@ -5,6 +5,9 @@ from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
 import time as stopwatch
 
 
+
+#### data directory and file name ####
+
 prefix = '/home/rafael/Desktop/Win/Blend'
 basename = 'blend-S3-01-Iso-Red-OD1-gain1'
 

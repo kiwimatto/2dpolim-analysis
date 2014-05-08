@@ -83,6 +83,14 @@ def find_measurement_files_in_directory( directory ):
 def import_spot_positions( movie, basename, boxedgelength=5, spot_type='square', \
                                use_exspot=False, use_borderbg=False ):
 
+    if not movie.bg_spot_sample==None:
+        if use_borderbg:
+            print "##################################################\n"
+            print "You defined a background spot before you called import_spot_positions(), _but_ you also say that spots should use their own background (use_borderbg=True). It should be one or the other, but not both.\n"
+            print "##################################################\n"
+            raw_input('[got that? press enter]')
+            raise ValueError('Bg specified and border-bg requested at the same time...')
+
     coords_filename = 'spotcoordinates_'+basename+'.txt'
     f  = open(coords_filename, 'r')
     cs = f.readlines()

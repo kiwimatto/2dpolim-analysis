@@ -34,6 +34,8 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 
         self.header = {}
 
+        self.selection_area_shape = 'Rectangle'
+
     def main(self):
         self.show()
 
@@ -49,7 +51,6 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.logScaleComboBox.activated.connect( self.drawFrame )
         self.cmapComboBox.activated.connect( self.drawFrame )
         self.highlightClusterPositionsCheckBox.stateChanged.connect( self.drawFrame )
-        self.cropPushButton.clicked.connect( self.crop )
         self.bgCorrectPushButton.clicked.connect( self.bgCorrect )
         self.resetPushButton.clicked.connect( self.reset )
         self.loadDefaultPushButton.clicked.connect( self.loadDefault )
@@ -73,13 +74,68 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         self.specialForOldDataMapPushButton.clicked.connect( self.special_for_old_data_map )
         self.specialForOldDataAllPushButton.clicked.connect( self.special_for_old_data_all )
         self.clusterDistanceThresholdSlider.valueChanged.connect( self.clusterDistanceThresholdSliderChanged)
-#        self.clusterCrossFrameDistanceThresholdSlider.valueChanged.connect( self.clusterValidationSlidersChanged)
         self.clusterFrameThresholdSlider.valueChanged.connect( self.clusterFrameThresholdSliderChanged)
 
-
-#        self.clusterMergeAcrossFramesCheckBox.stateChanged.connect( self.clusterValidationStateChanged )
+        self.selectRectanglePushButton.clicked.connect( self.selectRectangle )
+        self.selectCirclePushButton.clicked.connect( self.selectCircle )
 
         self.writeCoordsPushButton.clicked.connect( self.writeCoordinates )
+
+
+    def mask_clusters(self):
+        if self.selection_area_shape=='Rectangle':
+            good_rows = np.logical_and( self.validclusters[:,0] > self.imageview.selectionr0, \
+                                            self.validclusters[:,0] < self.imageview.selectionr1 )
+            good_cols = np.logical_and( self.validclusters[:,1] > self.imageview.selectionc0, \
+                                            self.validclusters[:,1] < self.imageview.selectionc1 )
+            good      = np.logical_and( good_rows, good_cols )
+            self.validclusters = self.validclusters[good]
+
+        elif self.selection_area_shape=='Circle':
+            center = np.array( [self.imageview.selectionr0, self.imageview.selectionc0] )
+            radius = np.sqrt( (self.imageview.selectionc1-self.imageview.selectionc0)**2 \
+                                     + (self.imageview.selectionr1-self.imageview.selectionr0)**2 )
+            distance = np.sqrt( np.sum( \
+                    (self.validclusters - np.outer( np.ones((self.validclusters.shape[0],)), center ))**2, \
+                        axis=1 ) )
+            self.validclusters = self.validclusters[ distance < radius ]            
+
+        else:
+            raise the_dead
+
+    def selectRectangle(self):
+        if self.selectRectanglePushButton.isChecked():
+            self.selectRectanglePushButton.setText('done')
+            self.imageview.selectiontype = 'Rectangle'
+            # remove selection circle
+            self.imageview.selectioncircle.remove()
+            # add rectangle
+            self.imageview.myaxes.add_patch( self.imageview.selectionrectangle )
+            self.selection_area_shape = 'Rectangle'
+            # uncheck circle selection if checked
+            if self.selectCirclePushButton.isChecked():
+                self.selectCirclePushButton.setChecked(False)
+                self.selectCirclePushButton.setText('select circle')
+        else:
+            self.selectRectanglePushButton.setText('select rectangle')
+            self.imageview.selectiontype = None
+
+    def selectCircle(self):
+        if self.selectCirclePushButton.isChecked():
+            self.selectCirclePushButton.setText('done')
+            self.imageview.selectiontype = 'Circle'
+            # remove selection rectangle
+            self.imageview.selectionrectangle.remove()
+            # add rectangle
+            self.imageview.myaxes.add_patch( self.imageview.selectioncircle )
+            self.selection_area_shape = 'Circle'
+            # uncheck rectangle selection if checked
+            if self.selectRectanglePushButton.isChecked():
+                self.selectRectanglePushButton.setChecked(False)
+                self.selectRectanglePushButton.setText('select rectangle')
+        else:
+            self.selectCirclePushButton.setText('select circle')
+            self.imageview.selectiontype = None
 
     def bgCorrect(self):
         c0 = self.imageview.c0
@@ -92,10 +148,10 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         assert not r1==None, 'At least one of the coordinates of the selection rectangle is None.'
 
         bglevel = np.mean( self.spefile[:,r0:r1,c0:c1] )
-        print bglevel
+        print "bg level is:",bglevel
 
         self.spefile -= bglevel
-        print np.mean( self.spefile[:,r0:r1,c0:c1] )
+        print "after subtraction of bg level, signal mean is:",np.mean( self.spefile[:,r0:r1,c0:c1] )
 
         self.drawFrame()
 
@@ -267,6 +323,10 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
 #        self.imageview.myaxes.imshow( self.spefile[0], interpolation='nearest' )
 #        self.imageview.figure.canvas.draw()
 
+        margin = 10
+        self.imageview.set_selection_area( 'Rectangle', margin, margin, \
+                                               self.spefile.shape[2]-margin, self.spefile.shape[1]-margin )
+
 #        self.frameAverageToggleButton.setEnabled(True)
         self.statusbar.showMessage("SPE file loaded. %d frames" % self.spefile.shape[0])
 
@@ -406,8 +466,9 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
             if hasattr( self, 'validclusters' ):
                 if not hasattr( self.imageview, 'cluster_markers' ):
                     cmarkers = self.imageview.myaxes.plot( self.validclusters[:,1], \
-                                                         self.validclusters[:,0], 'ko', \
-                                                         markersize=8, markerfacecolor='none', zorder=5 )
+                                                         self.validclusters[:,0], 'o', \
+                                                         markersize=8, markerfacecolor='none', \
+                                                               markeredgecolor='r', zorder=5 )
                     self.imageview.cluster_markers = cmarkers[0]
                 else:
                     self.imageview.cluster_markers.set_data( self.validclusters[:,1], \
@@ -515,7 +576,7 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         clusterimage, nclusters = smdetect.mark_all_clusters(clusterimage)
 #        plt.imshow(clusterimage)
 #        plt.savefig(self.filedir+'clusterimage.png')
-        print self.filedir+'clusterimage.png'
+#        print self.filedir+'clusterimage.png'
 
         Ngoodframesrequired = self.clusterFrameThresholdSlider.value()
 
@@ -574,6 +635,9 @@ class sm_detector_gui_logic(QtGui.QMainWindow,sm_detector_layout.Ui_MainWindow):
         validity = np.min( validity, axis=0 ).astype(np.bool)
         # and only keep those clusters marked as valid
         self.validclusters = self.validclusters[validity]
+
+        self.mask_clusters()
+        print self.validclusters
 
         # now plotting: 
         if self.useOriginalDataToggleButton.isChecked():
@@ -1028,42 +1092,42 @@ Frame	Excitation Physical Angle	Excitation Polarization Angle	Excitation Power [
         self.maxClusterSizeThresholdLabel.setText( "%d pixel" % t )
 #        self.findClusters()
 
-    def crop(self):
-        if self.imageview.c0 > self.imageview.c1:
-            c0 = self.imageview.c1
-            c1 = self.imageview.c0
-        else:
-            c0 = self.imageview.c0
-            c1 = self.imageview.c1
-        if self.imageview.r0 > self.imageview.r1:
-            r0 = self.imageview.r1
-            r1 = self.imageview.r0
-        else:
-            r0 = self.imageview.r0
-            r1 = self.imageview.r1
+    # def crop(self):
+    #     if self.imageview.c0 > self.imageview.c1:
+    #         c0 = self.imageview.c1
+    #         c1 = self.imageview.c0
+    #     else:
+    #         c0 = self.imageview.c0
+    #         c1 = self.imageview.c1
+    #     if self.imageview.r0 > self.imageview.r1:
+    #         r0 = self.imageview.r1
+    #         r1 = self.imageview.r0
+    #     else:
+    #         r0 = self.imageview.r0
+    #         r1 = self.imageview.r1
 
-        print 'cropping!'
-        print 'going from dimensions:'
-        print self.spefile.shape
-        print self.blankfile.shape
-        print self.filtered.shape
-        print self.clusters.shape
-        print self.boolimage.shape
+    #     print 'cropping!'
+    #     print 'going from dimensions:'
+    #     print self.spefile.shape
+    #     print self.blankfile.shape
+    #     print self.filtered.shape
+    #     print self.clusters.shape
+    #     print self.boolimage.shape
 
-        self.spefile   = self.spefile[:,r0:r1+1,c0:c1+1]
-        self.blankfile = self.blankfile[:,r0:r1+1,c0:c1+1]
-        self.filtered  = self.filtered[:,r0:r1+1,c0:c1+1]
-        self.clusters  = self.clusters[:,r0:r1+1,c0:c1+1]
-        self.boolimage = self.boolimage[r0:r1+1,c0:c1+1]
+    #     self.spefile   = self.spefile[:,r0:r1+1,c0:c1+1]
+    #     self.blankfile = self.blankfile[:,r0:r1+1,c0:c1+1]
+    #     self.filtered  = self.filtered[:,r0:r1+1,c0:c1+1]
+    #     self.clusters  = self.clusters[:,r0:r1+1,c0:c1+1]
+    #     self.boolimage = self.boolimage[r0:r1+1,c0:c1+1]
 
-        print 'to dimensions:'
-        print self.spefile.shape
-        print self.blankfile.shape
-        print self.filtered.shape
-        print self.clusters.shape
-        print self.boolimage.shape
+    #     print 'to dimensions:'
+    #     print self.spefile.shape
+    #     print self.blankfile.shape
+    #     print self.filtered.shape
+    #     print self.clusters.shape
+    #     print self.boolimage.shape
 
-        self.forceRedrawFrame()
+    #     self.forceRedrawFrame()
 
 
 

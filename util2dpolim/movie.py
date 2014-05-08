@@ -1,9 +1,12 @@
+### here we import the modules we've written
 from cameradata import CameraData
 from fitting import CosineFitter_new
 from spot import Spot
 #from portrait import Portrait
 #from misc import pixel_list
 from motors import *
+
+### and we also import some other functionality
 import os, os.path, time, sys
 import scipy.optimize as so
 import multiprocessing as mproc
@@ -11,8 +14,27 @@ import multiprocessing as mproc
 import warnings
 warnings.filterwarnings('error')
 
+
 def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, ETmodel ):
-#    print thesespots
+    """This is the worker which is called by the multiprocessing function movie.run_mp()
+    This allows parallel analysis, which is useful if many spots are to be analysed, as is
+    often the case in 2D imaging. 
+    NOTE: Currently this doesn't work under Windows, use a virtual machine for now.
+
+    Inputs:
+       - movie: the movie object
+       - resultqueue: the queue to which the results of this process are written
+       - thesespots: the list of spot indices to be dealt with by this process
+       - whichproc: the number of this process (currently ignored)
+       What to do:
+       - fits: boolean, shall we perform portrait fitting?
+       - mods: boolean, shall we find modulation depths etc...?
+       - ETruler, boolean, ...
+       - ETmodel, boolean, ...
+    """
+
+    # first we run the requested tasks (they mostly depend on each other: mods can't run
+    # unless fits are present for these spots)
     if fits:
         movie.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
     if mods:
@@ -23,6 +45,13 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
     if ETmodel:
         movie.ETmodel_selective( myspots=thesespots )
                 
+    # Now all the work is done, and we prepare a dictionary containing 
+    # the new spot data, and write that to the result queue. The reason
+    # for this approach is that the current process (this function) has
+    # been forked from the main process, and the variables here (including
+    # the movie object) are somewhat ephemeral copies. So we prepare a 
+    # little present for the calling process, which will take this new
+    # spot data and merge it back into the main movie object.
     for si in thesespots:
         a = {'spot':si}
         if fits:
@@ -49,17 +78,37 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
     return
 
 
+
 class Movie:
+    """This is the class which governs the analysis process. Like a Harvard MBA, 
+    everything revolves around it.
+
+    It is created by calling it and giving it the data directory and the basename
+    of the data. For example:
+       m = Movie( '/home/jack/2d-data', 'amazing_sample1' )
+    """
+
     def __init__( self, datadir, basename, \
                       phase_offset_in_deg=np.nan, quiet=False ):
+        """
+        This is the constructor; it takes the data directory and the basename
+        as inputs. (The directory string will be cleaned up using os.path.normpath(),
+        so a trailing slash is optional here.)
+        """
 
-        self.cos_fitter = CosineFitter_new
+        # function pointer to the cosine fitter function
+        self.cos_fitter = CosineFitter_new   
+
+        # phase offset in degrees. Defaults to NaN, and will be set be the motor
+        # file. It is only here (and specifiable as input to the class) to support
+        # the artificial molecule analysis, where the phase offset is still unknown.
         self.phase_offset_in_deg = phase_offset_in_deg
 
         # format path correctly for whichever OS we're running under, and add trailing separator
         self.data_directory = os.path.normpath( datadir ) + os.path.sep
         self.data_basename  = basename
  
+        # we init a bunch of variables, pointing to nothing for now
         self.sample_data = None
         self.blank_data  = None
         self.exspot_data = None
@@ -68,134 +117,139 @@ class Movie:
         self.bg_spot_blank     = None
         self.bg_spot_exspot    = None
 
+        # here all the file-finding and loading happens
         self.read_in_EVERYTHING( quiet )
 
+        # more initialization: the list of spots, valid spots, and
+        # all contrast images (outsourced to a separate function)
         self.spots = []
         self.validspots = None
-        self.initContrastImages()
+        self.initContrastImages() 
 
-        # fix the excitation and emission angle grids for now
-        TargetNAngles = 90
-        # ExAngleGridSize = np.round( TargetNAngles/float(len(self.unique_exangles)) ) * len(self.unique_exangles)
-        # EmAngleGridSize = np.round( TargetNAngles/float(len(self.unique_emangles)) ) * len(self.unique_emangles)
+        # Fix the excitation and emission angle grids. These are the grids on which 
+        # we interpret the portrait fits. Currently we match them to the measurement
+        # angles, so simply 6x4. We also apply the phase offset as a correction to 
+        # the excitation angles again, because we linspace before simply for 0 to pi.
+        # (We only linspace the angles so that we keep the option of going to a finer
+        # grid --- but supporting this option probably isn't the best idea in the long
+        # run.)
 
         ExAngleGridSize = self.unique_exangles.size
         EmAngleGridSize = self.unique_emangles.size
         phase_offset_in_rad = self.motors.phase_offset_in_deg * np.pi/180.0
-        self.excitation_angles_grid = np.linspace(0,np.pi,ExAngleGridSize, endpoint=False)
-        self.emission_angles_grid   = np.linspace(0,np.pi,EmAngleGridSize, endpoint=False)
+        # linspace the angles
+        self.excitation_angles_grid  = np.linspace(0,np.pi,ExAngleGridSize, endpoint=False)
+        self.emission_angles_grid    = np.linspace(0,np.pi,EmAngleGridSize, endpoint=False)
         self.excitation_angles_grid += phase_offset_in_rad
-        self.excitation_angles_grid = np.mod( self.excitation_angles_grid, np.pi )
+        # corner-case: there could be values with are equal to pi, but not numerically so
+        # after addition of the phase offset. Catch those by setting angles which are equal
+        # to pi within 10 eps (ten times floating point accuracy) to exactly pi:
+        fix_close_to_pi_here = np.abs(self.excitation_angles_grid-np.pi) < 10*np.finfo(np.float).eps
+        self.excitation_angles_grid[ fix_close_to_pi_here ] = np.pi
+        # need to take modulus w.r.t. pi here, because phase offset may push angles to >pi
+        self.excitation_angles_grid  = np.mod( self.excitation_angles_grid, np.pi )
 #        print self.unique_exangles
 #        print self.excitation_angles_grid
 
-        self.uexa_portrait_indices = []
 #        print self.unique_exangles
 #        print self.excitation_angles_grid
+#        print np.mod(self.excitation_angles_grid[-1], np.pi)
+#        print self.excitation_angles_grid[-1]-np.pi
+
+        # Test that the angles are correct (bomb out if otherwise).
         for uexa in self.unique_exangles:
-            assert np.any(np.abs(uexa-self.excitation_angles_grid) < 10*np.finfo(np.float).eps), \
+            assert np.any( np.abs(uexa-self.excitation_angles_grid) < 10*np.finfo(np.float).eps ), \
                 "The excitation angles and their grid don't match, which is strange..."
-            self.uexa_portrait_indices.append( np.argmin( np.abs(uexa-self.excitation_angles_grid) ) )
-
-        self.uema_portrait_indices = []
         for uema in self.unique_emangles:
             assert np.any(np.abs(uema-self.emission_angles_grid) < 10*np.finfo(np.float).eps), \
                 "The emission angles and their grid don't match, which is strange..."
-            self.uema_portrait_indices.append( np.argmin( np.abs(uema-self.emission_angles_grid) ) )
 
+        ## This is not needed if the grid angles match the measurement angles. It is messy
+        ## to keep track of which grid angles have experimental counterparts, throughout the 
+        ## whole analysis, whereever it may be needed ... It is commented here, because it
+        ## isn't a supported feature at present, and probably never should be.
+        # self.uexa_portrait_indices = []
+        # for uexa in self.unique_exangles:
+        #     self.uexa_portrait_indices.append( np.argmin( np.abs(uexa-self.excitation_angles_grid) ) )
+        # self.uema_portrait_indices = []
+        # for uema in self.unique_emangles:
+        #     self.uema_portrait_indices.append( np.argmin( np.abs(uema-self.emission_angles_grid) ) )
+
+        # Here we set the number of phases through which the cosine fitter will scan.
+        # If your analysis is running very slowly, consider reducing these to 91.
         self.Nexphases_for_cos_fitter = 181
         self.Nemphases_for_cos_fitter = 181
-        # self.precomputed_cosines = [ np.cos(2*(self.emission_angles_grid-ph)) \
-        #                                  for ph in np.linspace(0,np.pi/2,self.Nphases_for_cos_fitter) ]
 
 
     def run_mp(self, Nprocs, fits=True, mods=True, ETruler=True, ETmodel=False):
+        """This is the calling function of the multi-process parallel execution 
+        of the analysis.
 
+        Inputs:
+           - Nprocs: number of processes
+           - fits, mods, ETruler, ETmodel: booleans, specifying the work that 
+             should be done on the spots
+        """
+
+        # make sure that we have fits done if we the modulation depths, etc.
+        # FIXME: the ET model doesn't actually require the ET ruler to run first...
         assert fits >= mods >= ETruler >= ETmodel
 
-        # def worker( resultqueue, thesespots, whichproc, fits, mods, ETruler, ETmodel ):
-        #     if fits:
-        #         self.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
-        #     if mods:
-        #         self.find_modulation_depths_and_phases_selective( myspots=thesespots )
-        #     if ETruler:                
-        #         for si in thesespots:
-        #             self.validspots[si].values_for_ETruler( newdatalength=1024 )
-        #     if ETmodel:
-        #         self.ETmodel_selective( myspots=thesespots )
-                
-        #     for si in thesespots:
-        #         a = {'spot':si}
-        #         if fits:
-        #             a['linefitparams']     = self.validspots[si].linefitparams
-        #             a['residual']          = self.validspots[si].residual
-        #             a['verticalfitparams'] = self.validspots[si].verticalfitparams
-        #         if mods:
-        #             a['M_ex']       = self.validspots[si].M_ex
-        #             a['M_em']       = self.validspots[si].M_em
-        #             a['phase_ex']   = self.validspots[si].phase_ex
-        #             a['phase_em']   = self.validspots[si].phase_em
-        #             a['LS']         = self.validspots[si].LS
-        #             a['anisotropy'] = self.validspots[si].anisotropy
-        #         if ETruler:
-        #             a['ET_ruler'] = self.validspots[si].ET_ruler
-        #         if ETmodel:
-        #             a['ETmodel_md_fu'] = self.validspots[si].ETmodel_md_fu
-        #             a['ETmodel_th_fu'] = self.validspots[si].ETmodel_th_fu
-        #             a['ETmodel_gr']    = self.validspots[si].ETmodel_gr
-        #             a['ETmodel_et']    = self.validspots[si].ETmodel_et
-        #         resultqueue.put( a )
-
-        #     return
-
+        # we split the number of spots into Nprocs separate arrays
         myspots = np.array_split( np.arange(len(self.validspots)), Nprocs )
+        # prepare a queue to hold the results coming back from the individual processes
         resultqueue = mproc.Queue()
+        # prepare the processes
         jobs = [ mproc.Process( target=mp_worker, \
                                     args=(self, resultqueue, myspots[i], i, fits, mods, ETruler, ETmodel)) \
                      for i in range(Nprocs) ]
 
+        # start the processes
         for job in jobs: job.start()
 
+        # form the full list of spots again
         myspots = list(np.concatenate(myspots))
         while len(myspots)>0:
-            a = resultqueue.get()   # this will block until it gets something
-            si = a.pop('spot')
-            # print si
-            # print myspots
+            a = resultqueue.get()   # this will block until it gets something from a forked process
+            si = a.pop('spot')      # grab the spot index
+            # go through all attributes (these were prepared by mp_worker())
             for key in a.keys():
+                # and write these to the root movie object
                 setattr( self.validspots[si], key, a[key] )
+            # we're done with this spot, so we can pop it off the list
             i = myspots.index(si)
             myspots.pop(i)
+            # the  loop will run until the list 'myspots' is empty
 
+        # now all processes are done, so we bring them back in
         for job in jobs: job.join()
 
-        assert resultqueue.empty()
+        # make sure that everything is kosher
+        assert resultqueue.empty(), "Result queue is not empty when it should be!"
 
+        # update the contrast images with the newly found spot properties
         self.update_images()
-
-        # while p.is_alive()==True:
-        #     for i in range(Nprocs):
-        #         print 'i=',i,' alive --> ',jobs[i].is_alive()
-        #     time.sleep(.1)
-
-        # this should block until all processes have finished
-        
-        # print self.validspots[si].M_ex
-        # print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
-        # print '.',self.M_ex_image[ self.validspots[si].pixel[0][0], self.validspots[si].pixel[0][1] ]
-        
         print 'Movie: all done.'
 
+
     def update_images(self):
-        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', 'anisotropy', 'ET_ruler', 'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et', 'ETmodel_resi']
-        for s in self.validspots:
-            for prop in allprops:
-                if hasattr(s,prop):
-                    self.store_property_in_image( s, prop+'_image', prop )
+        """This function goes through all valid spots and writes their 
+        properties into the contrast images."""
+        
+        # these are the properties we're dealing with
+        allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', \
+                        'anisotropy', 'ET_ruler', \
+                        'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et', 'ETmodel_resi']
+        
+        for s in self.validspots:            # go through all valid spots            
+            for prop in allprops:            # go through all properties we've listed above                
+                if hasattr(s,prop):          # if a spot has the property (it may not have been assigned yet)
+                    self.store_property_in_image( s, prop+'_image', prop )       # store it (outsourced)
 
 
     def read_in_EVERYTHING(self, quiet=False):
         # change to the data directory
+        curdir = os.getcwd()
         os.chdir( self.data_directory )
         
         ###### look if we can find the data file, and import it ######
@@ -268,6 +322,8 @@ class Movie:
         if not got_exspot: 
             if not quiet: print ' none.'
 
+        # return to calling dir
+        os.chdir( curdir )
 
     def initContrastImages(self):
         self.spot_coverage_image  = np.ones( (self.sample_data.datasize[1],self.sample_data.datasize[2]) )*np.nan
@@ -292,6 +348,13 @@ class Movie:
 
     def define_background_spot( self, shape, intensity_type='mean' ):
         
+        if len(self.spots)>0:
+            print '##########################################\n'
+            print 'Error: The background definition must precede the spot definitions!\n You probably mixed up the order in the analysis script: define_background_spot() must be called before define_spot() or import_spot_positions().\n'
+            print '##########################################\n'
+            raw_input('[got that? press enter]')
+            raise ValueError('Background definition after spot definition(s)')
+
         if not type(shape)==dict:
             shape = {'type': 'Rectangle', \
                          'upper': shape[1], \
@@ -645,7 +708,13 @@ class Movie:
 
                 # write cosine parameters into line object
                 for sii,si in enumerate(myspots):
-                    self.validspots[si].linefitparams[pi,li,0] = phase[sii]
+                    
+                    self.validspots[si].linefitparams[pi,li,0] = phase[sii]   # <shoot self>
+                    # corrected_phase = phase[sii] - (self.motors.phase_offset_in_deg*np.pi/180.0)
+                    # if (corrected_phase < -np.pi/2.0): corrected_phase += np.pi
+                    # self.validspots[si].linefitparams[pi,li,0] = corrected_phase
+                    # print self.validspots[si].linefitparams[pi,li,0] * 180.0/np.pi
+
                     self.validspots[si].linefitparams[pi,li,1] = I0[sii]
                     self.validspots[si].linefitparams[pi,li,2] = M[sii]
                     self.validspots[si].linefitparams[pi,li,3] = resi[sii]
@@ -712,8 +781,11 @@ class Movie:
         proj_em = []
         for si in myspots:
             sam  = self.validspots[si].recover_average_portrait_matrix()
-            # sam /= np.max(sam)*255
-            # s.sam = sam.astype( np.uint8 )
+            # import matplotlib.pyplot as plt
+            # plt.imshow(sam)            
+            # plt.show()
+            # print self.excitation_angles_grid
+            # raise SystemExit
             self.validspots[si].sam = sam
             self.validspots[si].proj_ex = np.mean( sam, axis=0 )
             self.validspots[si].proj_em = np.mean( sam, axis=1 )
@@ -975,12 +1047,15 @@ class Movie:
             return md_fu, th_fu, gr, et, resi
 
         def the_new_way():
-            a0 = [mex, 0, 1, .5]
+            phex = self.validspots[si].phase_ex
+            a0 = [mex, phex, 1, .5]
             EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
             funargs = (EX, EM, mex, self.validspots[si].phase_ex, Ftotnormed )
 
-            LB = [0.001,   -np.pi/2, 0, 0]
-            UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999, 1]
+#            LB = [0.001,   -np.pi/2, 0, 0]
+#            UB = [0.999999, np.pi/2, 2*(1+mex)/(1-mex)*.999, 1]
+            LB = [0.001,    phex-np.pi/2, 0, 0]
+            UB = [0.999999, phex+np.pi/2, 2*(1+mex)/(1-mex)*.999, 1]
 
             fitresult = so.fmin_l_bfgs_b( func=SFA_full_error, \
                                               x0=a0, \
@@ -1003,8 +1078,10 @@ class Movie:
 
         for si in myspots:
 #            print 'ETmodel fitting spot %d' % si
+            print self.validspots[si].phase_ex
 
             Ftotnormed = self.validspots[si].sam/np.sum(self.validspots[si].sam)
+            samsum = np.sum(self.validspots[si].sam)
             Ftotnormed = Ftotnormed.reshape((Ftotnormed.size,))
 
             # we 'correct' the modulation in excitation to be within 
@@ -1028,10 +1105,10 @@ class Movie:
                 # import matplotlib.pyplot as plt
                 # plt.interactive(True)
                 # plt.cla()
-                # plt.plot( Fet, 'r-', alpha=.4 )
-                # plt.plot( Fnoet, 'b-', alpha=.4 )
-                # plt.plot( model, 'g-', alpha=.4 )
-                # plt.plot( Ftotnormed, '--', color='gray' )
+                # plt.plot( samsum*Fet, 'r-', alpha=.4 )
+                # plt.plot( samsum*Fnoet, 'b-', alpha=.4 )
+                # plt.plot( samsum*model, 'g-', alpha=.4 )
+                # plt.plot( samsum*Ftotnormed, '--', color='gray' )
                 # plt.title( "md_fu=%f\tth_fu=%f\tgr=%f\tet=%f\tresi=%f" % (md_fu,th_fu,gr,et,resi) )
                 # plt.savefig( 'figure%03d.png' % si )
 
