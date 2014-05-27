@@ -379,3 +379,5 @@ def generate_fake_data( phase, I, M, sigma=0 ):
     if sigma>0:
         data   += np.random.normal( size=(angles.size,), scale=sigma )
     return angles, data
+
+

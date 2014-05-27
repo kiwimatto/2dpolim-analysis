@@ -582,6 +582,39 @@ def show_spot_data( movie, what='M_ex', which_cmap=None, show_bg_spot=True ):
     #plt.draw()
 
 
+# this function writes a bogus motor file
+def write_motor_file( prefix, basename, exangles, emangles, phase_offset=0 ):
+    header1 = """optical element in excitation: L/2 Plate
+rotation mode in excitation: stepwise
+rotation mode in emission: stepwise
+"""
+    postring = "phase offset in deg: %f\n" % phase_offset
+    header2 = """full excitation power in mW: 1.0
+optical density of filter: 1.000000
+excitation power after filter: 1.0
+real gain: 1.000000
+camera: Cascade
+laser wavelength in nm: 488.000000
+objective: 60X oil
+em correction modulation depth: 0.0
+em correction phase: 0.000000
+NA: 0.650000
+user notes: 
+This is a bogus header intended for use with test data.
+END-OF-HEADER 
+Frame	Excitation Physical Angle	Excitation Polarization Angle	Excitation Power [A.U.]	Emission Angle
+"""
+    fid = open( prefix+'MS-'+basename+'.txt', 'w' )
+    fid.write(header1)
+    fid.write(postring)
+    fid.write(header2)
+    frame = 0
+    for ema in emangles:
+        for exa in exangles:
+            fid.write('%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n' % \
+                          (frame, exa*180/np.pi, exa*180/np.pi, 1.0, ema*180/np.pi))
+            frame += 1
+    fid.close()
 
 
 
