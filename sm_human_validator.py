@@ -302,6 +302,10 @@ class sm_human_validator(QtGui.QMainWindow, layout_sm_human_validator.Ui_MainWin
         lfps = np.array( f[spotname+'/fits/linefitparams'] )
         lfpsr = lfps.copy()
         lfpsr = lfpsr.reshape( (lfpsr.shape[0]*lfpsr.shape[1], lfpsr.shape[2]) )
+#	print 'this is lfps'	
+#	print lfps
+#	print 'this is lfpsr'	
+#	print lfpsr
 
         # this time we don't collect first, but plot things straight-away
         mycos = lambda a, ph, I, M: I*( 1+M*( np.cos(2*(a-ph)) ))

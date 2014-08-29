@@ -80,7 +80,7 @@ def find_measurement_files_in_directory( directory ):
     return basenames, spefiles, motorfiles
 
 
-def import_spot_positions( movie, basename, boxedgelength=5, spot_type='square', \
+def import_spot_positions( movie, prefix, basename, boxedgelength=5, spot_type='square', \
                                use_exspot=False, use_borderbg=False ):
 
     if not movie.bg_spot_sample==None:
@@ -91,7 +91,7 @@ def import_spot_positions( movie, basename, boxedgelength=5, spot_type='square',
             raw_input('[got that? press enter]')
             raise ValueError('Bg specified and border-bg requested at the same time...')
 
-    coords_filename = 'spotcoordinates_'+basename+'.txt'
+    coords_filename = prefix + '/spotcoordinates_'+basename+'.txt'
     f  = open(coords_filename, 'r')
     cs = f.readlines()
     f.close()

@@ -8,13 +8,13 @@ import time as stopwatch
 
 #### data directory and file name ####
 
-prefix     = '/home/kiwimatto/Desktop/2D Jagg/'
-prefix     = '/home/kiwimatto/Desktop/matthias/'
-basename   = 'spot1'
-SNR        = 1
-VFR        = .5
+prefix = '/home/rafael/Desktop/Win/C'
+basename = 'S01-P02-04'
+
+SNR        = 2
+VFR        = .4
 spotradius = 4  # pixel
-blankfit   = False    # True 
+blankfit   = True    # True 
 
 
 
@@ -29,11 +29,11 @@ m.find_lines()
 if blankfit:
     boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
     #blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
-    boolimage = pixel_list( m, blankfitexclusion, boolimage )
+    #boolimage = pixel_list( m, blankfitexclusion, boolimage )
     m.fit_blank_image( boolimage, verbosity=0 )
 
 #### main part of the analysis ####
-import_spot_positions( m, basename, spotradius, 'circle', use_borderbg=True )
+import_spot_positions( m, prefix,  basename, spotradius, 'circle', use_borderbg=True )
 
 m.correct_excitation_intensities()
 m.correct_emission_intensities()

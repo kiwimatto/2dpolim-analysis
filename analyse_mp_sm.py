@@ -8,15 +8,15 @@ import time as stopwatch
 #### data directory and file name ####
 
 #prefix = '/home/kiwimatto/Desktop/Lund/Aboma_Jaggs/Full 2D/exp1'
-prefix = '/home/kiwimatto/Desktop/C7'
-basename = 'spot5'
+prefix = '/home/rafael/Desktop/Win/Crystal'
+basename = 'S01-P01-01'
 
-SNR        = 3
+SNR        = 2
 VFR        = .5
-Nprocs     = 2
+Nprocs     = 3
 
 m = Movie( prefix, basename )
-m.find_portraits( frameoffset=1 )
+m.find_portraits( frameoffset=0 ) # it was 1 before
 m.find_lines()
 
 
@@ -32,14 +32,14 @@ m.fit_blank_image( boolimage, verbosity=0 )
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [10,100,60,500]         #[110,405,400,450] 
-m.define_background_spot( bgbounds )
+# bgbounds   = [10,100,60,500]         #[110,405,400,450] 
+# m.define_background_spot( bgbounds )
 
 
 
 #### main part of the analysis ####
 
-import_spot_positions( m, basename, 6, 'circle' )
+import_spot_positions( m, basename, 6, 'circle', use_borderbg=True  )
 
 m.correct_excitation_intensities()
 m.correct_emission_intensities()
@@ -74,29 +74,5 @@ save_spot_hdf5( m )
 
 #### save output to hdf5 ####
 save_hdf5( m )
-
-
-
-
-
-
-
-
-
-
-
-
-\
-
-
-
-
-
-
-
-
-
-
-
 
 

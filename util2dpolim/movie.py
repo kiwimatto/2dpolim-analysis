@@ -779,6 +779,7 @@ class Movie:
         # for all spots, one per column
         proj_ex = []
         proj_em = []
+	print 'Fitting modulation depths - this is in movie'
         for si in myspots:
             sam  = self.validspots[si].recover_average_portrait_matrix()
             # import matplotlib.pyplot as plt
@@ -878,6 +879,7 @@ class Movie:
             self.store_property_in_image( self.validspots[si], 'anisotropy_image', 'anisotropy' )
 
         si=myspots[0]
+	print 'Done with modulation depths - this is in movie'
 #        print self.validspots[si].M_ex
 #        print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
 #        print '.',self.M_ex_image[ self.validspots[si].pixel[0][0], self.validspots[si].pixel[0][1] ]
@@ -1075,10 +1077,10 @@ class Movie:
 
             return md_fu,th_fu,gr,et,resi
 
-
+	print 'starting ET model of spots - this is in movie.py'
         for si in myspots:
 #            print 'ETmodel fitting spot %d' % si
-            print self.validspots[si].phase_ex
+#            print self.validspots[si].phase_ex
 
             Ftotnormed = self.validspots[si].sam/np.sum(self.validspots[si].sam)
             samsum = np.sum(self.validspots[si].sam)
@@ -1138,6 +1140,7 @@ class Movie:
             self.store_property_in_image( self.validspots[si], 'ETmodel_gr_image', 'ETmodel_gr' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_et_image', 'ETmodel_et' )
             self.store_property_in_image( self.validspots[si], 'ETmodel_resi_image', 'ETmodel_resi' )
+        print 'Done with ET model - this is in movie.py'
 
 
     def chew_AM( self, quiet=False, loud=False, SNR=10 ):
