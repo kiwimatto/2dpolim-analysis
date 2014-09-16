@@ -621,8 +621,15 @@ class Spot:
         Fint  = np.fft.fft(intensities)
         Pint  = np.real( Fint*np.conj(Fint) )/float(exa.size)
         nPint = Pint[1:newdatalength/2]/np.sum(Pint[1:newdatalength/2])
-
-        kappa = .5 * np.arccos( .5*(3*self.M_ex-1) )
+	if .5*(3*self.M_ex-1) > 1:
+		print 'problems with Mex' 
+		kappa = .5*0
+	elif .5*(3*self.M_ex-1) < -1:
+		print 'problems with Mex' 
+		kappa = .5 * np.pi
+	else:
+        	kappa = .5 * np.arccos( .5*(3*self.M_ex-1) )
+	
         alpha = np.array( [-kappa, 0, kappa] )
 
         modelNoET = np.zeros_like( exa )

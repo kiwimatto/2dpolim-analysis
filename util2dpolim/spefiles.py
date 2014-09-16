@@ -237,7 +237,8 @@ class MyPrincetonSPEFile():
     def _readDate(self):
         _date = self._readAtString(20, self.DATEMAX)
         _time = self._readAtString(172, self.TIMEMAX)
-        self._filedate = time.strptime(_date + _time, "%d%b%Y%H%M%S")
+	print 'im cheating with the time due to a very strange error that might have to do with my python version'
+	#self._filedate = time.strptime(_date + _time, "%d%b%Y%H%M%S")
         
     def _readSize(self):
         xdim = self._readAtNumpy(42, 1, numpy.int16)[0]

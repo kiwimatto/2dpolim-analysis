@@ -1,4 +1,6 @@
 import numpy as np
+import time
+
 from spefiles import MyPrincetonSPEFile
 
 class CameraData:
