@@ -5,20 +5,22 @@ from util2dpolim.movie import Movie
 from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list#, import_spot_positions
 import time as stopwatch
 
-prefix = '/home/rafa/Desktop/share/MEHPPV/bdm4'
+prefix = '/home/rafa/Desktop/share/2D MEH-PPV/Imaging mode'
 filelist = os.listdir( prefix )
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [465,80,500,505]         #[110,405,400,450] 
-fullbounds = [25,80,445,505]        #[110, 80,400,360]
+bgbounds   = [470,70,500,500]         #[110,405,400,450] 
+fullbounds = [20,70,450,500]        #[110, 80,400,360]
 resolution = 1
 Nsplit     = 20
 SNR    = 3
 VFR    = .6
 Nprocs = 3
-blankfit   = False#True 
-
+blankfit   = True#False
+exclusion_bf = [28,85,442,500] # fullbounds # for most cases we can use fullbounds
+DoETruler = True#False#
+DoETmodel = True#False# 
 
 topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
 splittopedges = np.array_split( topedges, Nsplit )
@@ -37,21 +39,18 @@ for x in filelist:
 #            print basename
             m = Movie( prefix, basename )
 
-           # boolimage = np.ones( (m.sample_data.datasize[1],m.sample_data.datasize[2]), dtype=np.bool )*True
-           # rect = {'left':175, 'right':257, 'upper':138, 'lower':480, 'op':'exclude'}
-           # boolimage = pixel_list( m, rect, boolimage )
-           # m.fit_blank_image( boolimage, verbosity=0 )
-
             m.find_portraits( frameoffset=0 )
             m.find_lines()
             #### blank fitting ####
 	    if blankfit:
     		boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]),
                                       dtype=np.bool )*True
-    		blankfitexclusion = {'left':fullbounds[0], 'right':fullbounds[2],
-                                     'upper':fullbounds[1], 'lower':fullbounds[3], 'op':'exclude'}
+    		blankfitexclusion = {'left':exclusion_bf[0], 'right':exclusion_bf[2],
+                                     'upper':exclusion_bf[1], 'lower':exclusion_bf[3], 'op':'exclude'}
     		boolimage = pixel_list( m, blankfitexclusion, boolimage )
     		m.fit_blank_image( boolimage, verbosity=0 )
+		m.define_background_spot( bgbounds )
+		print 'done with BG fit and substraction'
             else:
                 m.define_background_spot( bgbounds )
                 print 'done with BG substraction'
@@ -68,7 +67,7 @@ for x in filelist:
             
             if not len(m.validspots)==0:
                 tstart = stopwatch.time()
-                m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True, ETmodel=True )
+                m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=DoETruler, ETmodel=DoETmodel )
                 print stopwatch.time()-tstart
 
             save_hdf5( m )

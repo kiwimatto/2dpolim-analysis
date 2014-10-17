@@ -369,6 +369,7 @@ class Movie:
 
         # if blank data is present, automatically create a bg spot here too
         if not self.blank_data==None:
+	    print 'I have a blank_data! Therefore I define the bg value of the blank - movie.bg_spot_blank'
             s = Spot( shape, int_type=intensity_type, label='blank bg area', parent=self, \
                           is_bg_spot=True, which_bg='blank' )
             self.bg_spot_blank = s

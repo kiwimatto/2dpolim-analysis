@@ -91,7 +91,7 @@ def import_spot_positions( movie, prefix, basename, boxedgelength=5, spot_type='
             raw_input('[got that? press enter]')
             raise ValueError('Bg specified and border-bg requested at the same time...')
 
-    coords_filename = prefix + '/spotcoordinates_'+basename+'.txt'
+    coords_filename = prefix + '/spotcoordinates_'+ basename +'.txt'
     f  = open(coords_filename, 'r')
     cs = f.readlines()
     f.close()
