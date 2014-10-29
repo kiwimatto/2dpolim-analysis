@@ -5,19 +5,19 @@ from util2dpolim.movie import Movie
 from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list#, import_spot_positions
 import time as stopwatch
 
-prefix = '/home/rafa/Desktop/share/2D MEH-PPV/Imaging mode'
+prefix = '/home/rafa/Desktop/share/OB 3month'
 filelist = os.listdir( prefix )
 
 # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
 # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [470,70,500,500]         #[110,405,400,450] 
-fullbounds = [20,70,450,500]        #[110, 80,400,360]
+bgbounds   = [460,25,505,500]         #[110,405,400,450] 
+fullbounds = [25,30,455,500]        #[110, 80,400,360]
 resolution = 1
 Nsplit     = 20
 SNR    = 3
 VFR    = .6
 Nprocs = 3
-blankfit   = True#False
+blankfit   = False#True#
 exclusion_bf = [28,85,442,500] # fullbounds # for most cases we can use fullbounds
 DoETruler = True#False#
 DoETmodel = True#False# 

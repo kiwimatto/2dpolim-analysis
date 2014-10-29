@@ -8,13 +8,14 @@ import time as stopwatch
 
 #### data directory and file name ####
 
-prefix = '/home/rafa/Desktop/share/SM-example'
-basename = 'spot1'
+prefix = '/home/rafa/Desktop/share/2DMEH-PPV/SMmode'
+basename = 'bdm8area10'
 
-SNR        = 2
+SNR        = 1.0
 VFR        = .4
 spotradius = 4  # pixel
 blankfit   = True    # True 
+exclusion_bf = [45,85,420,495] 
 
 
 
@@ -28,11 +29,12 @@ m.find_lines()
 #### blank fitting ####
 if blankfit:
     boolimage = np.ones( (m.sample_data.rawdata.shape[1],m.sample_data.rawdata.shape[2]), dtype=np.bool )*True
-    #blankfitexclusion = {'left':140, 'right':450, 'upper':180, 'lower':480, 'op':'exclude'}
-    #boolimage = pixel_list( m, blankfitexclusion, boolimage )
+    blankfitexclusion = {'left':exclusion_bf[0], 'right':exclusion_bf[2],
+                                     'upper':exclusion_bf[1], 'lower':exclusion_bf[3], 'op':'exclude'}
+    boolimage = pixel_list( m, blankfitexclusion, boolimage )
     m.fit_blank_image( boolimage, verbosity=0 )
 
-#### main part of the analysis ####
+#### main part of the analysis #### This next line takes care of BG definition due to use_borderbg
 import_spot_positions( m, prefix,  basename, spotradius, 'circle', use_borderbg=True )
 
 m.correct_excitation_intensities()
