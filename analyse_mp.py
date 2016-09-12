@@ -1,61 +1,77 @@
+import os
 import sys
 import numpy as np
 from util2dpolim.movie import Movie
-from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list
+from util2dpolim.misc import save_hdf5, combine_outputs, pixel_list  # , import_spot_positions
 import time as stopwatch
 
+if __name__ == '__main__':
+    prefix = 'C:\Users\MIPP\Google Drive\Bio POLIM\Analysis\Raw test data'
+    filelist = os.listdir(prefix)
 
+    # bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower'
+    # correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
+    bgbounds = [460, 25, 505, 500]  # [110,405,400,450]
+    fullbounds = [25, 30, 455, 500]  # [110, 80,400,360]
+    resolution = 1
+    Nsplit = 20
+    SNR = 3
+    VFR = .6
+    Nprocs = 5
+    blankfit = False  # True#
+    exclusion_bf = [28, 85, 442, 500]  # fullbounds # for most cases we can use fullbounds
+    DoETruler = True  # False#
+    DoETmodel = True  # False#
 
-#### data directory and file name ####
+    topedges = np.arange(fullbounds[1], fullbounds[3], resolution)
+    splittopedges = np.array_split(topedges, Nsplit)
 
-prefix = '/home/rafael/Desktop/Win/Blend'
-basename = 'blend-S3-01-Iso-Red-OD1-gain1'
+    for x in filelist:
+        a = not x.startswith('blank')
+        # print x.endswith('.SPE')
+        # print a
+        if (x.endswith('.SPE') and a):
+            print x[:-4]
+            basename = x[:-4]
+            for ste in splittopedges:
+                print '-------------current y been considered--------------'
+                print ste
+                #            print basename
+                m = Movie(prefix, basename)
 
-# bounds in x,y format: (left column, upper row, right column, lower row) -- where 'upper' and 'lower' 
-# correspond to the way the image is plotted (matrix-style, origin in the top left corner of the picture)
-bgbounds   = [10,40,90,400]         #[110,405,400,450] 
-fullbounds = [105,40,405,400]        #[110, 80,400,360]
-resolution = 1
-Nsplit     = 4
-SNR    = 4
-VFR    = .6
-Nprocs = 4
+                m.find_portraits(frameoffset=0)
+                m.find_lines()
+                #### blank fitting ####
+                if blankfit:
+                    boolimage = np.ones((m.sample_data.rawdata.shape[1], m.sample_data.rawdata.shape[2]),
+                                        dtype=np.bool) * True
+                    blankfitexclusion = {'left': exclusion_bf[0], 'right': exclusion_bf[2],
+                                         'upper': exclusion_bf[1], 'lower': exclusion_bf[3], 'op': 'exclude'}
+                    boolimage = pixel_list(m, blankfitexclusion, boolimage)
+                    m.fit_blank_image(boolimage, verbosity=0)
+                    m.define_background_spot(bgbounds)
+                    print 'done with BG fit and substraction'
+                else:
+                    m.define_background_spot(bgbounds)
+                    print 'done with BG substraction'
+                for line in ste:
+                    for col in range(fullbounds[0], fullbounds[2], resolution):
+                        bounds = [col, line, col + resolution - 1, line + resolution - 1]
+                        m.define_spot(bounds)
+                print 'nspots: ', len(m.spots)
 
-topedges = np.arange(fullbounds[1], fullbounds[3], resolution )  
-splittopedges = np.array_split( topedges, Nsplit )
+                m.correct_excitation_intensities()
+                m.correct_emission_intensities()
 
+                m.are_spots_valid(SNR=SNR, validframesratio=VFR)
 
-
-for ste in splittopedges:
-
-    m = Movie( prefix, basename )
-
-   # boolimage = np.ones( (m.sample_data.datasize[1],m.sample_data.datasize[2]), dtype=np.bool )*True
-   # rect = {'left':175, 'right':257, 'upper':138, 'lower':480, 'op':'exclude'}
-   # boolimage = pixel_list( m, rect, boolimage )
-   # m.fit_blank_image( boolimage, verbosity=0 )
-
-    m.find_portraits( frameoffset=0 )
-    m.find_lines()
-
-    m.define_background_spot( bgbounds )
-    
-    for line in ste:
-        for col in range( fullbounds[0], fullbounds[2], resolution ):
-            bounds = [ col, line, col+resolution-1, line+resolution-1 ]
-            m.define_spot( bounds )
-    print 'nspots: ',len(m.spots)
-
-    m.correct_excitation_intensities()
-    m.correct_emission_intensities()
-
-    m.are_spots_valid( SNR=SNR, validframesratio=VFR )
-    #m.validspots = range(len(m.spots))
-
-    if not len(m.validspots)==0:
-        tstart = stopwatch.time()
-        m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=False, ETmodel=False )
-        print stopwatch.time()-tstart
-
-    save_hdf5( m ) #, myspots=np.arange(len(m.validspots)) )
-
+                if not len(m.validspots) == 0:
+                    tstart = stopwatch.time()
+                    m.run_mp(Nprocs=Nprocs, fits=True, mods=True, ETruler=DoETruler, ETmodel=DoETmodel)
+                    print stopwatch.time() - tstart
+                print 'Done with analysis, now we save the hdf5 file'
+                save_hdf5(m)
+                print '-------------------------------------------------------'
+                print '-------------------------------------------------------'
+                print '-------------------------------------------------------'
+    print 'ALL DONE DONE DONE'
