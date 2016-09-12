@@ -51,7 +51,9 @@ if not len(m.validspots)==0:
     # m.run_mp( Nprocs=Nprocs, fits=True, mods=True, ETruler=True, ETmodel=True )
 
     # single-core:
+    # first step is to fit cosine functions to the portrait
     m.fit_all_portraits_spot_parallel_selective( range(len(m.validspots)) )
+    # the second step is to find the modulation depths and other classical parameters from the fitted portraits
     m.find_modulation_depths_and_phases_selective( range(len(m.validspots)) )
     for s in m.validspots:
         s.values_for_ETruler( newdatalength=1024 )
