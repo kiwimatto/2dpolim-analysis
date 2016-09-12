@@ -65,6 +65,7 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
             a['phase_em']   = movie.validspots[si].phase_em
             a['LS']         = movie.validspots[si].LS
             a['anisotropy'] = movie.validspots[si].anisotropy
+            a['anisotropy_n'] = movie.validspots[si].anisotropy_n
         if ETruler:
             a['ET_ruler'] = movie.validspots[si].ET_ruler
         if ETmodel:
@@ -240,7 +241,7 @@ class Movie:
 
         # these are the properties we're dealing with
         allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', \
-                        'anisotropy', 'ET_ruler', \
+                        'anisotropy', 'anisotropy_n', 'ET_ruler', \
                         'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et', 'ETmodel_resi']
 
         for s in self.validspots:            # go through all valid spots
@@ -918,6 +919,8 @@ class Movie:
 
             if not float(Ipara+2*Iperp) == 0:
                 self.validspots[si].anisotropy_n = float(Ipara-Iperp)/float(Ipara+2*Iperp)
+                # print self.validspots[si].anisotropy_n
+                # print self.validspots[si].anisotropy
             else:
                 self.validspots[si].anisotropy_n = np.nan
 
