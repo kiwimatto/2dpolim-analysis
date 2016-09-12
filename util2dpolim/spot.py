@@ -153,7 +153,7 @@ class Spot:
             # at this point, all available data (sample, blank, exspot) has been collected and
             # and bg-corrected (if a bg-spot was defined in the parent class). 
             # subtract blank from sample. Consider that if blank was not defined this operation will not be done
-	    # and the intensity of the spot is only corrected by the intensity outside of the slit
+            # and the intensity of the spot is only corrected by the intensity outside of the slit
             if self.have_blank and use_blank:
 #                Iblank2 =  np.concatenate((Iblank,Iblank))
 #                print Iblank2
