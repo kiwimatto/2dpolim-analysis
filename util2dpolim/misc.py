@@ -132,6 +132,45 @@ def import_spot_positions( movie, prefix, basename, boxedgelength=5, spot_type='
 
         movie.define_spot( shape, intensity_type='mean', use_exspot=use_exspot, use_borderbg=use_borderbg )
     print 'defined %d spots (shape: %s)' % (cs.shape[0], spot_type)
+    
+def import_userdefinedspot( movie, prefix, basename, spot_type='UserDefined', \
+                               use_exspot=False, use_borderbg=False ):
+
+    if not movie.bg_spot_sample==None:
+        if use_borderbg:
+            print "##################################################\n"
+            print "You defined a background spot before you called import_spot_positions(), _but_ you also say that spots should use their own background (use_borderbg=True). It should be one or the other, but not both.\n"
+            print "##################################################\n"
+            raw_input('[got that? press enter]')
+            raise ValueError('Bg specified and border-bg requested at the same time...')
+
+    print 'importing spot'
+    userdefinedspot_filename = prefix + '/userdefinedspot_'+ basename +'.txt'
+    f  = open(userdefinedspot_filename, 'r')
+    cs = f.readlines()
+    f.close()
+	
+    # bgexclusionmapfilename = 'bgexclusionmap_'+basename+'.txt'
+    # if os.path.isfile(coords_filename):
+    #     movie.bgexclusionmap = np.loadtxt( bgexclusionmapfilename )
+    #     havebgexclusionmap = True
+    # else:
+    #     havebgexclusionmap = False
+
+    # grab coords
+    cs = [ tuple(float(n) for n in c.split('\t')) for c in cs ]
+    # clean up potential redundancies
+    cs = np.array([ p for p in set(cs) ])
+    print 'Spot coordinates from file:'
+    print cs
+    
+    if spot_type == 'UserDefined':
+        shape = {'type':'UserDefined','pixel_list':cs}
+        movie.define_spot( shape, intensity_type='mean', use_exspot=use_exspot, use_borderbg=use_borderbg )
+    else:
+        raise testosterone_levels
+    
+    print 'defined spots (shape: %s)' % (spot_type)
 
 
 def grid_image_section_into_squares_and_define_spots( movie, res, bounds ):
@@ -282,7 +321,7 @@ def save_spot_hdf5( movie ):
                        'I_em', 'I_ex', \
                        'M_em', 'M_ex', \
                        'resi_em', 'resi_ex', \
-                       'anisotropy', \
+                       'anisotropy', 'anisotropy_n', \
                        'meanSNR', \
                        'mean_intensity' ]
         for p in params:
