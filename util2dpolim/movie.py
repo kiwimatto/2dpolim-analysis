@@ -2,11 +2,11 @@
 from cameradata import CameraData
 from fitting import CosineFitter_new
 from spot import Spot
-#from portrait import Portrait
-#from misc import pixel_list
+# from portrait import Portrait
+# from misc import pixel_list
 from motors import *
 
-### and we also import some other functionality
+# and we also import some other functionality
 import os, os.path, time, sys
 import scipy.optimize as so
 import multiprocessing as mproc
@@ -39,12 +39,12 @@ def mp_worker( movie, resultqueue, thesespots, whichproc, fits, mods, ETruler, E
         movie.fit_all_portraits_spot_parallel_selective( myspots=thesespots )
     if mods:
         movie.find_modulation_depths_and_phases_selective( myspots=thesespots )
-    if ETruler:                
+    if ETruler:
         for si in thesespots:
             movie.validspots[si].values_for_ETruler( newdatalength=1024 )
     if ETmodel:
         movie.ETmodel_selective( myspots=thesespots )
-                
+
     # Now all the work is done, and we prepare a dictionary containing 
     # the new spot data, and write that to the result queue. The reason
     # for this approach is that the current process (this function) has
@@ -97,7 +97,7 @@ class Movie:
         """
 
         # function pointer to the cosine fitter function
-        self.cos_fitter = CosineFitter_new   
+        self.cos_fitter = CosineFitter_new
 
         # phase offset in degrees. Defaults to NaN, and will be set be the motor
         # file. It is only here (and specifiable as input to the class) to support
@@ -107,7 +107,7 @@ class Movie:
         # format path correctly for whichever OS we're running under, and add trailing separator
         self.data_directory = os.path.normpath( datadir ) + os.path.sep
         self.data_basename  = basename
- 
+
         # we init a bunch of variables, pointing to nothing for now
         self.sample_data = None
         self.blank_data  = None
@@ -124,7 +124,7 @@ class Movie:
         # all contrast images (outsourced to a separate function)
         self.spots = []
         self.validspots = None
-        self.initContrastImages() 
+        self.initContrastImages()
 
         # Fix the excitation and emission angle grids. These are the grids on which 
         # we interpret the portrait fits. Currently we match them to the measurement
@@ -205,7 +205,8 @@ class Movie:
                      for i in range(Nprocs) ]
 
         # start the processes
-        for job in jobs: job.start()
+        for job in jobs:
+            job.start()
 
         # form the full list of spots again
         myspots = list(np.concatenate(myspots))
@@ -222,7 +223,8 @@ class Movie:
             # the  loop will run until the list 'myspots' is empty
 
         # now all processes are done, so we bring them back in
-        for job in jobs: job.join()
+        for job in jobs:
+            job.join()
 
         # make sure that everything is kosher
         assert resultqueue.empty(), "Result queue is not empty when it should be!"
@@ -235,14 +237,14 @@ class Movie:
     def update_images(self):
         """This function goes through all valid spots and writes their 
         properties into the contrast images."""
-        
+
         # these are the properties we're dealing with
         allprops = ['M_ex', 'M_em', 'phase_ex', 'phase_em', 'LS', \
                         'anisotropy', 'ET_ruler', \
                         'ETmodel_md_fu', 'ETmodel_th_fu', 'ETmodel_gr', 'ETmodel_et', 'ETmodel_resi']
-        
-        for s in self.validspots:            # go through all valid spots            
-            for prop in allprops:            # go through all properties we've listed above                
+
+        for s in self.validspots:            # go through all valid spots
+            for prop in allprops:            # go through all properties we've listed above
                 if hasattr(s,prop):          # if a spot has the property (it may not have been assigned yet)
                     self.store_property_in_image( s, prop+'_image', prop )       # store it (outsourced)
 
@@ -251,7 +253,7 @@ class Movie:
         # change to the data directory
         curdir = os.getcwd()
         os.chdir( self.data_directory )
-        
+
         ###### look if we can find the data file, and import it ######
         if not quiet: print 'Looking for data file: %s.[spe|SPE]... ' % (self.data_directory+self.data_basename)
 
@@ -265,7 +267,7 @@ class Movie:
             self.spefilename = self.data_basename+'.npy'
         else:
             raise IOError("Couldn't find data SPE file! Bombing out...")
-        
+
         self.sample_data    = CameraData( self.spefilename, compute_frame_average=True )
         self.timeaxis       = self.sample_data.timestamps
         if not quiet: print 'Imported data file %s' % self.spefilename
@@ -273,7 +275,7 @@ class Movie:
 
         ###### look for motor files ######
         if not quiet: print 'Looking for motor file(s)...',
-        
+
         got_motors = False
         for file in os.listdir("."):
             if file=="MS-"+self.data_basename+'.txt':
@@ -293,7 +295,7 @@ class Movie:
             self.unique_emangles = np.unique( self.emangles )
         else:
             raise IOError("Couldn't find motor files.")
-       
+
         ###### look for blank sample ######
         if not quiet: print 'Looking for blank...',
         got_blank = False
@@ -319,7 +321,7 @@ class Movie:
                 self.exspot_data.timeaxis    = self.exspot_data.timeaxis[0]
                 got_exspot = True
                 break
-        if not got_exspot: 
+        if not got_exspot:
             if not quiet: print ' none.'
 
         # return to calling dir
@@ -338,6 +340,7 @@ class Movie:
         self.phase_em_image       = self.spot_coverage_image.copy()
         self.LS_image             = self.spot_coverage_image.copy()
         self.anisotropy_image     = self.spot_coverage_image.copy()
+        self.anisotropy_n_image   = self.spot_coverage_image.copy()
         self.ET_ruler_image       = self.spot_coverage_image.copy()
         self.ETmodel_md_fu_image = self.spot_coverage_image.copy()
         self.ETmodel_th_fu_image = self.spot_coverage_image.copy()
@@ -347,7 +350,7 @@ class Movie:
 
 
     def define_background_spot( self, shape, intensity_type='mean' ):
-        
+
         if len(self.spots)>0:
             print '##########################################\n'
             print 'Error: The background definition must precede the spot definitions!\n You probably mixed up the order in the analysis script: define_background_spot() must be called before define_spot() or import_spot_positions().\n'
@@ -368,14 +371,14 @@ class Movie:
         self.bg_spot_sample = s
 
         # if blank data is present, automatically create a bg spot here too
-        if not self.blank_data==None:
-	    print 'I have a blank_data! Therefore I define the bg value of the blank - movie.bg_spot_blank'
+        if self.blank_data is not None:
+            print 'I have a blank_data! Therefore I define the bg value of the blank - movie.bg_spot_blank'
             s = Spot( shape, int_type=intensity_type, label='blank bg area', parent=self, \
                           is_bg_spot=True, which_bg='blank' )
             self.bg_spot_blank = s
 
         # if excitation spot data is present, create a bg spot here too
-        if not self.exspot_data==None:
+        if self.exspot_data is not None:
             s = Spot( shape, int_type=intensity_type, label='exspot bg area', parent=self, \
                           is_bg_spot=True, which_bg='exspot' )
             self.bg_spot_exspot = s
@@ -383,7 +386,7 @@ class Movie:
         # record background spot in spot coverage image
         for p in s.pixel:
             self.spot_coverage_image[ p[0], p[1] ] = -1
-        
+
 
     def define_spot( self, shape, intensity_type='mean', label='', \
                          use_blank=True, use_exspot=False, use_borderbg=False ):
@@ -429,7 +432,7 @@ class Movie:
         # boolimage = pixel_list( rect, boolimage )
 
         blankint  = collapsed_blank_data[boolimage]
-        fitmatrix = np.vstack( [np.ones_like(blankint), blankint] ).T        
+        fitmatrix = np.vstack( [np.ones_like(blankint), blankint] ).T
         fitblankimg = np.zeros_like( self.sample_data.rawdata )
 
         if verbosity>0:
@@ -492,7 +495,7 @@ class Movie:
 
         if np.isnan(corrM): corrM=0
         if np.isnan(corrphase): corrphase=0
-        
+
         # correction function
         corrfun = lambda angle: (1+corrM*np.cos(2*(angle + corrphase) ))/(1+corrM)
 
@@ -519,7 +522,7 @@ class Movie:
         Nportraits = Nframes/fpp
 
         assert np.mod( Nframes, fpp )==0    # sanity check
-        
+
         portrait_indices = []
         for pi in range(Nportraits+1):
             ind   = pi*fpp + frameoffset
@@ -539,7 +542,7 @@ class Movie:
 
     def find_lines( self ):
         all_line_indices = []
-        for pi in range(self.Nportraits):            
+        for pi in range(self.Nportraits):
             line_indices = []
             # get angles in this portrait        
             pstart = self.portrait_indices[ pi ]
@@ -551,7 +554,7 @@ class Movie:
                 line_indices.append( unique_emangles[li]==emangles_rounded )
             all_line_indices.append( line_indices )
 #        print all_line_indices
-        
+
         # for i in range(self.Nlines):
         #     print self.motors.emission_angles[ pstart:pstop ][ all_line_indices[0][i] ]
 
@@ -578,9 +581,9 @@ class Movie:
         d[d!=0] = 1
         d = np.concatenate( (d, np.array([1])) )
         edges    = d.nonzero()[0]
-        
+
         # integer division to find out how many complete portraits we have
-        Nportraits = np.diff(edges).size / number_of_lines 
+        Nportraits = np.diff(edges).size / number_of_lines
 
         indices = np.zeros( (Nportraits,2), dtype=np.int )
         for i in range(Nportraits):
@@ -598,7 +601,7 @@ class Movie:
 
         self.Nportraits = self.portrait_indices.shape[0]
         self.Nlines     = len( self.line_edges )-1
-        
+
 
     def write_data( filename, header=False ):
         """Helper-function which takes the output of collect_data() and
@@ -631,16 +634,16 @@ class Movie:
         fitintensities = np.array([l.cosValue( self.excitation_angles_grid ) for l in portrait.lines])
 
         phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( emangles, fitintensities, \
-                                                                       self.Nemphases_for_cos_fitter )         
+                                                                       self.Nemphases_for_cos_fitter )
         # phasor addition!
         proj_em = np.real( rawfitpars[0,:] * np.exp( 1j*rawfitpars[1,:] ) \
                                * np.exp( 1j*self.emission_angles_grid ) )
 
         phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( self.emission_angles_grid, proj_em, \
-                                                                       self.Nphases_for_cos_fitter ) 
+                                                                       self.Nphases_for_cos_fitter )
         portrait.phase_em = phase[0]
         portrait.M_em = M
-        
+
 
     def retrieve_angles( self, iportrait, iline ):
         pstart = self.portrait_indices[ iportrait ]
@@ -663,7 +666,7 @@ class Movie:
 
     def fit_all_portraits_spot_parallel_selective( self, myspots=None ):
 
-        if myspots==None:
+        if myspots is None:
             myspots = range(len(self.validspots))
 
         # init average portrait matrices, so that we can write to them without
@@ -677,7 +680,7 @@ class Movie:
             # start and stop indices for this portrait
             pstart = self.portrait_indices[ pi ]
             pstop  = self.portrait_indices[ pi+1 ]
-            
+
             # part I, 'horizontal fitting' of the lines of constant emission angles
 
             # for each line ---- we do lines in series, __but all spots in parallel__:
@@ -705,11 +708,11 @@ class Movie:
                 exa = exangles.copy()
 
                 phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( exa, intensities, \
-                                                                               self.Nexphases_for_cos_fitter ) 
+                                                                               self.Nexphases_for_cos_fitter )
 
                 # write cosine parameters into line object
                 for sii,si in enumerate(myspots):
-                    
+
                     self.validspots[si].linefitparams[pi,li,0] = phase[sii]   # <shoot self>
                     # corrected_phase = phase[sii] - (self.motors.phase_offset_in_deg*np.pi/180.0)
                     # if (corrected_phase < -np.pi/2.0): corrected_phase += np.pi
@@ -724,10 +727,10 @@ class Movie:
             for si in myspots:
                 self.validspots[si].residual = np.sum( self.validspots[si].linefitparams[:,:,3] )
 
-            # part II, 'vertical fitting' --- we do each spot by itself, but 
+            # part II, 'vertical fitting' --- we do each spot by itself, but
             # fit all verticals in parallel
 
-            # collect list of unique emission angles (same for all spots!)                    
+            # collect list of unique emission angles (same for all spots!)
 #            emangles = self.emangles[pstart:pstop][self.line_edges[:-1]]
             emangles = []
             for li in range(self.Nlines):
@@ -749,13 +752,13 @@ class Movie:
             # fitintensities = np.hstack( fitintensities )
 
             phase, I0, M, resi, fit, rawfitpars, mm = self.cos_fitter( emangles, fitintensities, \
-                                                                           self.Nemphases_for_cos_fitter ) 
-                
+                                                                           self.Nemphases_for_cos_fitter )
+
             # store vertical fit params
             phase = np.hsplit(phase, len(myspots))
             I0    = np.hsplit(I0, len(myspots))
             M     = np.hsplit(M, len(myspots))
-            resi  = np.hsplit(resi, len(myspots))            
+            resi  = np.hsplit(resi, len(myspots))
             for sii,si in enumerate(myspots):
                 self.validspots[si].verticalfitparams[pi,:,0] = phase[sii]
                 self.validspots[si].verticalfitparams[pi,:,1] = I0[sii]
@@ -773,14 +776,14 @@ class Movie:
 
     def find_modulation_depths_and_phases_selective( self, myspots=None ):
 
-        if myspots==None:
+        if myspots is None:
             myspots = range(len(self.validspots))
 
         # projection onto the excitation axis (ie over all emission angles),
         # for all spots, one per column
         proj_ex = []
         proj_em = []
-	print 'Fitting modulation depths - this is in movie'
+        print 'Fitting modulation depths - this is in movie'
         for si in myspots:
             sam  = self.validspots[si].recover_average_portrait_matrix()
             # import matplotlib.pyplot as plt
@@ -806,7 +809,7 @@ class Movie:
         LS = ph_ex - ph_em
         LS[LS >  np.pi/2] -= np.pi
         LS[LS < -np.pi/2] += np.pi
-        for sii,si in enumerate(myspots):            
+        for sii,si in enumerate(myspots):
             self.validspots[si].phase_ex = ph_ex[sii]
             self.validspots[si].I_ex     = I_ex[sii]
             self.validspots[si].M_ex     = M_ex[sii]
@@ -837,8 +840,50 @@ class Movie:
             # self.LS_image[ a:b, c:d ]       = self.validspots[si].LS        
 
 
-        #### anisotropy ####
-        
+        #### Advanced anisotropy #####
+
+        #### get the values of the horizontal fits at phase_ex  ####
+        v = np.zeros((len(myspots), self.Nportraits, self.Nlines))
+        ema = np.zeros((self.Nlines,))
+
+        for por in range(self.Nportraits):
+            pstart = self.portrait_indices[por]
+            pstop = self.portrait_indices[por + 1]
+
+            for sii, si in enumerate(myspots):
+                for i in range(self.Nlines):
+                    v[sii, por, i] = self.validspots[si].retrieve_line_fit(por, i, self.validspots[si].phase_ex)
+
+        v = np.mean(v, axis=1)
+
+        for i in range(self.Nlines):
+            ema[i] = self.emangles[pstart:pstop][self.line_indices[por][i]][0]
+
+        # now perform a vertical fit
+        try:
+            fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter(ema, v.T, self.Nemphases_for_cos_fitter)
+        except Warning:
+            np.savetxt('vt.txt', v.T)
+            print v.T
+            raise Warning
+        mycos = lambda a, ph, I, M: I * (1 + M * (np.cos(2 * (a - ph))))
+
+        for sii, si in enumerate(myspots):
+            # value at parallel configuration:
+            Ipara = mycos(self.validspots[si].phase_ex, fp[sii], fi[sii], fm[sii])
+            # value at perpendicular configuration:
+            Iperp = mycos(self.validspots[si].phase_ex - np.pi / 2, fp[sii], fi[sii], fm[sii])
+
+            if not float(Ipara + 2 * Iperp) == 0:
+                self.validspots[si].anisotropy = float(Ipara - Iperp) / float(Ipara + 2 * Iperp)
+            else:
+                self.validspots[si].anisotropy = np.nan
+
+            # store in contrast image
+            self.store_property_in_image(self.validspots[si], 'anisotropy_image', 'anisotropy')
+
+        #### Normal anisotropy ####
+
         #### get the values of the horizontal fits at phase_ex  ####
         v   = np.zeros((len(myspots),self.Nportraits,self.Nlines))
         ema = np.zeros((self.Nlines,))
@@ -849,13 +894,13 @@ class Movie:
 
             for sii,si in enumerate(myspots):
                 for i in range(self.Nlines):
-                    v[sii,por,i] = self.validspots[si].retrieve_line_fit( por, i, self.validspots[si].phase_ex )
+                    v[sii,por,i] = self.validspots[si].retrieve_line_fit( por, i, 0.0 )
 
         v = np.mean( v, axis=1 )
 
         for i in range(self.Nlines):
             ema[i]      = self.emangles[ pstart:pstop ][ self.line_indices[por][i] ][0]
-            
+
         #now perform a vertical fit
         try:
             fp, fi, fm, fr, ff, frfp, fmm = self.cos_fitter( ema, v.T, self.Nemphases_for_cos_fitter )
@@ -867,20 +912,21 @@ class Movie:
 
         for sii,si in enumerate(myspots):
             # value at parallel configuration:
-            Ipara = mycos( self.validspots[si].phase_ex, fp[sii], fi[sii], fm[sii] )
+            Ipara = mycos( 0.0, fp[sii], fi[sii], fm[sii] )
             # value at perpendicular configuration:
-            Iperp = mycos( self.validspots[si].phase_ex-np.pi/2, fp[sii], fi[sii], fm[sii] )
+            Iperp = mycos( 0.0-np.pi/2, fp[sii], fi[sii], fm[sii] )
 
-            if not float(Ipara+2*Iperp)==0:
-                self.validspots[si].anisotropy = float(Ipara-Iperp)/float(Ipara+2*Iperp)
+            if not float(Ipara+2*Iperp) == 0:
+                self.validspots[si].anisotropy_n = float(Ipara-Iperp)/float(Ipara+2*Iperp)
             else:
-                self.validspots[si].anisotropy = np.nan
+                self.validspots[si].anisotropy_n = np.nan
 
             # store in contrast image
-            self.store_property_in_image( self.validspots[si], 'anisotropy_image', 'anisotropy' )
+            # assert hasattr(self.validspots[si], 'anisotropy_n')
+            self.store_property_in_image( self.validspots[si], 'anisotropy_n_image', 'anisotropy_n' )
 
         si=myspots[0]
-	print 'Done with modulation depths - this is in movie'
+        print 'Done with modulation depths - this is in movie'
 #        print self.validspots[si].M_ex
 #        print 'p:',self.validspots[si].pixel[0][0],',',self.validspots[si].pixel[0][1]
 #        print '.',self.M_ex_image[ self.validspots[si].pixel[0][0], self.validspots[si].pixel[0][1] ]
@@ -896,7 +942,7 @@ class Movie:
         # first we compute the indices into the 2D portrait matrix,
         # this depends only on the angular grids and is therefore the same for
         # all spots and portraits.
-        
+
         # along one direction we increase in single steps along the angular grid:
         ind_em = 1*      np.linspace(0,newdatalength-1,newdatalength).astype(np.int)
         # along the other we have a slope
@@ -905,7 +951,7 @@ class Movie:
         # both index arrays need to wrap around their angular axes
         ind_em = np.mod( ind_em, self.emission_angles_grid.size-1 )
         ind_ex = np.mod( ind_ex, self.excitation_angles_grid.size-1 )
-        
+
         # Now we use these to get the new data.
         # We could do this for every portrait of every spot, but we'll 
         # restrict ourselves to the average portrait of each spot.
@@ -938,7 +984,7 @@ class Movie:
         i3 = i1*slope
         i4 = i1*(slope+1)
         df = i1/3
-        
+
         self.peaks = np.array( [ np.sum(normpowerspectra[:, np.round(ii-df):np.round(ii+df)], axis=1) \
                       for ii in [i1,i2,i3,i4] ] )
 
@@ -951,14 +997,14 @@ class Movie:
             if np.abs(np.sum( self.peaks[:,sii] )-1) > .08:
                 print 'Whoopsie --- data peaks are weird... %f' % (np.sum(self.peaks[:,sii]))
                 self.validspots[si].ET_ruler = np.nan
-            
+
             # now let's rule
             crossdiff = self.peaks[1,sii]-self.peaks[3,sii]
-            
+
             # 3-dipole model (all of same length, no ET) starts here
-            kappa     = .5 * np.arccos( .5*(3*self.validspots[si].M_ex-1) ) 
+            kappa     = .5 * np.arccos( .5*(3*self.validspots[si].M_ex-1) )
             alpha     = np.array([ -kappa, 0, kappa ])
-            
+
             phix =   np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
             phim = 7*np.linspace(0,newdatalength-1,newdatalength)*2*np.pi/180
 
@@ -972,7 +1018,7 @@ class Movie:
             MYpeaks = np.array( [ np.sum( MYpower[np.round(ii-df):np.round(ii+df)] ) \
                                       for ii in [i1,i2,i3,i4] ] )
             MYpeaks /= np.sum(MYpeaks)
-            
+
             # test again if peaks make sense
             if np.abs(np.sum( MYpeaks )-1) > .08:
                 print 'Whoopsie --- MYpeaks is off... %f' % (np.sum( MYpeaks ))
@@ -980,7 +1026,7 @@ class Movie:
 
             MYcrossdiff = MYpeaks[1]-MYpeaks[3]
             # model done
-            
+
             ruler = 1-(crossdiff/MYcrossdiff)
 
             if (ruler < -.1) or (ruler > 1.1):
@@ -996,7 +1042,7 @@ class Movie:
 
             self.validspots[si].ET_ruler = ruler
             self.store_property_in_image( self.validspots[si], 'ET_ruler_image', 'ET_ruler' )
-            
+
 
     def ETmodel_selective( self, myspots, fac=1e4, pg=1e-9, epsi=1e-11 ):
 
@@ -1043,10 +1089,10 @@ class Movie:
                                                                 EX, EM, self.validspots[si].sam, \
                                                                 mex, self.validspots[si].phase_ex, \
                                                                 mode='show_eps' )
-            md_fu = fitresult[0][0] 
-            th_fu = fitresult[0][1] 
+            md_fu = fitresult[0][0]
+            th_fu = fitresult[0][1]
             gr    = fitresult[0][2]
- 
+
             return md_fu, th_fu, gr, et, resi
 
         def the_new_way():
@@ -1070,15 +1116,15 @@ class Movie:
                                               factr=fac, \
                                               pgtol=pg )
 
-            md_fu = fitresult[0][0] 
-            th_fu = fitresult[0][1] 
+            md_fu = fitresult[0][0]
+            th_fu = fitresult[0][1]
             gr    = fitresult[0][2]
             et    = fitresult[0][3]
             resi  = fitresult[1]
 
             return md_fu,th_fu,gr,et,resi
+        print 'starting ET model of spots - this is in movie.py'
 
-	print 'starting ET model of spots - this is in movie.py'
         for si in myspots:
 #            print 'ETmodel fitting spot %d' % si
 #            print self.validspots[si].phase_ex
@@ -1093,7 +1139,7 @@ class Movie:
 
             if not np.isnan(mex):
                 md_fu,th_fu,gr,et,resi = the_new_way()
-                
+
                 EX, EM = np.meshgrid( self.excitation_angles_grid, self.emission_angles_grid )
                 Fnoet = SFA_full_func( [md_fu,th_fu,gr,0], EX, EM, mex, self.validspots[si].phase_ex )
                 Fet   = SFA_full_func( [md_fu,th_fu,gr,1], EX, EM, mex, self.validspots[si].phase_ex )
@@ -1127,7 +1173,7 @@ class Movie:
                 self.validspots[si].ETmodel_md_fu = md_fu
                 self.validspots[si].ETmodel_th_fu = th_fu
                 self.validspots[si].ETmodel_gr    = gr
-                self.validspots[si].ETmodel_et    = et            
+                self.validspots[si].ETmodel_et    = et
                 self.validspots[si].ETmodel_resi  = resi
             else:
                 self.validspots[si].ETmodel_md_fu = np.nan
@@ -1161,22 +1207,22 @@ class Movie:
 
     def are_spots_valid(self, SNR=10, validframesratio=.7, quiet=False, all_are_valid=False):
 
-        # not sure if we have a value for the bg std 
+        # not sure if we have a value for the bg std
         bgstd=None
 
-        if not self.bg_spot_sample==None:         # yes we do have a bg spot
+        if self.bg_spot_sample is not None:         # yes we do have a bg spot
             bgstd = self.bg_spot_sample.std
 #            print 'BG std from bg spot = ', bgstd
 
         # create a new list containing valid spots only
-        validspots = []   
+        validspots = []
         validspotindices = []
         for si,s in enumerate(self.spots):
 
             if s.use_borderbg:        # hang on a sec, spot knows its own bg!
                 bgstd = s.borderbgstd
 
-            if bgstd==None or np.any(bgstd==0):
+            if bgstd is None or np.any(bgstd==0):
                 s.SNR = np.ones_like(s.intensity)*np.inf    # --> default inf SNR if bg unknown
             else:
                 s.SNR = np.abs( s.intensity/bgstd )     # --> SNR for each frame
@@ -1197,28 +1243,29 @@ class Movie:
             #     import matplotlib.pyplot as plt
             #     plt.hist(s.borderbg,20)
             #     raise SystemExit
-            
+
              # store mean SNR in SNR_image
             self.store_property_in_image( s, 'meanSNR_image', 'meanSNR' )    # let's see if this works...
             self.store_property_in_image( s, 'framecountSNR_image', 'framecountSNR' )    # let's see if this works...
 
         # and store in movie object
         self.validspots = validspots
-        self.validspotindices = validspotindices        
+        self.validspotindices = validspotindices
 
         for s in self.validspots:
             self.store_property_in_image( s, 'spot_coverage_image', 'value_for_coverage_valid_image' )
 
-        if not quiet: print "Got %d valid spots (of %d spots total)" % (len(self.validspots),len(self.spots))
+        if not quiet:
+            print "Got %d valid spots (of %d spots total)" % (len(self.validspots), len(self.spots))
 
     def store_property_in_image(self, spot, image, prop):
         # record the properties of a spot in one of the images (e.g. mean intensity image, 
         # spot coverage image, modulation in excitation image, etc...)
-        
+
         # we use the spot pixel as coordinates into an image
         for p in spot.pixel:
             getattr(self,image)[ p[0], p[1] ] = getattr(spot, prop)
-           
+
 
 
 
