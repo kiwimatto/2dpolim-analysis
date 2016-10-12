@@ -90,14 +90,19 @@ if __name__ == '__main__':
 
     m.are_spots_valid( SNR=0, validframesratio=1 )
 
-    m.run_mp(Nprocs=Nprocs, fits=True, mods=True, ETruler=DoETruler, ETmodel=DoETmodel)
-
     if not len(m.validspots) == 0:
         tstart = stopwatch.time()
-        m.run_mp(Nprocs=Nprocs, fits=True, mods=True, ETruler=DoETruler, ETmodel=DoETmodel)
+        m.fit_all_portraits_spot_parallel_selective(range(len(m.validspots)))
+        m.find_modulation_depths_and_phases_selective(range(len(m.validspots)))
+        for s in m.validspots:
+            s.values_for_ETruler(newdatalength=1024)
+        m.ETmodel_selective(range(len(m.validspots)))
+
+        # m.run_mp(Nprocs=Nprocs, fits=True, mods=True, ETruler=DoETruler, ETmodel=DoETmodel)
         print stopwatch.time() - tstart
     print 'Done with analysis, now we save the hdf5 file'
 
+    save_spot_hdf5(m)
     save_hdf5( m )
 
     print "Mex  = %f" % (m.validspots[0].M_ex)
