@@ -884,6 +884,9 @@ class Movie:
             self.store_property_in_image(self.validspots[si], 'anisotropy_image', 'anisotropy')
 
         #### Normal anisotropy ####
+        ex_par_deg = 0.0
+        ex_par_rad = ex_par_deg * np.pi/180.0
+
 
         #### get the values of the horizontal fits at phase_ex  ####
         v   = np.zeros((len(myspots),self.Nportraits,self.Nlines))
@@ -895,7 +898,7 @@ class Movie:
 
             for sii,si in enumerate(myspots):
                 for i in range(self.Nlines):
-                    v[sii,por,i] = self.validspots[si].retrieve_line_fit( por, i, 0.0 )
+                    v[sii,por,i] = self.validspots[si].retrieve_line_fit( por, i, ex_par_rad )
 
         v = np.mean( v, axis=1 )
 
@@ -913,9 +916,9 @@ class Movie:
 
         for sii,si in enumerate(myspots):
             # value at parallel configuration:
-            Ipara = mycos( 0.0, fp[sii], fi[sii], fm[sii] )
+            Ipara = mycos( ex_par_rad, fp[sii], fi[sii], fm[sii] )
             # value at perpendicular configuration:
-            Iperp = mycos( 0.0-np.pi/2, fp[sii], fi[sii], fm[sii] )
+            Iperp = mycos( ex_par_rad -np.pi/2, fp[sii], fi[sii], fm[sii] )
 
             if not float(Ipara+2*Iperp) == 0:
                 self.validspots[si].anisotropy_n = float(Ipara-Iperp)/float(Ipara+2*Iperp)

@@ -27,8 +27,8 @@ if __name__ == '__main__':
     ex_ang_number = 6
     em_ang_number = 4
     # absorbing dipoles
-    M_ex = .0
-    phase_ex = 20 * np.pi / 180.0
+    M_ex = 0.0
+    phase_ex = 0.0 * np.pi / 180.0
     # create funnel dipoles
     M_fu = .9
     phase_fu = phase_ex  # 45 * np.pi/180.0
