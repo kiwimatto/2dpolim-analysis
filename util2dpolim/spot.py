@@ -354,6 +354,9 @@ class Spot:
                                 (self.shape['right'] + self.shape['left'])/2.0 )
         elif self.shape['type']=='Circle':
             self.center = self.shape['center']
+        elif self.shape['type']=='UserDefined':
+            center = np.mean(self.shape['pixel_list'], axis=0)
+            self.center = tuple(center.astype(int))
         else:
             raise fuckOff
 
@@ -383,6 +386,12 @@ class Spot:
                 for col in range( center[1]-radceilint, center[1]+radceilint+3 ):
                     if (row-center[0])**2+(col-center[1])**2 <= radius**2:
                         pixel.append( (row,col) )
+        elif shape['type']=='UserDefined':
+            p_l = shape['pixel_list']
+            pixel = []
+            for row in p_l:
+                # print(row)
+                pixel.append(tuple(row.astype(int)))
 
         else:
             raise ValueError('Spot class, shape key %s not understood.' % shape['type'])
